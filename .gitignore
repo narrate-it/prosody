@@ -1,0 +1,12 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+/build/
+/.local/
+**/.dart_tool/
+**/build/
+**/flutter_*.png
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/*.iml
