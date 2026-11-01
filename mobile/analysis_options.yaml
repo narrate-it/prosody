@@ -1,0 +1,7 @@
+include: package:flutter_lints/flutter.yaml
+analyzer:
+  errors:
+    discarded_futures: warning
+linter:
+  rules:
+    unawaited_futures: true

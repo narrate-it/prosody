@@ -1,0 +1,102 @@
+[
+  {
+    "slug": "01-listen-and-watch",
+    "title": "Listen & watch",
+    "ids": [
+      "L01",
+      "L02",
+      "L03",
+      "L04"
+    ]
+  },
+  {
+    "slug": "02-context-and-controls",
+    "title": "Context & controls",
+    "ids": [
+      "C01",
+      "C02",
+      "C03",
+      "C04"
+    ]
+  },
+  {
+    "slug": "03-inbox-and-status",
+    "title": "Inbox & queue",
+    "ids": [
+      "Q01",
+      "Q02",
+      "Q03",
+      "Q04"
+    ]
+  },
+  {
+    "slug": "04-account-entry",
+    "title": "Account entry",
+    "ids": [
+      "A01",
+      "A02",
+      "A03",
+      "A04"
+    ]
+  },
+  {
+    "slug": "05-models-and-voices",
+    "title": "Models & voices",
+    "ids": [
+      "G01",
+      "G02",
+      "G03",
+      "G04"
+    ]
+  },
+  {
+    "slug": "06-agent-connection",
+    "title": "Connect an agent",
+    "ids": [
+      "M01",
+      "M02",
+      "M03",
+      "M04"
+    ]
+  },
+  {
+    "slug": "07-team-spaces",
+    "title": "Team spaces",
+    "ids": [
+      "T01",
+      "T02",
+      "T03",
+      "T04"
+    ]
+  },
+  {
+    "slug": "08-preferences",
+    "title": "Preferences",
+    "ids": [
+      "P01",
+      "P02",
+      "P03",
+      "P04"
+    ]
+  },
+  {
+    "slug": "09-recovery-states",
+    "title": "When things need attention",
+    "ids": [
+      "E01",
+      "E02",
+      "E03",
+      "E04"
+    ]
+  },
+  {
+    "slug": "10-account-and-lifecycle",
+    "title": "Account & content lifecycle",
+    "ids": [
+      "X01",
+      "X02",
+      "X03",
+      "X04"
+    ]
+  }
+]
