@@ -63,3 +63,9 @@ is decorative playback activity and respects system reduced motion.
 Package sources consulted: https://pub.dev/packages/audio_service,
 https://pub.dev/packages/just_audio, https://pub.dev/packages/flutter_secure_storage.
 Source/dependency installation is not a successful analyzer, build or device run.
+
+In the personal preview inbox, open **Read → Delete briefing** to remove an item
+with confirmation. Generated local audio is removed before metadata; cleanup
+failure keeps the item for an explicit retry. Bundled demo assets remain part of
+the app. Team deletion and production deletion controls are not enabled. This
+local action does not erase provider-held data or reset the spending allowance.

@@ -12,6 +12,7 @@ import 'package:just_audio/just_audio.dart' as audio;
 import 'package:path_provider/path_provider.dart';
 
 import 'playback/handler.dart';
+import 'data/models.dart';
 import 'preview/preview_api.dart';
 import 'preview/local_media.dart';
 import 'preview/live_provider.dart';
@@ -154,6 +155,24 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
     );
   }
 
+  Future<void> _deleteBriefing(Briefing item) async {
+    // Preview-only personal destination. Production requires qualified authority.
+    final personal = await widget.api.items('personal');
+    if (!mounted ||
+        !_showFeed ||
+        !personal.items.any((value) => value.id == item.id)) {
+      throw StateError('Briefing is no longer available in this inbox');
+    }
+    if (widget.playback.current?.id == item.id) await widget.playback.stop();
+    if (!mounted || !_showFeed) throw StateError('Preview ended');
+    try {
+      await widget.api.deleteItem(item.id);
+    } finally {
+      // Restore a usable queue after a failed cleanup as well as success.
+      if (mounted && _showFeed) setState(() => _feedRevision++);
+    }
+  }
+
   Future<void> _publishLocal(LiveBriefing result) async {
     void requireCurrentSession() {
       if (!mounted || !widget.live.canPublishResult(result)) {
@@ -227,6 +246,7 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
             api: widget.api,
             playback: widget.playback,
             onCreateBriefing: _createBriefing,
+            onDeleteBriefing: _deleteBriefing,
             onSignOut: () {
               widget.live.clearKey();
               setState(() => _showFeed = false);

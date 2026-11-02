@@ -802,3 +802,9 @@ failure.15 tests pass, including actual temporary-file cleanup/budget preservati
 targeted analysis clean after style fixes. UI delete action and restart orphan
 retention remain separate unblocked follow-ups; production retention unqualified.
 No spend, phone updates or deployment.
+
+2026-11-02 hourly: closed prior deletion review and added confirmed personal-only
+preview delete UI. Explicit callback required; production/team action hidden.
+19 focused tests passed; analysis style fix verified; independent review clear.
+Physical iPhone delete/queue acceptance and restart orphan cleanup remain open.
+No spend, deployment or phone changes; full RFC not complete.

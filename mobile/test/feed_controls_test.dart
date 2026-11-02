@@ -213,6 +213,50 @@ Future<void> _flush(WidgetTester tester, Future<void> Function() action) async {
 }
 
 void main() {
+  for (final enabled in [false, true]) {
+    testWidgets(
+      'delete action requires explicit composition and personal feed: $enabled',
+      (tester) async {
+        final playback = _Playback(), api = _api(_Session());
+        try {
+          await _flush(
+            tester,
+            () => tester.pumpWidget(
+              MaterialApp(
+                home: FeedScreen(
+                  api: api,
+                  playback: playback,
+                  onSignOut: () {},
+                  onDeleteBriefing: enabled ? (_) async {} : null,
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Read'));
+          await tester.pumpAndSettle();
+          expect(
+            find.text('Delete briefing'),
+            enabled ? findsOneWidget : findsNothing,
+          );
+          Navigator.of(tester.element(find.text('Original'))).pop();
+          await tester.pumpAndSettle();
+          await _flush(tester, () => tester.tap(find.text('Your inbox')));
+          await _flush(tester, () => tester.tap(find.text('Studio')));
+          await tester.tap(find.text('Read'));
+          await tester.pumpAndSettle();
+          expect(find.text('Delete briefing'), findsNothing);
+        } finally {
+          await _flush(
+            tester,
+            () => tester.pumpWidget(const SizedBox.shrink()),
+          );
+          api.close();
+          await playback.dispose();
+        }
+      },
+    );
+  }
+
   testWidgets('scrubbing updates immediately and seeks once on release', (
     tester,
   ) async {
