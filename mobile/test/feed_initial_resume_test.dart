@@ -377,10 +377,6 @@ void main() {
           );
         } else if (mode == 'unknown') {
           expect(playback.starts.single.segment, 0);
-          expect(
-            find.textContaining('saved place could not be loaded'),
-            findsOneWidget,
-          );
         } else {
           expect(playback.starts, isEmpty);
           expect(playback.current, isNull);
@@ -389,14 +385,22 @@ void main() {
         if (mode == 'saved' || mode == 'unknown') {
           // Deliver the active position before completion so the known-resume
           // control actually dirties and dispatches a recorder update.
-          await _flush(tester, () async {
+          await tester.runAsync(() async {
             playback.playAt(const Duration(milliseconds: 400));
-          });
-          await _flush(tester, () async {
+            await Future<void>.delayed(const Duration(milliseconds: 20));
             playback.completed.value++;
+            await Future<void>.delayed(const Duration(milliseconds: 20));
           });
+          // The active waveform deliberately never settles.
+          await tester.pump();
           expect(reads, mode == 'saved' ? 2 : 1);
           expect(writes, mode == 'saved' ? 1 : 0);
+          if (mode == 'unknown') {
+            expect(
+              find.textContaining('saved place could not be loaded'),
+              findsOneWidget,
+            );
+          }
         }
       } finally {
         await _flush(tester, () => tester.pumpWidget(const SizedBox.shrink()));
