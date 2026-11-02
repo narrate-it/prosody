@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             DropdownButtonFormField<String>(
-              value: _text.any((m) => m.id == _textId) ? _textId : null,
+              initialValue: _text.any((m) => m.id == _textId) ? _textId : null,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Briefing model'),
               items: _text
@@ -161,7 +161,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: selected?.id,
+              initialValue: selected?.id,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Speech model'),
               items: _speech
@@ -181,7 +181,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: selected?.voices.contains(_voice) == true ? _voice : null,
+              initialValue: selected?.voices.contains(_voice) == true
+                  ? _voice
+                  : null,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'Voice'),
               items: (selected?.voices ?? <String>[])

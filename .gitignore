@@ -16,3 +16,6 @@
 !/mobile/vendor/
 !/mobile/vendor/audio_service/
 !/mobile/vendor/audio_service/**
+
+# Local Swift Package Manager resolution/build state.
+/mobile/vendor/**/.swiftpm/

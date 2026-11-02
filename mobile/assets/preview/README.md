@@ -1,0 +1,1 @@
+Bundled offline demo recordings, generated locally with macOS say (Samantha, 165 words/minute), then encoded as mono 64 kbit/s MP3 with ffmpeg/libmp3lame. Scripts are in lib/preview/preview_api.dart. Durations were measured with ffprobe. No provider calls or user data. These samples are demonstration content, not production narration quality acceptance.
