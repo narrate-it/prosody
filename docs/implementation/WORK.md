@@ -716,3 +716,17 @@ stub and dry runs; no native build, provider call or device acceptance claimed.
 Preview currently reaches onboarding with disabled sign-in, not a fixture feed.
 Work uses an isolated internal-disk worktree authorized by David; he clarified
 that BuildOffload is a Mac Mini requirement, not a MacBook Pro requirement.
+
+
+### 2026-11-01 — Flutter stable migration and iPhone build
+
+Owner requested latest stable Flutter/Dart: installed Flutter 3.47.9 with Dart
+3.13.7. Its first run migrated this preview worktree to iOS 15 minimum, UIScene
+lifecycle and Swift Package Manager plugin integration, retaining the bundle ID
+and background audio mode. SDK-pinned dependency changes are preserved in lockfiles.
+The signed physical-iPhone Xcode build passed in 103.8s after local signing access
+was recovered; no certificate/keychain replacement or access-control change was
+needed. Plist and whitespace checks passed. Installation/debug attachment remains
+separate evidence. Full Flutter tests/analysis on this new SDK and independent
+migration review remain pending; prior SDK test receipts do not qualify it.
+No TestFlight distribution, production deployment or provider calls occurred.
