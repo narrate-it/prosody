@@ -20,6 +20,10 @@ func mp4Box(kind string, body ...[]byte) []byte {
 }
 
 func probeFixture(videoExtras, audioExtras []byte, audio bool) []byte {
+	return probeAudioFixture(videoExtras, audioExtras, audio, make([]byte, 28))
+}
+
+func probeAudioFixture(videoExtras, audioExtras []byte, audio bool, audioHeader []byte) []byte {
 	duration := make([]byte, 20)
 	binary.BigEndian.PutUint32(duration[12:], 1000)
 	binary.BigEndian.PutUint32(duration[16:], 2500)
@@ -36,7 +40,7 @@ func probeFixture(videoExtras, audioExtras []byte, audio bool) []byte {
 	binary.BigEndian.PutUint16(video[26:], 360)
 	tracks := track("vide", mp4Box("avc1", video, mp4Box("avcC", make([]byte, 7)), videoExtras))
 	if audio {
-		tracks = append(tracks, track("soun", mp4Box("mp4a", make([]byte, 28), audioExtras))...)
+		tracks = append(tracks, track("soun", mp4Box("mp4a", audioHeader, audioExtras))...)
 	}
 	return bytes.Join([][]byte{mp4Box("ftyp", []byte("isom\x00\x00\x00\x00")),
 		mp4Box("moov", mp4Box("mvhd", duration), tracks), mp4Box("mdat", []byte{1})}, nil)
@@ -79,5 +83,41 @@ func TestProbeMP4RejectsEveryTruncatedPrefix(t *testing.T) {
 		if _, err := ProbeMP4(bytes.NewReader(data[:size]), int64(size), 1<<20, 640*360); !errors.Is(err, ErrInvalid) {
 			t.Fatalf("accepted truncated prefix of %d bytes: %v", size, err)
 		}
+	}
+}
+
+func TestProbeMP4AudioVersions(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name       string
+		version    uint16
+		headerSize int
+		samples    uint32
+		child      []byte
+		invalid    bool
+	}{
+		{"clear version 1", 1, 44, 1024, mp4Box("esds", make([]byte, 4)), false},
+		{"protected version 1 zero samples", 1, 44, 0, mp4Box("sinf"), true},
+		{"protected version 1 nonzero samples", 1, 44, 1024, mp4Box("sinf"), true},
+		{"short version 1", 1, 28, 0, nil, true},
+		{"truncated extension", 1, 43, 0, nil, true},
+		{"unknown version", 3, 28, 0, nil, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			header := make([]byte, tc.headerSize)
+			binary.BigEndian.PutUint16(header[8:], tc.version)
+			if len(header) >= 32 {
+				binary.BigEndian.PutUint32(header[28:], tc.samples)
+			}
+			data := probeAudioFixture(nil, tc.child, true, header)
+			info, err := ProbeMP4(bytes.NewReader(data), int64(len(data)), 1<<20, 640*360)
+			if tc.invalid {
+				if !errors.Is(err, ErrInvalid) {
+					t.Fatalf("expected rejection, got %+v, %v", info, err)
+				}
+			} else if err != nil || info.Duration != 2500*time.Millisecond {
+				t.Fatalf("clear version 1 rejected: %+v, %v", info, err)
+			}
+		})
 	}
 }
