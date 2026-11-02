@@ -768,3 +768,19 @@ decoders or a deployed service. Go/adapter sources are unchanged from the prior
 verified checkpoint. Owned build lease released after verification.
 Independent final source re-review found no remaining blocker in this delta;
 the retained-page finding is closed by the new page identity and regression.
+
+### 2026-11-02 — MP4 metadata protection regression
+
+Isolated continuation branch `fix/mp4-probe-protection`, code `9fa78fe`, from
+main `6c7e12f`; the preview PR2 and resume PR3 worktrees remain untouched.
+The old probe accepted protection containers in video/audio sample entries,
+duplicate AVC configuration and truncated audio children. All four regressions
+failed on the original code and passed after rejection and bounded audio-child
+inspection were added. Clear synthetic metadata and every truncated prefix are
+also checked. Media tests and required Go lint/full unit tests passed.
+
+This is metadata-only hardening, not decodable-video, sample-map/timeline,
+publication or runtime acceptance. Independent review remains pending. No paid
+calls, phone changes or deployment. Capacity: load 5.76/6.10/5.85; interval idle
+26.66/25.76%, normal pressure, no swap churn or thermal/performance warning.
+Full RFC acceptance remains incomplete; retain owned hourly reminder.
