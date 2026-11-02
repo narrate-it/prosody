@@ -50,6 +50,7 @@ func TestProbeMP4SampleEntryProtection(t *testing.T) {
 		wantError    bool
 	}{
 		{"clear", nil, nil, false},
+		{"clear audio child", nil, mp4Box("esds", make([]byte, 4)), false},
 		{"video protection", mp4Box("sinf"), nil, true},
 		{"audio protection", nil, mp4Box("sinf"), true},
 		{"duplicate codec config", mp4Box("avcC", make([]byte, 7)), nil, true},
