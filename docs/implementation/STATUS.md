@@ -794,3 +794,25 @@ OFFLINE DEMO banner, FeedScreen and a sample title. Actual audible playback,
 user gestures and background/lock-screen behavior still need human/device
 acceptance; debugger attachment alone does not establish them. Build lease
 released; preview remains attached for hot reload.
+
+### 2026-11-01 — Rewind, feed header and bounded live preview
+
+PR2 source fixes rewind/forward to ten seconds using current player position and
+segment duration. Header now has the feed dropdown and direct logout; activity,
+settings and live creation are in the dropdown. Regression covers track transition
+and pending-directory sign-out races.
+
+Debug preview adds user-entered text through GPT-4.1 mini then
+`elevenlabs/eleven-v4-turbo`, Laura. Owner authorized $1 total for this session.
+Four $0.25 reservations are flushed to a local append-only ledger before paid
+calls; no automatic retries or refunds. Prices/voices/modalities are checked
+before reservation. Key provisioning uses the authenticated localhost VM tunnel
+and RAM only. This is not production AMOS auth or a provider-enforced account cap.
+Go catalog support now requests output_modalities=speech and validates speech
+modality/voice. Generated media must decode locally and be <=10 minutes.
+
+Verification: 91 Flutter tests passed, then 30 targeted provider/session/preview
+checks passed after cleanup. PostgreSQL settings fixtures passed after the first
+cold-cache compile timed out (no test result); explicit cache warm then bounded
+retry succeeded. Independent peer reviews found no blocking source issue.
+Provider inference and current device installation are not yet accepted here.

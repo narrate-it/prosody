@@ -8,10 +8,30 @@ If Flutter is not on PATH, set `FLUTTER=/path/to/flutter`. In the attached termi
 press `r` for hot reload, `R` for hot restart, and `q` to quit. This command may
 resolve dependencies and build the app; Flutter and the target platform toolchain
 must be installed. This command selects the debug-only `lib/preview_main.dart`
-entry point: an OFFLINE DEMO with bundled spoken briefings, personal/team sample
-feeds, and session-local progress. It makes no service or provider requests and
-accepts no credentials. Changes reset on app restart; it does not test AMOS
-sign-in, real submissions, synthesis, notifications, or cross-device persistence.
+entry point: bundled spoken briefings, personal/team sample feeds, and
+session-local progress. Without explicit provisioning it stays an OFFLINE DEMO.
+The feed dropdown also opens Create live briefing. The bounded live preview uses
+GPT-4.1 mini to condense entered text, then elevenlabs/eleven-v4-turbo with Laura.
+It does not test AMOS sign-in, agent submissions, notifications or cross-device
+persistence. Production authentication remains separate.
+
+For the owner-authorized $1 test session, provision the running debug app through
+its authenticated localhost VM service tunnel (the URL printed by Flutter):
+
+```sh
+dart scripts/configure-live-preview.dart <localhost-vm-service-url> /path/to/.env
+```
+
+Run this from the repository root. The key is read locally and sent through the
+debug tunnel into app memory; it is never a build flag, asset, source file or log.
+Restart/sign-out clears the key. A fixed session ledger in app support storage
+reserves $0.25 before each paid attempt, at most four attempts; failures and
+uncertain outcomes are not refunded or automatically retried. Reservations
+survive restarts, but are local-install scoped: do not delete app data/reinstall
+to reset the allowance. Provider catalog prices are checked conservatively; this
+is not an OpenRouter-enforced account limit. Input/output bounds limit request
+cost and actual decoded audio must be at most ten minutes. Generated audio stays
+in private app files; feed metadata/progress reset with the preview instance.
 Use `flutter run -t lib/main.dart` for the production composition described below.
 
 Flutter iOS/Android client. Production `main.dart` has no sample-feed fallback or implicit development identity.

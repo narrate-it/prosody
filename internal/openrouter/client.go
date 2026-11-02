@@ -103,7 +103,18 @@ func (c *Client) request(ctx context.Context, key, method, path string, payload 
 }
 
 func (c *Client) Models(ctx context.Context, key string) ([]Model, error) {
-	b, _, err := c.request(ctx, key, http.MethodGet, "/models", nil, 8<<20)
+	return c.models(ctx, key, "/models")
+}
+
+// SpeechModels discovers the dedicated text-to-speech catalog. The default
+// models response is not a complete speech inventory; voices come from the
+// returned model metadata, never a client-maintained allowlist.
+func (c *Client) SpeechModels(ctx context.Context, key string) ([]Model, error) {
+	return c.models(ctx, key, "/models?output_modalities=speech")
+}
+
+func (c *Client) models(ctx context.Context, key, path string) ([]Model, error) {
+	b, _, err := c.request(ctx, key, http.MethodGet, path, nil, 8<<20)
 	if err != nil {
 		return nil, err
 	}

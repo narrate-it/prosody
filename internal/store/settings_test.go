@@ -25,7 +25,7 @@ func TestProviderSettingsPersistenceAndRevocation(t *testing.T) {
 		t.Fatal(err)
 	}
 	var catalog []openrouter.Model
-	if err = json.Unmarshal([]byte(`[{"id":"text","context_length":8192,"top_provider":{"context_length":8192,"max_completion_tokens":4096},"supported_parameters":["max_tokens"],"architecture":{"input_modalities":["text"],"output_modalities":["text"]}},{"id":"speech","supported_voices":["voice"],"architecture":{"input_modalities":["text"],"output_modalities":["audio"]}}]`), &catalog); err != nil {
+	if err = json.Unmarshal([]byte(`[{"id":"text","context_length":8192,"top_provider":{"context_length":8192,"max_completion_tokens":4096},"supported_parameters":["max_tokens"],"architecture":{"input_modalities":["text"],"output_modalities":["text"]}},{"id":"speech","supported_voices":["voice"],"architecture":{"input_modalities":["text"],"output_modalities":["speech"]}}]`), &catalog); err != nil {
 		t.Fatal(err)
 	}
 	change := SettingsChange{InstallationID: a.Scope.InstallationID, WorkspaceID: a.Scope.WorkspaceID, FeedID: a.Submission.FeedID, Selection: configuration.Selection{TextModel: "text", SpeechModel: "speech", Voice: "voice"}, Catalog: catalog, NewKey: secret, CredentialID: testID(t)}
