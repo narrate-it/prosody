@@ -580,31 +580,14 @@ class _BriefingCard extends StatelessWidget {
                   ),
                 )
               else ...[
-                Slider(
-                  value: active
-                      ? handler.position.inMilliseconds.toDouble().clamp(
-                          0,
-                          segment.duration.inMilliseconds.toDouble(),
-                        )
-                      : 0,
-                  max: segment.duration.inMilliseconds > 0
-                      ? segment.duration.inMilliseconds.toDouble()
-                      : 1,
-                  onChanged: active
-                      ? (v) => unawaited(
-                          handler.seekSegment(
-                            Duration(milliseconds: v.round()),
-                          ),
-                        )
-                      : null,
-                  label: active ? _time(handler.position) : null,
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(active ? _time(handler.position) : '0:00'),
-                    Text(_time(segment.duration)),
-                  ],
+                _PlaybackScrubber(
+                  key: ValueKey(
+                    '${item.id}/${item.renditionId}/${segment.id}/$active',
+                  ),
+                  handler: handler,
+                  item: item,
+                  segment: segment,
+                  active: active,
                 ),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -671,9 +654,99 @@ class _BriefingCard extends StatelessWidget {
     );
     unawaited(handler.seekSegment(Duration(milliseconds: milliseconds)));
   }
+}
 
-  String _time(Duration d) =>
-      '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
+class _PlaybackScrubber extends StatefulWidget {
+  final ProsodyPlayback handler;
+  final Briefing item;
+  final Segment segment;
+  final bool active;
+  const _PlaybackScrubber({
+    super.key,
+    required this.handler,
+    required this.item,
+    required this.segment,
+    required this.active,
+  });
+  @override
+  State<_PlaybackScrubber> createState() => _PlaybackScrubberState();
+}
+
+class _PlaybackScrubberState extends State<_PlaybackScrubber> {
+  double? _drag;
+  bool _failed = false;
+  PlaybackLocation? _origin;
+  int _revision = 0;
+  bool get _sameSelection =>
+      widget.active &&
+      identical(widget.handler.current, widget.item) &&
+      identical(widget.handler.location.value, _origin) &&
+      widget.item.segments[widget.handler.location.value.segment].id ==
+          widget.segment.id;
+
+  void _start(double value) {
+    _origin = widget.handler.location.value;
+    _revision++;
+    _failed = false;
+    if (_sameSelection) {
+      setState(() => _drag = value);
+    }
+  }
+
+  void _change(double value) {
+    if (_sameSelection) {
+      setState(() => _drag = value);
+    }
+  }
+
+  Future<void> _end(double value) async {
+    final revision = _revision;
+    if (!_sameSelection) {
+      setState(() => _drag = null);
+      return;
+    }
+    setState(() => _drag = value);
+    try {
+      await widget.handler.seekSegment(Duration(milliseconds: value.round()));
+    } catch (_) {
+      if (mounted && revision == _revision && _sameSelection) {
+        setState(() => _failed = true);
+      }
+    } finally {
+      if (mounted && revision == _revision) {
+        setState(() => _drag = null);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maximum = widget.segment.duration.inMilliseconds.toDouble();
+    final position =
+        (_sameSelection ? _drag : null) ??
+        (widget.active ? widget.handler.position.inMilliseconds.toDouble() : 0);
+    final bounded = position.clamp(0.0, maximum > 0 ? maximum : 1.0);
+    final time = Duration(milliseconds: bounded.round());
+    String format(Duration value) =>
+        '${value.inMinutes}:${(value.inSeconds % 60).toString().padLeft(2, '0')}';
+    return Column(
+      children: [
+        Slider(
+          value: bounded,
+          max: maximum > 0 ? maximum : 1,
+          onChangeStart: widget.active ? _start : null,
+          onChanged: widget.active ? _change : null,
+          onChangeEnd: widget.active ? (value) => unawaited(_end(value)) : null,
+          label: format(time),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [Text(format(time)), Text(format(widget.segment.duration))],
+        ),
+        if (_failed) const Text('Could not seek. Try again.'),
+      ],
+    );
+  }
 }
 
 class _ImageGallery extends StatefulWidget {

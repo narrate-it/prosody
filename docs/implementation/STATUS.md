@@ -816,3 +816,14 @@ checks passed after cleanup. PostgreSQL settings fixtures passed after the first
 cold-cache compile timed out (no test result); explicit cache warm then bounded
 retry succeeded. Independent peer reviews found no blocking source issue.
 Provider inference and current device installation are not yet accepted here.
+
+Device update: signed build passed (51.0s); installation/launch and debug attach
+passed (34.0s install). Authenticated debug provisioning confirmed four remaining
+attempts; on-device widget tree shows LIVE PREVIEW and FeedScreen. No paid request
+was made by this session. Owner identified canned macOS voice and nonfunctional
+slider drag: canned clips are now explicitly labelled macOS demo recordings.
+Scrubber now tracks local thumb/time, seeks once on release, and rejects stale
+track releases. Independent review clear; 12 controls/preview tests passed and
+full Flutter analysis clean. Actual physical scrubbing and Laura generation still
+need user acceptance; these are not implied by widget tests or installation.
+Go lint/full unit tests also passed in the preserved commit-hook check.

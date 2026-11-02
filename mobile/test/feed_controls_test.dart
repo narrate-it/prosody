@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -33,6 +34,7 @@ class _Playback extends ProsodyPlayback {
   Briefing? _current;
   Duration _position = Duration.zero;
   final seeks = <Duration>[];
+  Completer<void>? seekGate;
   int stops = 0, starts = 0;
   @override
   Briefing? get current => _current;
@@ -60,6 +62,7 @@ class _Playback extends ProsodyPlayback {
   @override
   Future<void> seekSegment(Duration position) async {
     seeks.add(position);
+    await seekGate?.future;
     discontinuity.value++;
     setPosition(position.inSeconds);
   }
@@ -210,6 +213,84 @@ Future<void> _flush(WidgetTester tester, Future<void> Function() action) async {
 }
 
 void main() {
+  testWidgets('scrubbing updates immediately and seeks once on release', (
+    tester,
+  ) async {
+    final playback = _Playback(), api = _api(_Session());
+    try {
+      await _flush(
+        tester,
+        () => tester.pumpWidget(
+          MaterialApp(
+            home: FeedScreen(api: api, playback: playback, onSignOut: () {}),
+          ),
+        ),
+      );
+      playback.setPosition(2);
+      await tester.pump();
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      slider.onChangeStart!(2000);
+      slider.onChanged!(12000);
+      slider.onChanged!(18000);
+      await tester.pump();
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 18000);
+      expect(find.text('0:18'), findsOneWidget);
+      expect(playback.seeks, isEmpty);
+      playback.seekGate = Completer<void>();
+      slider.onChangeEnd!(18000);
+      await tester.pump();
+      expect(playback.seeks, [const Duration(seconds: 18)]);
+      expect(playback.position, const Duration(seconds: 2));
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 18000);
+      playback.setPosition(
+        3,
+      ); // Decoder update must not snap the held thumb back.
+      await tester.pump();
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 18000);
+      playback.seekGate!.complete();
+      await tester.pump();
+      expect(playback.position, const Duration(seconds: 18));
+      expect(playback.seeks, hasLength(1));
+    } finally {
+      if (playback.seekGate != null && !playback.seekGate!.isCompleted) {
+        playback.seekGate!.complete();
+      }
+      await _flush(tester, () => tester.pumpWidget(const SizedBox.shrink()));
+      api.close();
+      await playback.dispose();
+    }
+  });
+
+  testWidgets('drag release cannot seek a newly selected segment', (
+    tester,
+  ) async {
+    final playback = _Playback(), api = _api(_Session(), shortThenLong: true);
+    try {
+      await _flush(
+        tester,
+        () => tester.pumpWidget(
+          MaterialApp(
+            home: FeedScreen(api: api, playback: playback, onSignOut: () {}),
+          ),
+        ),
+      );
+      final slider = tester.widget<Slider>(find.byType(Slider));
+      slider.onChangeStart!(0);
+      slider.onChanged!(1500);
+      playback.transitionToSegment(1, 4);
+      // Release the old frame's gesture before the transition rebuild.
+      slider.onChangeEnd!(1500);
+      await tester.pump();
+      expect(playback.seeks, isEmpty);
+      expect(playback.position, const Duration(seconds: 4));
+      expect(tester.widget<Slider>(find.byType(Slider)).value, 4000);
+    } finally {
+      await _flush(tester, () => tester.pumpWidget(const SizedBox.shrink()));
+      api.close();
+      await playback.dispose();
+    }
+  });
+
   testWidgets(
     'skip clamps to live segment after transition before next frame',
     (tester) async {

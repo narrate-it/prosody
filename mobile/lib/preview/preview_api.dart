@@ -69,7 +69,7 @@ class PreviewApi extends ProsodyApi {
         'id': id,
         'renditionId': '$id-preview-v1',
         'title': _titles[id],
-        'agent': id == 'design' ? 'Studio agent · Sample' : 'Prosody · Sample',
+        'agent': 'Bundled demo · macOS voice',
         'status': 'ready',
         'source': _sources[id],
         'script': previewNarrationScripts[id],
