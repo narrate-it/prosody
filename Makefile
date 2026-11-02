@@ -3,4 +3,4 @@ DEVICE ?=
 
 .PHONY: preview
 preview:
-	cd mobile && "$(FLUTTER)" run --debug $(if $(DEVICE),-d "$(DEVICE)")
+	cd mobile && "$(FLUTTER)" run --debug -t lib/preview_main.dart $(if $(DEVICE),-d "$(DEVICE)")

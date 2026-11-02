@@ -730,3 +730,19 @@ needed. Plist and whitespace checks passed. Installation/debug attachment remain
 separate evidence. Full Flutter tests/analysis on this new SDK and independent
 migration review remain pending; prior SDK test receipts do not qualify it.
 No TestFlight distribution, production deployment or provider calls occurred.
+
+
+### 2026-11-01 — Usable offline preview
+
+Owner found onboarding-only preview unusable. `make preview` now selects an
+explicit debug-only entrypoint opening sample feeds directly, with a visible
+OFFLINE DEMO banner, three bundled locally generated spoken recordings, and
+in-memory progress/mark-read/deletion. Personal and team fixtures are separate;
+settings are read-only and credentials are rejected. A deny-network API and
+allowlisted asset player keep this preview offline. Production main is unchanged.
+No AMOS sign-in, real submissions, provider synthesis, notification delivery or
+cross-device persistence is claimed. Preview state resets with its instance.
+Independent source review found no blockers. All 62 Flutter tests passed on
+Flutter 3.47.9/Dart 3.13.7, and analysis is clean. Native preview installation
+and visible/audio behavior are recorded separately. Minimum SDK constraints now
+match the migrated project; settings controls use the supported initialValue API.

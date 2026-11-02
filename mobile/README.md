@@ -1,13 +1,20 @@
 # Prosody mobile
 
+Requires Flutter 3.47.9 or newer (Dart 3.13.7 or newer).
+
 From the repository root, run `make preview` to launch Flutter in debug mode.
 Choose a connected device when prompted, or use `make preview DEVICE=<device-id>`.
 If Flutter is not on PATH, set `FLUTTER=/path/to/flutter`. In the attached terminal,
 press `r` for hot reload, `R` for hot restart, and `q` to quit. This command may
 resolve dependencies and build the app; Flutter and the target platform toolchain
-must be installed. The current preview shows onboarding with sign-in disabled.
+must be installed. This command selects the debug-only `lib/preview_main.dart`
+entry point: an OFFLINE DEMO with bundled spoken briefings, personal/team sample
+feeds, and session-local progress. It makes no service or provider requests and
+accepts no credentials. Changes reset on app restart; it does not test AMOS
+sign-in, real submissions, synthesis, notifications, or cross-device persistence.
+Use `flutter run -t lib/main.dart` for the production composition described below.
 
-Flutter iOS/Android client. No bundled sample feed or implicit development identity.
+Flutter iOS/Android client. Production `main.dart` has no sample-feed fallback or implicit development identity.
 The configured service must provide qualified Prosody consumption APIs and an
 AMOS human mobile session boundary. Production `main` currently supplies no
 `InteractiveSession`: sign-in is visibly unavailable and no credential is minted,
