@@ -746,3 +746,11 @@ Independent source review found no blockers. All 62 Flutter tests passed on
 Flutter 3.47.9/Dart 3.13.7, and analysis is clean. Native preview installation
 and visible/audio behavior are recorded separately. Minimum SDK constraints now
 match the migrated project; settings controls use the supported initialValue API.
+
+Offline preview device receipt: signed Xcode build passed in 56.3s; Flutter
+reported installation/launch and debugger attachment on David's physical iPhone.
+Hot reload passed in 570ms. On-device VM widget-tree inspection confirmed the
+OFFLINE DEMO banner, FeedScreen and a sample title. Actual audible playback,
+user gestures and background/lock-screen behavior still need human/device
+acceptance; debugger attachment alone does not establish them. Build lease
+released; preview remains attached for hot reload.
