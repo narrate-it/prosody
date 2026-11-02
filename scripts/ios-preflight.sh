@@ -5,10 +5,12 @@ set -eu
 case "${1:-}" in
   '') mode=release ;;
   --preview) mode=preview ;;
+  --preview-device) mode=preview-device ;;
   --help|-h)
-    printf '%s\n' 'Usage: scripts/ios-preflight.sh [--preview]' \
+    printf '%s\n' 'Usage: scripts/ios-preflight.sh [--preview|--preview-device]' \
       'Default: report TestFlight source gaps and unverified release gates (exit 1).' \
       '--preview: check prerequisites for the existing simulator binary; does not launch it.' \
+      '--preview-device: check prerequisites for the existing physical iPhone binary; does not launch it.' \
       'Exit 0: preview prerequisites found; 1: blocked/unqualified; 2: tool/usage error.'
     exit 0 ;;
   *) printf '%s\n' 'Unknown option; use --help.' >&2; exit 2 ;;
@@ -99,10 +101,15 @@ if team:
 else:
     report('BLOCK' if mode == 'release' else 'NOTE', 'No team setting in Runner Release; external overrides/account state not inspected')
 
-binary = root / 'mobile/build/ios/iphonesimulator/Runner.app'
-if mode == 'preview':
-    report('OK' if (binary / 'Runner').is_file() and (binary / 'Info.plist').is_file() else 'BLOCK', 'Existing simulator app ' + ('found' if (binary / 'Runner').is_file() and (binary / 'Info.plist').is_file() else 'missing'))
-    report('NOTE', 'Artifact freshness, simulator boot state and live hot-reload attachment are not established by this check')
+if mode in ('preview', 'preview-device'):
+    platform = 'iphoneos' if mode == 'preview-device' else 'iphonesimulator'
+    label = 'physical iPhone' if mode == 'preview-device' else 'simulator'
+    binary = root / f'mobile/build/ios/{platform}/Runner.app'
+    present = (binary / 'Runner').is_file() and (binary / 'Info.plist').is_file()
+    report('OK' if present else 'BLOCK', f'Existing {label} app ' + ('found' if present else 'missing'))
+    report('NOTE', 'Artifact freshness, device availability, installation and live hot-reload attachment are not established by this check')
+    if mode == 'preview-device':
+        report('NOTE', 'A physical iOS debug app may require a Flutter/Xcode-assisted launch after its process ends; artifact presence does not establish Home Screen relaunch')
 else:
     main = text('mobile/lib/main.dart')
     if 'runApp(ProsodyApp(playback: playback, origin: origin));' in main:
