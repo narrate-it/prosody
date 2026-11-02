@@ -186,6 +186,7 @@ class LiveSession extends ChangeNotifier {
     _error = null;
     _notify();
     var reservationStarted = false;
+    var reservationCommitted = false;
     try {
       await initialize();
       if (key == null || !isConfigurationCurrent(revision)) {
@@ -210,6 +211,7 @@ class LiveSession extends ChangeNotifier {
           reservationStarted = true;
           try {
             _attempts = await _ledgerOperation(reserve: true);
+            reservationCommitted = true;
           } on LiveSessionFailure {
             rethrow;
           } catch (_) {
@@ -232,7 +234,13 @@ class LiveSession extends ChangeNotifier {
       _resultRevisions[result] = revision;
       return result;
     } catch (failure) {
-      _error = failure is LiveSessionFailure ? failure.message : 'Generation did not finish. Any reserved attempt remains spent; it will not be retried automatically.';
+      _error = failure is LiveSessionFailure
+          ? failure.message
+          : _blocked
+          ? 'The preview budget could not be confirmed. Live generation is disabled.'
+          : reservationCommitted
+          ? 'Generation did not finish. This attempt remains reserved; it will not be retried automatically.'
+          : 'Generation could not start. No attempt was reserved. Check your text and live preview setup.';
       throw LiveSessionFailure(_error!);
     } finally {
       _busy = false;

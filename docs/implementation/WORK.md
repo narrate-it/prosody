@@ -784,3 +784,9 @@ and playback-stop awaits. Review exposed two handoff races, fixed with tests.
 13 targeted tests +analysis passed. No paid calls or device changes; provider may
 finish an already reserved attempt, no retry/refund. Keep reminder: full RFC and
 AMOS/device/provider acceptance remain open.
+
+2026-11-02 hourly: corrected live-preview failure text to distinguish no reserved
+attempt from retained reservation and uncertain budget state.15 targeted tests,
+analysis and independent source review passed. No paid calls or phone changes.
+Remaining work includes actual iPhone/provider acceptance and AMOS integration;
+source tests do not qualify those paths or complete the RFC.
