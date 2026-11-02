@@ -101,3 +101,27 @@ root lint/full Go tests through the package-aware hook. Independent reviewers
 cross-checked the other domain's changes and reported no remaining concrete
 blocker for these findings. Platform/provider/AMOS runtime gates remain open;
 this is source validation for the initial implementation PR, not full acceptance.
+
+
+## PR #1 later-page resume follow-up (2026-11-01)
+
+CodeRabbit finding 4438401301 exposed a missing saved-progress lookup when the
+first playable item arrives on a later page. Both initial selection paths now
+share resume lookup, current-load checks and the unknown-progress write gate
+before restoring the saved segment/position. Existing active queues append
+without another resume lookup. Feed replacement suppresses old-page callbacks
+until installation completes; a new page identity prevents a previous space's
+visible page from overriding the restored first item. Independent review caught
+that retained-page edge case during this follow-up and it was fixed.
+
+New widget regressions cover saved/unknown/401/403 later-page initialization,
+stale workspace responses, stop-callback prefetch, and switching from page three.
+Verification and final independent review are recorded in the PR receipt.
+No provider/device/deployment acceptance is implied. Original hook remains enabled.
+
+Final local checks: all 57 Flutter tests passed; Flutter analysis has no issues.
+The seven new widget cases use a recording player and HTTP fixtures, not native
+decoders or a deployed service. Go/adapter sources are unchanged from the prior
+verified checkpoint. Owned build lease released after verification.
+Independent final source re-review found no remaining blocker in this delta;
+the retained-page finding is closed by the new page identity and regression.
