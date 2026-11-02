@@ -1,0 +1,3 @@
+# Keep the maintained dependency's upstream bytes/provenance intact.
+# Its existing whitespace is not reformatted as part of the security patch.
+mobile/vendor/audio_service/** -whitespace

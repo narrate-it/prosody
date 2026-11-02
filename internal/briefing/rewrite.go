@@ -52,7 +52,7 @@ func Rewrite(ctx context.Context, p Provider, key, model string, source content.
 	}
 	instructions := craft + policy
 	digest := sha256.Sum256([]byte(instructions))
-	out, err := p.Rewrite(ctx, key, model, instructions, source.Text, 2000)
+	out, err := p.Rewrite(ctx, key, model, instructions, source.Text, 8192)
 	result := Result{InstructionsDigest: hex.EncodeToString(digest[:]), Provider: out}
 	// Keep accounting identifiers on every post-dispatch failure, but never
 	// expose rejected provider text as a usable script through either field.

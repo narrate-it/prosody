@@ -669,3 +669,40 @@ PostgreSQL tests and pinned AMOS adapter tests passed as recorded above. Merge
 is authorized as an initial partial implementation, not deployment or full RFC
 acceptance. The exact remote merge receipt will be recorded in PR #1. Existing
 runtime/mobile/provider acceptance gaps and the hourly reminder remain open.
+
+
+### 2026-11-01 — CodeRabbit follow-up source and validation
+
+CodeRabbit completed review of 6673de7 with eleven inline findings. Valid findings
+were fixed and cross-reviewed; detailed dispositions are in PR-1-REVIEW.md.
+The additional receipt-contract mismatch is aligned to persisted acceptance
+identity/time. The owner-specific refocus-helper configuration nitpick is deferred
+without changing or removing the owned cron. Full RFC completion is still false.
+
+Fresh admission passed at 56.62/65.32% idle, normal pressure, no swap churn or
+thermal/performance warning; a later phase passed at 69.34/41.50%. Shared lease
+acquired for bounded verification. Four fixture control-flow tests passed. Real
+PostgreSQL tests passed despite injected PGHOSTADDR/PGUSER/PGSERVICE, and only
+the successful run's data was removed while logs were retained. Updated AMOS
+receipt tests and rewrite-budget tests passed. All 48 Flutter tests passed on
+final API denial precedence; analysis is clean. Source hashes verify copied
+Dart/Darwin dependency files unchanged; only three documented Android baseline
+files differ plus new guard/instrumentation source. Android compilation and
+device instrumentation are pending because the SDK is unavailable here.
+
+An independent cross-review found and closed a new optional-resume denial-body
+edge case. Known HTTP denial now survives oversized, failed or nonterminating
+bodies and cleanup errors. No provider calls, signing, deployment or runtime
+acceptance inferred. Review fixes are ready for final lint/commit/remote checks;
+exact merge outcome belongs to the PR receipt, not this pre-merge checkpoint.
+
+
+Final follow-up checks: root and pinned nested AMOS golangci-lint both report
+zero issues on Go 1.27.0. Nested lint initially exceeded a two-minute dependency
+load deadline; the bounded, serialized five-minute run passed. Final Flutter
+suite passed all 48 tests and analysis is clean. Independent cross-review closed
+all accepted source findings. Vendored upstream whitespace is preserved via a
+vendor-only .gitattributes rule so baseline hashes remain meaningful; authored
+files continue to pass whitespace checks. No Android compilation/device evidence
+is claimed. Original hook remains enabled; final code commit runs the corrected
+package-aware lint/test hook, with no gate skipped.

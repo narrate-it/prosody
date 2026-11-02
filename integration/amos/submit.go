@@ -25,7 +25,7 @@ import (
 const OperationID = "prosody.messages.submit-text"
 const EffectKind = "prosody.narration.prepare"
 const InputSchema = `{"type":"object","properties":{"feedId":{"type":"string","description":"Canonical UUIDv7 destination feed","format":"uuid","minLength":36,"maxLength":36},"idempotencyKey":{"type":"string","description":"Globally unique submission key; 1–256 decoded UTF-8 bytes, retained exactly on retries","minLength":1,"maxLength":256},"text":{"type":"string","description":"Original source to condense into a briefing","minLength":1,"maxLength":4096},"title":{"type":"string","description":"Optional briefing title","minLength":1,"maxLength":160}},"required":["feedId","idempotencyKey","text"],"additionalProperties":false}`
-const OutputSchema = `{"type":"object","properties":{"itemId":{"type":"string","description":"Durably accepted item","format":"uuid","minLength":36,"maxLength":36},"workId":{"type":"string","description":"Durable work receipt","format":"uuid","minLength":36,"maxLength":36},"status":{"type":"string","description":"Acceptance state","enum":["processing"],"minLength":1,"maxLength":32}},"required":["itemId","workId","status"],"additionalProperties":false}`
+const OutputSchema = `{"type":"object","properties":{"itemId":{"type":"string","description":"Durably accepted item","format":"uuid","minLength":36,"maxLength":36},"workId":{"type":"string","description":"Durable work receipt","format":"uuid","minLength":36,"maxLength":36},"status":{"type":"string","description":"Acceptance state","enum":["accepted"],"minLength":1,"maxLength":32},"acceptedAt":{"type":"string","description":"Original durable acceptance time, retained on replay","format":"date-time","minLength":20,"maxLength":35}},"required":["itemId","workId","status","acceptedAt"],"additionalProperties":false}`
 const PayloadSchema = `{"type":"object","properties":{"workspace_id":{"type":"string","description":"Current workspace","format":"uuid","minLength":36,"maxLength":36},"item_id":{"type":"string","description":"Immutable source item","format":"uuid","minLength":36,"maxLength":36}},"required":["workspace_id","item_id"],"additionalProperties":false}`
 
 type Input struct {
@@ -35,10 +35,17 @@ type Input struct {
 	Title  string `json:"title,omitempty"`
 }
 type Output struct {
-	ItemID string `json:"itemId"`
-	WorkID string `json:"workId"`
-	Status string `json:"status"`
+	ItemID     string    `json:"itemId"`
+	WorkID     string    `json:"workId"`
+	Status     string    `json:"status"`
+	AcceptedAt time.Time `json:"acceptedAt"`
 }
+
+// Acceptance is immutable; a replay must not claim the item is still processing.
+func acceptedOutput(receipt store.Receipt) Output {
+	return Output{ItemID: receipt.ItemID, WorkID: receipt.WorkID, Status: "accepted", AcceptedAt: receipt.AcceptedAt.UTC()}
+}
+
 type Payload struct {
 	WorkspaceID string `json:"workspace_id"`
 	ItemID      string `json:"item_id"`
@@ -157,7 +164,7 @@ func Contracts(snapshot Snapshot) (*operation.FrozenRegistry, []byte, []byte, []
 		if err != nil {
 			return operation.Result[Output]{}, err
 		}
-		return operation.Result[Output]{Kind: operation.ResultAccepted, Value: Output{receipt.ItemID, receipt.WorkID, "processing"}}, nil
+		return operation.Result[Output]{Kind: operation.ResultAccepted, Value: acceptedOutput(receipt)}, nil
 	}
 	definition, err := operation.Bind(metadata, codec{ic}, resolver{}, oc, handler)
 	if err != nil {

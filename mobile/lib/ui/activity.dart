@@ -7,7 +7,8 @@ import '../data/activity.dart';
 import '../data/models.dart';
 import '../data/pagination.dart';
 
-// Uses the existing feed-page endpoint. This screen neither starts generation
+// Uses the proposed /feeds/{feed}/activity route and ReadActivity projection.
+// Production composition remains gated. This screen neither starts generation
 // nor changes the playable queue. Status updates are fetched explicitly.
 class ActivityScreen extends StatefulWidget {
   final ProsodyApi api;

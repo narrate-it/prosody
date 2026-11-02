@@ -12,13 +12,14 @@ import (
 )
 
 type provider struct {
-	calls                        int
+	calls, maxTokens             int
 	instructions, source, output string
 	err                          error
 }
 
-func (p *provider) Rewrite(_ context.Context, _, _, instructions, source string, _ int) (openrouter.RewriteResult, error) {
+func (p *provider) Rewrite(_ context.Context, _, _, instructions, source string, maxTokens int) (openrouter.RewriteResult, error) {
 	p.calls++
+	p.maxTokens = maxTokens
 	p.instructions = instructions
 	p.source = source
 	return openrouter.RewriteResult{Text: p.output, GenerationID: "generation", RequestID: "request", PromptTokens: 20, CompletionTokens: 10}, p.err
@@ -55,6 +56,9 @@ func TestCraftSourceBoundaryAndBoundedRepair(t *testing.T) {
 	r, err := briefing.Rewrite(context.Background(), p, "synthetic", "selected", s)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if p.maxTokens != 8192 {
+		t.Fatal("completion budget does not allow multilingual output within the word limit")
 	}
 	if len(r.InstructionsDigest) != 64 || !strings.Contains(p.instructions, "Prosody briefing policy") || strings.Contains(p.instructions, "SOURCE-SENTINEL") || p.source != s.Text {
 		t.Fatal("craft/source boundary lost")

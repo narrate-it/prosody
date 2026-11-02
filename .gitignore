@@ -10,3 +10,9 @@
 **/.flutter-plugins
 **/.flutter-plugins-dependencies
 **/*.iml
+**/__pycache__/
+**/*.pyc
+# Maintained, licensed dependency patch; override global vendor exclusions.
+!/mobile/vendor/
+!/mobile/vendor/audio_service/
+!/mobile/vendor/audio_service/**

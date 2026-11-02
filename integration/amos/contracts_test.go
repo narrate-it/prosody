@@ -2,11 +2,54 @@ package amos
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/ajent-social/amos/app/operation"
+	"github.com/narrate-it/prosody/internal/store"
 )
+
+func TestAcceptanceReceiptRetainsPersistedIdentityAndTime(t *testing.T) {
+	schema, err := operation.NewJSONSchema([]byte(OutputSchema))
+	if err != nil {
+		t.Fatal(err)
+	}
+	outputCodec, err := operation.NewJSONCodec[Output](schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted := time.Date(2026, 11, 1, 12, 34, 56, 123456000, time.FixedZone("source", -7*60*60))
+	receipt := store.Receipt{ItemID: "01900000-0000-7000-8000-000000000001", WorkID: "01900000-0000-7000-8000-000000000002", AcceptedAt: accepted}
+	raw, err := outputCodec.EncodeCanonical(acceptedOutput(receipt))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if len(fields) != 4 || fields["itemId"] != receipt.ItemID || fields["workId"] != receipt.WorkID || fields["status"] != "accepted" || fields["acceptedAt"] != "2026-11-01T19:34:56.123456Z" {
+		t.Fatalf("incorrect acceptance receipt: %s", raw)
+	}
+	// Equivalent persisted timestamps yield identical replay bytes; no current
+	// time or later processing state participates in the receipt projection.
+	receipt.AcceptedAt = accepted.UTC()
+	replayed, err := outputCodec.EncodeCanonical(acceptedOutput(receipt))
+	if err != nil || string(replayed) != string(raw) {
+		t.Fatalf("replay receipt changed: %s, %v", replayed, err)
+	}
+	for _, invalid := range []string{
+		strings.Replace(string(raw), `"accepted"`, `"processing"`, 1),
+		strings.Replace(string(raw), `,"acceptedAt":"2026-11-01T19:34:56.123456Z"`, "", 1),
+		strings.Replace(string(raw), "2026-11-01T19:34:56.123456Z", "not-a-timestamp", 1),
+	} {
+		if schema.Validate([]byte(invalid)) == nil {
+			t.Fatalf("accepted invalid receipt: %s", invalid)
+		}
+	}
+}
 
 func TestFirstOperationDescriptor(t *testing.T) {
 	registry, api, mapping, effects, err := Contracts(func(context.Context, operation.InvocationContext, string) ([]byte, error) {
