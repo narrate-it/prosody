@@ -1,5 +1,12 @@
 # Prosody mobile
 
+From the repository root, run `make preview` to launch Flutter in debug mode.
+Choose a connected device when prompted, or use `make preview DEVICE=<device-id>`.
+If Flutter is not on PATH, set `FLUTTER=/path/to/flutter`. In the attached terminal,
+press `r` for hot reload, `R` for hot restart, and `q` to quit. This command may
+resolve dependencies and build the app; Flutter and the target platform toolchain
+must be installed. The current preview shows onboarding with sign-in disabled.
+
 Flutter iOS/Android client. No bundled sample feed or implicit development identity.
 The configured service must provide qualified Prosody consumption APIs and an
 AMOS human mobile session boundary. Production `main` currently supplies no
