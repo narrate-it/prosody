@@ -5,6 +5,7 @@ import 'package:video_player/video_player.dart';
 import '../data/api.dart';
 import '../data/models.dart';
 import '../data/pagination.dart';
+import '../data/resume.dart';
 import '../playback/handler.dart';
 import '../playback/queue.dart';
 import '../playback/progress_recorder.dart';
@@ -107,14 +108,10 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       var resumeSegment = 0;
       var resumePosition = Duration.zero;
       if (ready.isNotEmpty) {
-        final saved = await widget.api.progress(
-          ready.first.id,
-          ready.first.renditionId,
-        );
+        final progress = await optionalResume(widget.api, ready.first);
         if (!mounted || revision != _loadRevision) return;
-        final progress = SavedProgress.fromJson(saved, ready.first);
-        resumeSegment = progress.segment;
-        resumePosition = Duration(milliseconds: progress.positionMs);
+        resumeSegment = progress?.segment ?? 0;
+        resumePosition = Duration(milliseconds: progress?.positionMs ?? 0);
       }
       _pagination.accept(requested: null, next: page.nextCursor);
       setState(() {
@@ -391,7 +388,8 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                   ),
                   const SizedBox(height: 24),
                   OutlinedButton(
-                    onPressed: () => _feed == null ? _load() : _select(_feed!),
+                    onPressed: () =>
+                        unawaited(_feed == null ? _load() : _select(_feed!)),
                     child: const Text('Refresh'),
                   ),
                 ],
@@ -504,8 +502,10 @@ class _BriefingCard extends StatelessWidget {
                       ? segment.duration.inMilliseconds.toDouble()
                       : 1,
                   onChanged: active
-                      ? (v) => handler.seekSegment(
-                          Duration(milliseconds: v.round()),
+                      ? (v) => unawaited(
+                          handler.seekSegment(
+                            Duration(milliseconds: v.round()),
+                          ),
                         )
                       : null,
                   label: active ? _time(handler.position) : null,
@@ -524,8 +524,10 @@ class _BriefingCard extends StatelessWidget {
                       tooltip: 'Back 15 seconds',
                       icon: const Icon(Icons.replay_10),
                       onPressed: active
-                          ? () => handler.seekSegment(
-                              handler.position - const Duration(seconds: 15),
+                          ? () => unawaited(
+                              handler.seekSegment(
+                                handler.position - const Duration(seconds: 15),
+                              ),
                             )
                           : null,
                     ),
@@ -534,9 +536,11 @@ class _BriefingCard extends StatelessWidget {
                       iconSize: 40,
                       tooltip: state?.playing == true ? 'Pause' : 'Play',
                       onPressed: active
-                          ? () => state?.playing == true
-                                ? handler.pause()
-                                : handler.play()
+                          ? () => unawaited(
+                              state?.playing == true
+                                  ? handler.pause()
+                                  : handler.play(),
+                            )
                           : null,
                       icon: Icon(
                         active && state?.playing == true
@@ -549,8 +553,10 @@ class _BriefingCard extends StatelessWidget {
                       tooltip: 'Forward 15 seconds',
                       icon: const Icon(Icons.forward_10),
                       onPressed: active
-                          ? () => handler.seekSegment(
-                              handler.position + const Duration(seconds: 15),
+                          ? () => unawaited(
+                              handler.seekSegment(
+                                handler.position + const Duration(seconds: 15),
+                              ),
                             )
                           : null,
                     ),

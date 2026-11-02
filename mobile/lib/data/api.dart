@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'models.dart';
@@ -60,6 +61,28 @@ class ProsodyApi {
     final response = await _client
         .send(request)
         .timeout(const Duration(seconds: 30));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      // Authority denial is known from the headers. A failed, oversized or
+      // never-ending private error body must not turn it into an optional
+      // transport failure. Cancel without waiting for untrusted body cleanup.
+      try {
+        unawaited(
+          response.stream
+              .listen(null, onError: (Object _) {})
+              .cancel()
+              .catchError((Object _) {}),
+        );
+      } catch (_) {
+        // Cancellation cannot change the already-known HTTP outcome.
+      }
+      throw ApiFailure(response.statusCode, switch (response.statusCode) {
+        401 => 'Your session has expired. Sign in again.',
+        403 => 'You no longer have access to this space.',
+        409 => 'This changed on another device. Refresh and try again.',
+        429 => 'Please wait a moment and try again.',
+        _ => 'Could not complete this request. Please try again.',
+      });
+    }
     final List<int> bytes;
     try {
       bytes = await collectBoundedBody(
@@ -69,15 +92,6 @@ class ProsodyApi {
       );
     } on BodyTooLarge {
       throw const ApiFailure(0, 'Response too large.');
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw ApiFailure(response.statusCode, switch (response.statusCode) {
-        401 => 'Your session has expired. Sign in again.',
-        403 => 'You no longer have access to this space.',
-        409 => 'This changed on another device. Refresh and try again.',
-        429 => 'Please wait a moment and try again.',
-        _ => 'Could not complete this request. Please try again.',
-      });
     }
     return bytes.isEmpty
         ? <String, dynamic>{}

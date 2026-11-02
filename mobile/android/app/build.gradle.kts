@@ -32,8 +32,8 @@ android {
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Release signing is configured with the owner-approved identity.
+            // No release signing identity is configured. Supply an explicitly
+            // owner-approved signing configuration before distribution.
         }
     }
 }
