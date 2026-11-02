@@ -790,3 +790,8 @@ attempt from retained reservation and uncertain budget state.15 targeted tests,
 analysis and independent source review passed. No paid calls or phone changes.
 Remaining work includes actual iPhone/provider acceptance and AMOS integration;
 source tests do not qualify those paths or complete the RFC.
+
+2026-11-02 hourly: added physical-iPhone artifact preflight and reconciled stale
+simulator-only TestFlight/preview instructions. Four hermetic CLI tests and actual
+read-only --preview-device pass; no runtime/release acceptance inferred. No spend
+or device changes. Keep owned reminder: full RFC acceptance remains open.

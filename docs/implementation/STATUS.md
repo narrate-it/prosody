@@ -897,3 +897,20 @@ cases; Flutter analysis clean; independent source review clear. Commit hook runs
 required Go lint/tests unchanged. No paid calls, device update or deployment.
 Capacity admitted:47.14/39.94% idle, normal pressure, zero swap churn, no thermal
 warning. Full RFC acceptance remains open; retain owned hourly reminder.
+
+### 2026-11-02 — Physical-iPhone preview preflight
+
+The preview preflight and launch runbook still assumed the historical simulator
+workflow. Added read-only --preview-device to check the physical iPhone artifact;
+--preview retains its simulator behavior. Neither option builds or launches an app, verifies binary freshness or qualifies
+a release. Updated TestFlight guidance with
+physical debug receipts, current explicit preview composition and debugger-assisted
+relaunch recovery. Keep reservations/signing credentials intact; no automatic
+uninstall, budget reset or release-mode fallback.
+
+Four hermetic Python CLI tests passed: device/simulator isolation, partial artifact
+rejection, invalid option and release remaining blocked with both artifacts. Local
+--preview-device passed source/tool/artifact checks; runtime remains unverified.
+Shell syntax and whitespace checks passed. No provider call, device connection,
+signing, install or deployment. Commit-gate admission:28.37/38.99% interval idle,
+normal pressure, zero swap churn and no thermal/performance warning.

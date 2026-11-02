@@ -1,7 +1,7 @@
 # iOS preview and TestFlight preparation
 
-Prosody is **not ready for a useful TestFlight beta**. A native simulator build
-and hot-reload connection have been demonstrated, but production sign-in and the
+Prosody is **not ready for a useful TestFlight beta**. Native simulator and physical-iPhone debug builds
+and hot-reload connections have been demonstrated, but production sign-in and the
 complete authorized submit → generate → listen journey remain unavailable.
 This checklist does not authorize signing changes, paid provider calls, deployment
 or upload. The owning Prosody session keeps implementation/release decisions;
@@ -14,13 +14,15 @@ Run from the repository root:
 ```sh
 scripts/ios-preflight.sh
 scripts/ios-preflight.sh --preview
+scripts/ios-preflight.sh --preview-device
 ```
 
 The default reports source configuration and open release gates. Exit `1` means
 blocked or unqualified; it never declares a release approved from static checks.
-Preview mode exits `0` when local source/tool prerequisites and an existing
-simulator app are present. That does not establish artifact freshness, a booted
-simulator or a live debug connection. Exit `2` denotes invocation/tool setup error.
+Preview mode exits `0` when local source/tool prerequisites and the selected
+existing app artifact are present: `--preview` checks the simulator artifact;
+`--preview-device` checks the physical-iPhone artifact. That does not establish artifact freshness, an available
+device or a live debug connection. Exit `2` denotes invocation/tool setup error.
 
 The script reads only known project/configuration files and artifact existence.
 It locates tool executables and inspects the selected Xcode directory without
@@ -35,9 +37,9 @@ resolved. Never use a passing preview preflight as a release gate.
 | --- | --- | --- |
 | App identity | Runner Release uses `run.prosody.prosody`. | Confirm intended registered identifier and matching App Store Connect record before first upload. Their existence was not inspected. |
 | Version | `mobile/pubspec.yaml` contains `0.1.0+1`; Info.plist uses Flutter build-name/build-number variables. | Pick the beta version and an unused build number after checking App Store Connect history. Local source cannot establish uniqueness. |
-| Signing | No `DEVELOPMENT_TEAM` in the checked-in Runner Release settings. | Configure the approved existing team/signing route. This does not mean David lacks an Apple account or certificate; neither was inspected. |
+| Signing | No `DEVELOPMENT_TEAM` in the checked-in Runner Release settings. | Configure the approved existing team/signing route. An existing development identity has signed physical debug builds; release account/profile acceptance is still separate. |
 | Native project | Xcode, CocoaPods and Flutter executables found; background audio is declared. | Qualify release builds, plugin privacy requirements and actual physical-device behavior. |
-| Preview | Implementation record reports successful debug simulator build and `r` hot reload in the dedicated Prosody Preview simulator. | Live session state and binary freshness must be checked at use time. No current worker attachment is inferred from an old process handle. |
+| Preview | Simulator and physical-iPhone debug builds, hot reload, local sample feeds and RAM-only live-preview key provisioning are recorded. | Live session state and binary freshness must be checked at use time. Provider listening and production acceptance are not inferred from attachment. |
 | Human login | Production `main` supplies no human `InteractiveSession`; sign-in is visibly disabled. | AMOS must provide a supported mobile return/session and current-authority feed boundary, then Prosody must integrate and test it on iOS. No OIDC/refresh/custom-scheme assumption. |
 | Agent-to-listener path | Domain/database and adapter tests exist; synthesis uses local test fixtures. | Qualified agent submission, admitted provider work, durable results, private media delivery and successful playback in the actual app. |
 | Distribution | No signed archive, upload receipt or installed TestFlight build is claimed. | Separate signing, upload authorization, processing and tester installation evidence. |
@@ -57,8 +59,10 @@ identifier is machine-local: confirm it still exists using `xcrun simctl list
 devices available`. Do not reset or reuse another session's simulator. If the
 owner's Flutter session is already attached, use that session rather than starting
 a competing runner. In its terminal, `r` requests hot reload, `R` hot restart,
-`d` detaches and `q` quits. The current preview shows real onboarding and disabled
-sign-in; it does not contain a fake signed-in feed.
+`d` detaches and `q` quits. This is a historical simulator receipt, not the current preferred preview route.
+Production `main.dart` still has unavailable sign-in. The explicit debug
+`preview_main.dart` now opens local sample feeds and optionally supports a bounded
+live provider test; see `mobile/README.md` for key provisioning and budget limits.
 
 The command reuses an existing debug binary. Native/plugin changes require a new
 build; source changes still need appropriate analysis/tests. When a new binary is
@@ -74,6 +78,38 @@ Neither preflight nor the hourly reminder retries a refused admission, launches
 a build or migrates execution to another machine. Preserve the already authorized
 internal-disk exception and current host-specific limits. A simulator artifact
 cannot be uploaded to TestFlight.
+
+## Current physical-iPhone preview
+
+Use the connected iPhone, as requested by the owner, instead of booting a
+simulator merely for preview. From the repository root:
+
+```sh
+make preview FLUTTER=/path/to/flutter DEVICE=<connected-iphone-id>
+```
+
+Inspect the existing attached Flutter session first; do not start a competing
+runner. The recipe selects `lib/preview_main.dart`. A fresh invocation may build
+and sign: observe capacity admission and the shared build lease first, and use
+existing approved signing credentials. Keep Keychain defaults and access intact.
+
+The physical-device debug preview was installed and launched, with hot reload
+and authenticated in-memory OpenRouter provisioning observed. These receipts do
+not establish production login, background audio acceptance or TestFlight
+readiness. Sample clips are labelled macOS demo voice. Generated Laura briefings
+are a separate explicitly budgeted test.
+
+If tapping the app icon no longer opens it after the debug process ends, first
+check the attached Flutter session and its logs. Physical iOS debug builds may
+require launch through Flutter/Xcode; a lost debugger connection alone does not
+prove a Dart crash. Relaunch through the approved preview command when admitted,
+then provision the RAM-only key again if live testing is authorized. Preserve the
+saved reservation ledger. Do not uninstall the app, reset its allowance, replace
+signing credentials or switch to release mode as an automatic workaround.
+
+The preflight only checks local artifact presence. It neither connects to the
+phone nor launches, installs, signs or spends. A standalone distributable build
+requires its own qualified composition and release gates.
 
 ## Latest AMOS dependency checkpoint
 
