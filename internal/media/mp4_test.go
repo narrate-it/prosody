@@ -23,7 +23,11 @@ func probeFixture(videoExtras, audioExtras []byte, audio bool) []byte {
 	return probeAudioFixture(videoExtras, audioExtras, audio, make([]byte, 28))
 }
 
-func probeAudioFixture(videoExtras, audioExtras []byte, audio bool, audioHeader []byte) []byte {
+func probeAudioFixture(videoExtras, audioExtras []byte, audio bool, audioHeader []byte, videoConfigs ...[]byte) []byte {
+	config := mp4Box("avcC", make([]byte, 7))
+	if len(videoConfigs) > 0 {
+		config = bytes.Join(videoConfigs, nil)
+	}
 	duration := make([]byte, 20)
 	binary.BigEndian.PutUint32(duration[12:], 1000)
 	binary.BigEndian.PutUint32(duration[16:], 2500)
@@ -38,7 +42,7 @@ func probeAudioFixture(videoExtras, audioExtras []byte, audio bool, audioHeader 
 	video := make([]byte, 78)
 	binary.BigEndian.PutUint16(video[24:], 640)
 	binary.BigEndian.PutUint16(video[26:], 360)
-	tracks := track("vide", mp4Box("avc1", video, mp4Box("avcC", make([]byte, 7)), videoExtras))
+	tracks := track("vide", mp4Box("avc1", video, config, videoExtras))
 	if audio {
 		tracks = append(tracks, track("soun", mp4Box("mp4a", audioHeader, audioExtras))...)
 	}
@@ -117,6 +121,24 @@ func TestProbeMP4AudioVersions(t *testing.T) {
 				}
 			} else if err != nil || info.Duration != 2500*time.Millisecond {
 				t.Fatalf("clear version 1 rejected: %+v, %v", info, err)
+			}
+		})
+	}
+}
+
+func TestProbeMP4UndersizedAVCConfig(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name    string
+		configs [][]byte
+	}{
+		{"sole undersized", [][]byte{mp4Box("avcC", make([]byte, 6))}},
+		{"undersized then valid", [][]byte{mp4Box("avcC", make([]byte, 6)), mp4Box("avcC", make([]byte, 7))}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			data := probeAudioFixture(nil, nil, false, nil, tc.configs...)
+			if _, err := ProbeMP4(bytes.NewReader(data), int64(len(data)), 1<<20, 640*360); !errors.Is(err, ErrInvalid) {
+				t.Fatalf("expected invalid AVC configuration, got %v", err)
 			}
 		})
 	}
