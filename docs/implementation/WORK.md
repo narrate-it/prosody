@@ -720,3 +720,17 @@ publication or runtime acceptance. Independent review remains pending. No paid
 calls, phone changes or deployment. Capacity: load 5.76/6.10/5.85; interval idle
 26.66/25.76%, normal pressure, no swap churn or thermal/performance warning.
 Full RFC acceptance remains incomplete; retain owned hourly reminder.
+
+### 2026-11-02 — MP4 independent review and positive child coverage
+
+Independent read-only review of PR4 at cb00966675d26d9d5d64d358f935136639fee90a
+against 6c7e12f found no blocking finding. Reviewer checked surrounding parser,
+shared atom budget and callers (no production callers use this probe). Added
+its suggested positive case: a clear audio entry with a structurally well-formed
+child box, alongside the rejection cases. All focused ProbeMP4 tests passed.
+The synthetic esds payload is not an AAC descriptor/decode validation fixture.
+
+Preparing PR4 for hosted review; the earlier CodeRabbit check was skipped because
+it was draft. No merge, provider calls, native changes or deployment. Capacity:
+load 4.38/4.11/4.02; interval idle 34.55/23.74%, normal pressure, zero swap churn,
+no thermal/performance warning. Full RFC remains incomplete; retain reminder.
