@@ -734,3 +734,21 @@ Preparing PR4 for hosted review; the earlier CodeRabbit check was skipped becaus
 it was draft. No merge, provider calls, native changes or deployment. Capacity:
 load 4.38/4.11/4.02; interval idle 34.55/23.74%, normal pressure, zero swap churn,
 no thermal/performance warning. Full RFC remains incomplete; retain reminder.
+
+### 2026-11-02 — CodeRabbit audio-version correction
+
+CodeRabbit check on 23b2b03 succeeded but comment 4446593715 found a valid defect:
+the fixed 28-byte audio header offset rejected clear version-1 entries and could
+consume a following protection box as packet data. Reproduced five failing cases
+before fixing version dispatch: v0 uses 28 bytes, v1 uses 44, unsupported versions
+and truncated extensions reject. Six added cases cover clear v1, protected v1
+with zero/nonzero samples, short/truncated v1 and unknown versions. All media
+tests pass after the fix. This supersedes earlier review's no-blocker conclusion
+for this issue; a passing hosted check alone was not sufficient.
+
+Apple's sound sample description version 1 reference confirms the four extra
+32-bit fields: https://developer.apple.com/documentation/quicktime-file-format/sound_sample_description_version_1
+No codec/timeline/publication qualification is inferred from these structural
+fixtures. No provider calls, deployment or phone changes. Capacity load
+3.39/3.36/3.49; interval idle 36.19/28.52%, normal pressure, zero swap churn,
+no thermal/performance warning. Full RFC incomplete; retain reminder.

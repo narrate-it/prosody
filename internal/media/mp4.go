@@ -265,7 +265,23 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 		if entry.kind != "mp4a" || entry.end-entry.body < 28 {
 			return "", 0, 0, ErrInvalid
 		}
-		config, err := atoms(r, entry.body+28, entry.end, budget)
+		var version [2]byte
+		if _, err := r.ReadAt(version[:], entry.body+8); err != nil {
+			return "", 0, 0, ErrInvalid
+		}
+		headerSize := int64(28)
+		switch binary.BigEndian.Uint16(version[:]) {
+		case 0:
+		case 1:
+			// QuickTime version 1 adds four uint32 packet fields before children.
+			headerSize = 44
+		default:
+			return "", 0, 0, ErrInvalid
+		}
+		if entry.end-entry.body < headerSize {
+			return "", 0, 0, ErrInvalid
+		}
+		config, err := atoms(r, entry.body+headerSize, entry.end, budget)
 		if err != nil {
 			return "", 0, 0, err
 		}
