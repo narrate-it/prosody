@@ -6,7 +6,21 @@ import 'package:prosody/playback/handler.dart';
 
 class _Audio extends Fake implements audio.AudioPlayer {
   final stops = <Completer<void>>[];
+  final loadStarted = Completer<void>();
+  final pendingLoad = Completer<Duration?>();
   bool delayStops = false;
+  @override
+  Future<Duration?> setUrl(
+    String url, {
+    Map<String, String>? headers,
+    Duration? initialPosition,
+    bool preload = true,
+    dynamic tag,
+  }) {
+    loadStarted.complete();
+    return pendingLoad.future;
+  }
+
   @override
   Future<void> stop() {
     if (!delayStops) return Future.value();
@@ -53,6 +67,52 @@ Future<void> _finish(Future<void> operation) =>
     operation.timeout(const Duration(seconds: 3));
 
 void main() {
+  test(
+    'stale advancement cannot block a newer visual queue',
+    () async {
+      final audioPlayer = _Audio();
+      final handler = ProsodyPlayback(audioPlayer: audioPlayer);
+      final slow = Briefing(
+        id: 'slow',
+        renditionId: 'slow-r',
+        title: 'Slow audio',
+        agent: 'Agent',
+        status: 'ready',
+        source: '',
+        script: '',
+        segments: [
+          Segment(
+            id: 'audio',
+            kind: 'audio',
+            duration: const Duration(seconds: 1),
+            media: Uri.parse('https://example.test/audio'),
+          ),
+        ],
+      );
+      await _finish(
+        handler.replaceFeed([
+          _visual('first'),
+          slow,
+          _visual('new-selection'),
+          _visual('next'),
+        ]),
+      );
+      final oldAdvance = handler.advanceVisual();
+      await _finish(audioPlayer.loadStarted.future);
+      // The old automatic advancement is blocked in decoder initialization.
+      await _finish(handler.select(2));
+      await Future<void>.delayed(const Duration(milliseconds: 5100));
+      expect(handler.current?.id, 'next');
+      // Resolving the obsolete load must not replace/play the old selection.
+      audioPlayer.pendingLoad.complete(const Duration(seconds: 1));
+      await _finish(oldAdvance);
+      expect(handler.current?.id, 'next');
+      expect(handler.visibleImages, isEmpty);
+      await _finish(handler.dispose());
+    },
+    timeout: const Timeout(Duration(seconds: 20)),
+  );
+
   test(
     'visual dwell advances without crediting a view; pause cancels it',
     () async {
