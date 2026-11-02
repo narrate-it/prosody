@@ -6,161 +6,460 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:prosody/preview/live_provider.dart';
 
-Map<String, Object> catalog(bool speech) => {'data': [
-  {'id': speech ? LiveProvider.speechModel : LiveProvider.textModel,
-    'architecture': {'input_modalities': ['text'],
-      'output_modalities': [speech ? 'speech' : 'text']},
-    'supported_voices': ['laura'],
-    'pricing': {'prompt': speech ? '0.00004' : '0.0000004',
-      'completion': speech ? '0' : '0.0000016'}}
-]};
-http.Response chat([String script = 'A concise briefing.', String finish = 'stop']) =>
-  http.Response(jsonEncode({'id': 'gen-rewrite', 'choices': [
-    {'finish_reason': finish, 'message': {'content': script}}
-  ]}), 200);
+Map<String, Object> catalog(bool speech) => {
+  'data': [
+    {
+      'id': speech ? LiveProvider.speechModel : LiveProvider.textModel,
+      'architecture': {
+        'input_modalities': ['text'],
+        'output_modalities': [speech ? 'speech' : 'text'],
+      },
+      'supported_voices': ['laura'],
+      'pricing': {
+        'prompt': speech ? '0.00004' : '0.0000004',
+        'completion': speech ? '0' : '0.0000016',
+      },
+    },
+  ],
+};
+http.Response chat([
+  String script = 'A concise briefing.',
+  String finish = 'stop',
+]) => http.Response(
+  jsonEncode({
+    'id': 'gen-rewrite',
+    'choices': [
+      {
+        'finish_reason': finish,
+        'message': {'content': script},
+      },
+    ],
+  }),
+  200,
+);
+
+class _AbortClient extends http.BaseClient {
+  _AbortClient(this.mode);
+  final String mode;
+  final requests = <http.AbortableRequest>[];
+  final aborted = <String>[];
+  StreamController<List<int>>? stalled;
+  bool bodyCancelled = false;
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final abortable = request as http.AbortableRequest;
+    requests.add(abortable);
+    final path = request.url.path;
+    unawaited(abortable.abortTrigger!.then((_) => aborted.add(path)));
+    if (request.method == 'GET') {
+      return http.StreamedResponse(
+        Stream.value(
+          utf8.encode(
+            jsonEncode(
+              catalog(
+                request.url.queryParameters['output_modalities'] == 'speech',
+              ),
+            ),
+          ),
+        ),
+        200,
+      );
+    }
+    if (path.endsWith('/chat/completions')) {
+      if (mode == 'headers') {
+        await abortable.abortTrigger;
+        throw http.RequestAbortedException(request.url);
+      }
+      if (mode == 'late') {
+        await Future<void>.delayed(const Duration(milliseconds: 240));
+        stalled = StreamController<List<int>>(
+          onCancel: () {
+            bodyCancelled = true;
+          },
+        );
+        return http.StreamedResponse(stalled!.stream, 200);
+      }
+      return http.StreamedResponse(Stream.value(chat().bodyBytes), 200);
+    }
+    if (mode == 'body') {
+      stalled = StreamController<List<int>>(
+        onCancel: () {
+          bodyCancelled = true;
+        },
+      );
+      return http.StreamedResponse(
+        stalled!.stream,
+        200,
+        headers: {
+          'content-type': 'audio/mpeg',
+          'x-generation-id': 'speech-receipt',
+        },
+      );
+    }
+    return http.StreamedResponse(
+      Stream.value([73, 68, 51]),
+      200,
+      headers: {'content-type': 'audio/mpeg'},
+    );
+  }
+
+  @override
+  void close() {
+    if (stalled != null) unawaited(stalled!.close());
+  }
+}
 
 void main() {
-  test('valid catalogs precede reservation and single rewrite then speech', () async {
-    final events = <String>[];
-    final provider = LiveProvider(client: MockClient((request) async {
-      expect(request.followRedirects, isFalse);
-      expect(request.headers['Authorization'], 'Bearer test-key');
-      if (request.url.path.endsWith('/models')) {
-        final modality = request.url.queryParameters['output_modalities'];
-        events.add(modality!);
-        return http.Response(jsonEncode(catalog(modality == 'speech')), 200);
-      }
-      expect(events, contains('reserve'));
-      final body = jsonDecode(request.body) as Map;
-      if (request.url.path.endsWith('/chat/completions')) {
-        events.add('rewrite');
-        expect(body['max_tokens'], 400);
-        expect(body['provider'], {'allow_fallbacks': false,
-          'require_parameters': true,
-          'max_price': {'prompt': 0.4, 'completion': 1.6}});
-        return chat();
-      }
-      events.add('speech-call');
-      expect(body, {'model': LiveProvider.speechModel,
-        'input': 'A concise briefing.', 'voice': 'laura', 'response_format': 'mp3'});
-      return http.Response.bytes([73, 68, 51], 200,
-        headers: {'content-type': 'audio/mpeg', 'x-generation-id': 'gen-speech'});
-    }));
-    addTearDown(provider.close);
-    final result = await provider.generate(key: 'test-key', source: 'Source facts.',
-      reserveAttempt: () async => events.add('reserve'));
-    expect(events, ['text', 'speech', 'reserve', 'rewrite', 'speech-call']);
-    expect(result.source, 'Source facts.');
-    expect(result.script, 'A concise briefing.');
-    expect(result.mp3, [73, 68, 51]);
-    expect(result.rewriteGenerationId, 'gen-rewrite');
-    expect(result.speechGenerationId, 'gen-speech');
-  });
+  for (final mode in ['headers', 'body', 'late']) {
+    test(
+      'absolute deadline aborts transport and does not retry: $mode',
+      () async {
+        final client = _AbortClient(mode);
+        final provider = LiveProvider(
+          client: client,
+          timeout: const Duration(milliseconds: 80),
+        );
+        addTearDown(provider.close);
+        var reservations = 0;
+        await expectLater(
+          provider.generate(
+            key: 'synthetic-key',
+            source: 'Facts',
+            reserveAttempt: () async {
+              reservations++;
+            },
+          ),
+          throwsA(
+            isA<LiveProviderFailure>().having(
+              (e) => e.outcomeUnknown,
+              'unknown',
+              isTrue,
+            ),
+          ),
+        );
+        // Abort notification is asynchronous even when failure has propagated.
+        await Future<void>.delayed(Duration.zero);
+        if (mode == 'late') {
+          await Future<void>.delayed(const Duration(milliseconds: 260));
+        }
+        expect(
+          client.aborted,
+          contains(
+            mode == 'body'
+                ? '/api/v1/audio/speech'
+                : '/api/v1/chat/completions',
+          ),
+        );
+        expect(
+          client.requests.where((r) => r.method == 'POST').length,
+          mode == 'body' ? 2 : 1,
+        );
+        expect(reservations, 1);
+        if (mode != 'headers') expect(client.bodyCancelled, isTrue);
+      },
+    );
+  }
+  test(
+    'successful request timers are cancelled without aborting transport',
+    () async {
+      final client = _AbortClient('success');
+      final provider = LiveProvider(
+        client: client,
+        timeout: const Duration(milliseconds: 80),
+      );
+      addTearDown(provider.close);
+      await provider.generate(
+        key: 'synthetic-key',
+        source: 'Facts',
+        reserveAttempt: () async {},
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      expect(client.requests.length, 4);
+      expect(client.aborted, isEmpty);
+    },
+  );
+
+  test(
+    'valid catalogs precede reservation and single rewrite then speech',
+    () async {
+      final events = <String>[];
+      final provider = LiveProvider(
+        client: MockClient((request) async {
+          expect(request.followRedirects, isFalse);
+          expect(request.headers['Authorization'], 'Bearer test-key');
+          if (request.url.path.endsWith('/models')) {
+            final modality = request.url.queryParameters['output_modalities'];
+            events.add(modality!);
+            return http.Response(
+              jsonEncode(catalog(modality == 'speech')),
+              200,
+            );
+          }
+          expect(events, contains('reserve'));
+          final body = jsonDecode(request.body) as Map;
+          if (request.url.path.endsWith('/chat/completions')) {
+            events.add('rewrite');
+            expect(body['max_tokens'], 400);
+            expect(body['provider'], {
+              'allow_fallbacks': false,
+              'require_parameters': true,
+              'max_price': {'prompt': 0.4, 'completion': 1.6},
+            });
+            return chat();
+          }
+          events.add('speech-call');
+          expect(body, {
+            'model': LiveProvider.speechModel,
+            'input': 'A concise briefing.',
+            'voice': 'laura',
+            'response_format': 'mp3',
+          });
+          return http.Response.bytes(
+            [73, 68, 51],
+            200,
+            headers: {
+              'content-type': 'audio/mpeg',
+              'x-generation-id': 'gen-speech',
+            },
+          );
+        }),
+      );
+      addTearDown(provider.close);
+      final result = await provider.generate(
+        key: 'test-key',
+        source: 'Source facts.',
+        reserveAttempt: () async => events.add('reserve'),
+      );
+      expect(events, ['text', 'speech', 'reserve', 'rewrite', 'speech-call']);
+      expect(result.source, 'Source facts.');
+      expect(result.script, 'A concise briefing.');
+      expect(result.mp3, [73, 68, 51]);
+      expect(result.rewriteGenerationId, 'gen-rewrite');
+      expect(result.speechGenerationId, 'gen-speech');
+    },
+  );
 
   for (final defect in ['price', 'voice', 'modality', 'missing-price']) {
     test('bad $defect catalog never reserves or generates', () async {
       var reserved = false;
-      final provider = LiveProvider(client: MockClient((request) async {
-        expect(request.method, 'GET');
-        final data = catalog(request.url.queryParameters['output_modalities'] == 'speech');
-        final model = (data['data'] as List).first as Map;
-        if (request.url.queryParameters['output_modalities'] == 'speech') {
-          switch (defect) {
-            case 'price': model['pricing'] = {'prompt': '0.1', 'completion': '0'};
-            case 'voice': model['supported_voices'] = ['other'];
-            case 'modality': model['architecture'] = {'input_modalities': ['text'], 'output_modalities': ['audio']};
-            case 'missing-price': model.remove('pricing');
+      final provider = LiveProvider(
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          final data = catalog(
+            request.url.queryParameters['output_modalities'] == 'speech',
+          );
+          final model = (data['data'] as List).first as Map;
+          if (request.url.queryParameters['output_modalities'] == 'speech') {
+            switch (defect) {
+              case 'price':
+                model['pricing'] = {'prompt': '0.1', 'completion': '0'};
+              case 'voice':
+                model['supported_voices'] = ['other'];
+              case 'modality':
+                model['architecture'] = {
+                  'input_modalities': ['text'],
+                  'output_modalities': ['audio'],
+                };
+              case 'missing-price':
+                model.remove('pricing');
+            }
           }
-        }
-        return http.Response(jsonEncode(data), 200);
-      }));
+          return http.Response(jsonEncode(data), 200);
+        }),
+      );
       addTearDown(provider.close);
-      await expectLater(provider.generate(key: 'test-key', source: 'Facts',
-        reserveAttempt: () async { reserved = true; }), throwsA(isA<LiveProviderFailure>()));
+      await expectLater(
+        provider.generate(
+          key: 'test-key',
+          source: 'Facts',
+          reserveAttempt: () async {
+            reserved = true;
+          },
+        ),
+        throwsA(isA<LiveProviderFailure>()),
+      );
       expect(reserved, isFalse);
     });
   }
 
-  for (final source in ['x' * 4001, '😀' * 3001, String.fromCharCode(0xd800), ' ']) {
+  for (final source in [
+    'x' * 4001,
+    '😀' * 3001,
+    String.fromCharCode(0xd800),
+    ' ',
+  ]) {
     test('invalid source fails before any request', () async {
-      final provider = LiveProvider(client: MockClient((_) async => throw StateError('unexpected')));
+      final provider = LiveProvider(
+        client: MockClient((_) async => throw StateError('unexpected')),
+      );
       addTearDown(provider.close);
-      await expectLater(provider.generate(key: 'test-key', source: source,
-        reserveAttempt: () async => fail('unexpected reservation')), throwsA(isA<LiveProviderFailure>()));
+      await expectLater(
+        provider.generate(
+          key: 'test-key',
+          source: source,
+          reserveAttempt: () async => fail('unexpected reservation'),
+        ),
+        throwsA(isA<LiveProviderFailure>()),
+      );
     });
   }
 
-  for (final defect in ['http', 'timeout', 'oversize-script', 'bytes', 'length', 'speech']) {
-    test('$defect after reservation never retries and retains known receipt', () async {
-      var posts = 0;
-      var reservations = 0;
-      final provider = LiveProvider(timeout: const Duration(milliseconds: 50),
-        client: MockClient((request) async {
-          if (request.method == 'GET') {
-            return http.Response(jsonEncode(catalog(request.url.queryParameters['output_modalities'] == 'speech')), 200);
+  for (final defect in [
+    'http',
+    'timeout',
+    'oversize-script',
+    'bytes',
+    'length',
+    'speech',
+  ]) {
+    test(
+      '$defect after reservation never retries and retains known receipt',
+      () async {
+        var posts = 0;
+        var reservations = 0;
+        final provider = LiveProvider(
+          timeout: const Duration(milliseconds: 50),
+          client: MockClient((request) async {
+            if (request.method == 'GET') {
+              return http.Response(
+                jsonEncode(
+                  catalog(
+                    request.url.queryParameters['output_modalities'] ==
+                        'speech',
+                  ),
+                ),
+                200,
+              );
+            }
+            posts++;
+            if (defect == 'http') {
+              return http.Response('SECRET provider error', 429);
+            }
+            if (defect == 'timeout') return Completer<http.Response>().future;
+            if (defect == 'oversize-script') return chat('x' * 2001);
+            if (defect == 'bytes') return chat('😀' * 1001);
+            if (defect == 'length') return chat('truncated', 'length');
+            if (posts == 1) return chat();
+            return http.Response(
+              'SECRET provider error',
+              500,
+              headers: {'x-generation-id': 'gen-speech'},
+            );
+          }),
+        );
+        addTearDown(provider.close);
+        try {
+          await provider.generate(
+            key: 'test-key',
+            source: 'Facts',
+            reserveAttempt: () async {
+              reservations++;
+            },
+          );
+          fail('expected failure');
+        } on LiveProviderFailure catch (failure) {
+          expect(failure.outcomeUnknown, isTrue);
+          expect(failure.toString(), isNot(contains('SECRET')));
+          if (defect == 'speech') {
+            expect(failure.rewriteGenerationId, 'gen-rewrite');
+            expect(failure.speechGenerationId, 'gen-speech');
           }
-          posts++;
-          if (defect == 'http') return http.Response('SECRET provider error', 429);
-          if (defect == 'timeout') return Completer<http.Response>().future;
-          if (defect == 'oversize-script') return chat('x' * 2001);
-          if (defect == 'bytes') return chat('😀' * 1001);
-          if (defect == 'length') return chat('truncated', 'length');
-          if (posts == 1) return chat();
-          return http.Response('SECRET provider error', 500,
-            headers: {'x-generation-id': 'gen-speech'});
-        }));
-      addTearDown(provider.close);
-      try {
-        await provider.generate(key: 'test-key', source: 'Facts',
-          reserveAttempt: () async { reservations++; });
-        fail('expected failure');
-      } on LiveProviderFailure catch (failure) {
-        expect(failure.outcomeUnknown, isTrue);
-        expect(failure.toString(), isNot(contains('SECRET')));
-        if (defect == 'speech') {
-          expect(failure.rewriteGenerationId, 'gen-rewrite');
-          expect(failure.speechGenerationId, 'gen-speech');
         }
-      }
-      expect(posts, defect == 'speech' ? 2 : 1);
-      expect(reservations, 1);
-    });
+        expect(posts, defect == 'speech' ? 2 : 1);
+        expect(reservations, 1);
+      },
+    );
   }
 
   test('speech body timeout retains both receipts without retry', () async {
     var posts = 0;
     final body = StreamController<List<int>>();
-    final provider = LiveProvider(timeout: const Duration(milliseconds: 50),
+    final provider = LiveProvider(
+      timeout: const Duration(milliseconds: 50),
       client: _StreamingClient((request) async {
         if (request.method == 'GET') {
-          return http.StreamedResponse(Stream.value(utf8.encode(jsonEncode(
-            catalog(request.url.queryParameters['output_modalities'] == 'speech')))), 200);
+          return http.StreamedResponse(
+            Stream.value(
+              utf8.encode(
+                jsonEncode(
+                  catalog(
+                    request.url.queryParameters['output_modalities'] ==
+                        'speech',
+                  ),
+                ),
+              ),
+            ),
+            200,
+          );
         }
         posts++;
         if (posts == 1) {
           return http.StreamedResponse(Stream.value(chat().bodyBytes), 200);
         }
-        return http.StreamedResponse(body.stream, 200, headers: {
-          'content-type': 'audio/mpeg', 'x-generation-id': 'gen-speech'});
-      }));
+        return http.StreamedResponse(
+          body.stream,
+          200,
+          headers: {
+            'content-type': 'audio/mpeg',
+            'x-generation-id': 'gen-speech',
+          },
+        );
+      }),
+    );
     addTearDown(provider.close);
-    await expectLater(provider.generate(key: 'test-key', source: 'Facts',
-      reserveAttempt: () async {}), throwsA(isA<LiveProviderFailure>()
-        .having((e) => e.rewriteGenerationId, 'rewrite receipt', 'gen-rewrite')
-        .having((e) => e.speechGenerationId, 'speech receipt', 'gen-speech')));
+    await expectLater(
+      provider.generate(
+        key: 'test-key',
+        source: 'Facts',
+        reserveAttempt: () async {},
+      ),
+      throwsA(
+        isA<LiveProviderFailure>()
+            .having(
+              (e) => e.rewriteGenerationId,
+              'rewrite receipt',
+              'gen-rewrite',
+            )
+            .having(
+              (e) => e.speechGenerationId,
+              'speech receipt',
+              'gen-speech',
+            ),
+      ),
+    );
     expect(posts, 2);
     await body.close();
   });
 
   test('failed durable reservation prevents all paid calls', () async {
-    final provider = LiveProvider(client: MockClient((request) async {
-      expect(request.method, 'GET');
-      return http.Response(jsonEncode(catalog(request.url.queryParameters['output_modalities'] == 'speech')), 200);
-    }));
+    final provider = LiveProvider(
+      client: MockClient((request) async {
+        expect(request.method, 'GET');
+        return http.Response(
+          jsonEncode(
+            catalog(
+              request.url.queryParameters['output_modalities'] == 'speech',
+            ),
+          ),
+          200,
+        );
+      }),
+    );
     addTearDown(provider.close);
-    await expectLater(provider.generate(key: 'test-key', source: 'Facts',
-      reserveAttempt: () async => throw StateError('SECRET')),
-      throwsA(isA<LiveProviderFailure>().having((e) => e.outcomeUnknown, 'dispatch', false)));
+    await expectLater(
+      provider.generate(
+        key: 'test-key',
+        source: 'Facts',
+        reserveAttempt: () async => throw StateError('SECRET'),
+      ),
+      throwsA(
+        isA<LiveProviderFailure>().having(
+          (e) => e.outcomeUnknown,
+          'dispatch',
+          false,
+        ),
+      ),
+    );
   });
 }
 
@@ -168,5 +467,6 @@ class _StreamingClient extends http.BaseClient {
   _StreamingClient(this.respond);
   final Future<http.StreamedResponse> Function(http.BaseRequest) respond;
   @override
-  Future<http.StreamedResponse> send(http.BaseRequest request) => respond(request);
+  Future<http.StreamedResponse> send(http.BaseRequest request) =>
+      respond(request);
 }
