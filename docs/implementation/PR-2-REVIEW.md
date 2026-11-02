@@ -68,3 +68,24 @@ fixtures passed. Independent cross-review found no blocking issue in either code
 delta. One initial probe asserted before asynchronous abort notification; flushing
 that notification made the intended signal assertion deterministic. No live
 provider request, device update, deployment or merge was performed.
+
+## Native compilation receipt — 2026-11-02
+
+At code revision `dd7df26d56f6e9e95a47486bb52bd635b2ceda40`, CodeRabbit's check
+completed successfully and its latest summary reported no actionable comments.
+The prior three findings were corrected; this is not a merge or release approval.
+
+Ran `flutter build ios --debug --no-pub --no-codesign -t lib/preview_main.dart`
+under an owned build lease and a five-minute process deadline. Exit 0, total 98.7s,
+Xcode 69.8s. The resulting Runner is Mach-O arm64 with DTPlatformName `iphoneos`
+and bundle `run.prosody.prosody`. Git status remained clean after the build.
+This receipt commit changes documentation only; product code remains that revision.
+
+Compilation is now verified for the corrected preview code. The artifact was not
+signed or installed; it does not establish iPhone gestures, native playback,
+background behavior, production login, provider output, Nanos or TestFlight
+acceptance. No Keychain changes, provider calls or deployment occurred. The local
+build output is now unsigned; do not reuse it as an install-ready signed artifact.
+
+Capacity admission: interval idle 47.22/47.90%, normal pressure, zero swap churn,
+no thermal/performance warning. Original hooks and shared lease protocol retained.
