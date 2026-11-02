@@ -35,11 +35,10 @@ class _LiveBriefingScreenState extends State<LiveBriefingScreen> {
     try {
       final briefing = await widget.session.generate(_text.text);
       generated = true;
-      if (!mounted) {
-        return;
-      }
+      // The session and destination outlive this route. Leaving the editor
+      // must not discard audio from an already reserved provider request.
       await widget.onGenerated(briefing);
-      if (mounted) {
+      if (mounted && ModalRoute.of(context)?.isCurrent == true) {
         Navigator.of(context).pop();
       }
     } catch (_) {

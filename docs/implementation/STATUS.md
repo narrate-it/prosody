@@ -827,3 +827,23 @@ track releases. Independent review clear; 12 controls/preview tests passed and
 full Flutter analysis clean. Actual physical scrubbing and Laura generation still
 need user acceptance; these are not implied by widget tests or installation.
 Go lint/full unit tests also passed in the preserved commit-hook check.
+
+### 2026-11-01 — Preserve reserved generation across editor navigation
+
+Continued PR2's unblocked preview lifecycle work. A completed provider result was
+previously discarded if the editor had been disposed while generation ran. The
+screen now delivers the result to its existing destination callback regardless
+of editor lifetime. It only closes itself if still mounted and the current route,
+so completion cannot pop another screen. No request retry, budget refund, new
+scheduler or production authority was introduced.
+
+Two fake-provider widget tests passed for removed and covered editors, proving
+single delivery, retained reservation and unchanged unrelated navigation. Seven
+session/ledger tests also passed; Flutter analysis clean. The first widget harness
+used completers from Flutter's fake clock across runAsync and timed out; corrected
+the test to create real-async completers, then both cases passed. Independent
+source review found no blocking issue. No provider calls, deployment, rebuild or
+phone hot reload performed for this hourly task. Physical slider/Laura acceptance
+and the existing AMOS integration gates remain open; full RFC is not complete.
+Capacity admission: idle49.9/58.70%, normal pressure, swap0/0.096MiB/s, no thermal
+or performance warning. Scoped build lease held for checks and commit gates.
