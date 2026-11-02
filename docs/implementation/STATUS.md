@@ -930,3 +930,16 @@ Independent source review already cleared exact helper/test bytes after digest
 allocation bound and safe error corrections. No DB fixture, native route, service,
 provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range profile
 remain acceptance gates. Required hook stays enabled; full RFC incomplete.
+
+
+### 2026-11-01 — Resume recorder stimulus follow-up
+
+PR #1 merged at 6c7e12f with exact-tree verification; its final non-blocking
+review note requested stronger later-page unknown-resume capture coverage.
+This follow-up stimulates active playback at 400ms before completion and checks
+read/write counts. The saved-resume case is a positive control proving that the
+same stimulus reaches dispatch; unknown resume must retain one read/no writes.
+Source only: tests and analysis have not run. Capacity measurement timed out,
+so no build lease, heavy test or automatic admission retry was attempted.
+The user subsequently connected an iPhone; the owned Prosody simulator was shut
+down to reduce load. Physical-device signing/playback acceptance remains open.
