@@ -2,6 +2,10 @@ include: package:flutter_lints/flutter.yaml
 analyzer:
   errors:
     discarded_futures: warning
+  exclude:
+    - build/**
+    - android/**
+    - ios/**
 linter:
   rules:
     unawaited_futures: true
