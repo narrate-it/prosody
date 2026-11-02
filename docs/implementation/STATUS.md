@@ -950,3 +950,21 @@ source review found no blocker. Actual iPhone deletion/decoder/queue restoration
 remains an acceptance check; no phone update, paid calls or deployment performed.
 Capacity48.37/49.10% interval idle, normal pressure, zero swap churn, no thermal
 warning. Full RFC remains incomplete; retain owned reminder.
+
+### 2026-11-02 — Composed preview deletion verification
+
+Closed the earlier root-composition test gap with two widget journeys through
+ProsodyPreview, its personal Read/delete confirmation, real PreviewApi and actual
+temporary MP3/ledger files. A recording player substitutes only the native decoder.
+Success stops the selected clip before deletion, removes file/map/item and loads
+the remaining queue. Injected cleanup failure preserves media, restores the old
+queue, keeps the sheet with a safe error and permits one explicit successful retry.
+Both paths preserve the budget ledger byte-for-byte.
+
+Both new tests passed. Full analysis identified one test style issue, corrected;
+targeted analysis is clean. No product behavior change, provider call, phone update,
+deployment or native-device acceptance claimed. Existing generated recordings are
+not automatically purged after restart: ephemeral metadata alone is not evidence
+that a published clip is disposable. A recovery/retention design remains open.
+Capacity40.45/48.64% interval idle, normal pressure, zero swap churn and no thermal
+warning. Full RFC/AMOS/device/provider acceptance remains incomplete; keep reminder.

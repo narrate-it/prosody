@@ -808,3 +808,8 @@ preview delete UI. Explicit callback required; production/team action hidden.
 19 focused tests passed; analysis style fix verified; independent review clear.
 Physical iPhone delete/queue acceptance and restart orphan cleanup remain open.
 No spend, deployment or phone changes; full RFC not complete.
+
+2026-11-02 hourly: verified composed preview deletion through real root/widget/API
+and temporary filesystem;2 tests pass for success/failure+retry, queue restoration,
+stop-before-delete and unchangedbudget. Nativeplayer is fake, so iPhone acceptance
+stillopen. No paidcalls/deviceupdates or automatic purge of published recordings.
