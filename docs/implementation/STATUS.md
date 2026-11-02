@@ -1003,3 +1003,10 @@ arm64/iphoneos with expected bundle ID; working tree stayed clean. Receipt is in
 PR-2-REVIEW.md. No signing/install, phone update, provider call or deployment.
 Local build output is unsigned and must not be treated as install-ready.
 Actual device/provider/AMOS/Nanos/full RFC acceptance remains open; keep reminder.
+
+2026-11-02 hourly: full corrected-head Flutter regression suite passed, 114 tests
+at 254983b (product code dd7df26). CodeRabbit check succeeded on that head;
+summary has no actionable comments, with docstring-coverage warning retained.
+Receipt in PR-2-REVIEW.md. No phone update, paid calls or deployment. PR2 remains
+open; actual device/provider/AMOS/Nanos acceptance and full RFC remain incomplete.
+Keep the owned reminder.

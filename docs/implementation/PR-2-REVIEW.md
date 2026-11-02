@@ -89,3 +89,19 @@ build output is now unsigned; do not reuse it as an install-ready signed artifac
 
 Capacity admission: interval idle 47.22/47.90%, normal pressure, zero swap churn,
 no thermal/performance warning. Original hooks and shared lease protocol retained.
+
+## Full corrected-head Flutter regression receipt — 2026-11-02
+
+At `254983b099adcb6379dc46a4b63af985bed48f87` (product code unchanged from
+`dd7df26`), the complete Flutter suite passed: 114 tests, exit 0, 55 seconds
+reported test time. Command: `flutter test --no-pub --concurrency=2
+--reporter=expanded`, with a five-minute process deadline and owned build lease.
+This closes the aggregate-suite gap after the four new transport-abort tests;
+prior full-suite evidence covered 110 tests before those changes.
+
+CodeRabbit check on that exact head completed successfully at 16:13:13Z; its
+updated summary reports no actionable comments. Its docstring-coverage warning
+is still present; a successful check does not constitute release acceptance.
+Capacity: load 3.43/3.31/3.53, interval idle 35.31/41.60%, normal memory pressure,
+zero swap churn, no thermal/performance warning. No product changes, native
+installation, live provider calls, deployment or merge in this verification.
