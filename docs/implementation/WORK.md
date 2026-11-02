@@ -766,3 +766,20 @@ code changed. Merge held for review of the added coverage; no bypass or deployme
 Capacity load 4.29/4.51/4.47; interval idle 46.26/36.31%, normal pressure,
 zero swap churn and no thermal/performance warning. No paid calls or device
 changes. Full RFC remains incomplete; keep the owned reminder.
+
+### 2026-11-02 — Typed paid-provider outcomes (PR5)
+
+Isolated worktree prosody-provider-outcomes / feat/provider-attempt-outcomes.
+Added typed pre-dispatch/response-received/may-have-acted observations and safe
+errors through OpenRouter and briefing ports; IDs/known usage survive rejection,
+with unusable output cleared. Hermetic dropped/truncated/canceled/HTTP-failure
+checks exercise one call and no retry; preflight rejects without HTTP. Unknown
+states normalize conservatively. No lookup/dedup or native authority introduced.
+See PROVIDER-OUTCOMES.md for semantics, review corrections and fixture limits.
+Initial focused checks and full Go lint/unit hook passed; final affected checks
+and independent review follow the corrections. Capacity admitted at load
+8.60/8.07/7.75, interval idle23.88/40.35%, normal pressure, no swap churn or
+thermal warning. No paid calls/device changes/deployment; full RFC incomplete.
+AMOS operational ownership is now reconciled in its retained ledger; its staged
+held-issuance source is not a qualified worker/mobile interface. Keep adapter
+pinned and retain the hourly reminder.

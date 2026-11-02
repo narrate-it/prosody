@@ -30,20 +30,27 @@ type AttemptError struct {
 }
 
 func (e *AttemptError) Error() string {
-	return "provider attempt failed (" + string(e.Outcome.State) + ")"
+	return "provider attempt failed (" + string(normalizeState(e.Outcome.State)) + ")"
 }
 func (e *AttemptError) Unwrap() error { return e.cause }
 
 // FinishAttempt preserves a provider's typed observation. An untyped error after
 // a port handoff is conservatively unknown. This helper does not schedule work.
 func FinishAttempt(outcome AttemptOutcome, err error) (AttemptOutcome, error) {
+	outcome.State = normalizeState(outcome.State)
 	if err == nil {
 		return outcome, nil
 	}
 	var prior *AttemptError
 	if errors.As(err, &prior) {
-		outcome.State = prior.Outcome.State
+		outcome.State = normalizeState(prior.Outcome.State)
 		outcome.Status = prior.Outcome.Status
+		if outcome.PromptTokens == 0 {
+			outcome.PromptTokens = prior.Outcome.PromptTokens
+		}
+		if outcome.CompletionTokens == 0 {
+			outcome.CompletionTokens = prior.Outcome.CompletionTokens
+		}
 		if outcome.RequestID == "" {
 			outcome.RequestID = prior.Outcome.RequestID
 		}
@@ -52,4 +59,13 @@ func FinishAttempt(outcome AttemptOutcome, err error) (AttemptOutcome, error) {
 		}
 	}
 	return outcome, &AttemptError{Outcome: outcome, cause: err}
+}
+
+func normalizeState(state AttemptState) AttemptState {
+	switch state {
+	case NotDispatched, ResponseReceived, MayHaveActed:
+		return state
+	default:
+		return MayHaveActed
+	}
 }
