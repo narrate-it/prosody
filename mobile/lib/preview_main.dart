@@ -1,17 +1,27 @@
-// Explicit local demo entry point. Production main.dart never imports this.
+// Explicit debug preview entry point. Production main.dart never imports this.
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as developer;
+import 'dart:io';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart' as audio;
+import 'package:path_provider/path_provider.dart';
+
 import 'playback/handler.dart';
 import 'preview/preview_api.dart';
+import 'preview/live_provider.dart';
+import 'preview/live_session.dart';
+import 'preview/live_screen.dart';
 import 'ui/feed.dart';
 import 'ui/theme.dart';
 
-class _BundledAudio extends audio.AudioPlayer {
+class _PreviewAudio extends audio.AudioPlayer {
+  final Map<String, String> files;
+  _PreviewAudio(this.files);
   @override
   Future<Duration?> setUrl(
     String url, {
@@ -25,9 +35,18 @@ class _BundledAudio extends audio.AudioPlayer {
         'https://preview.invalid/$id.mp3': 'assets/preview/$id.mp3',
     };
     final asset = paths[url];
-    if (asset == null) throw StateError('Preview media must be bundled');
-    return setAsset(
-      asset,
+    if (asset != null) {
+      return setAsset(
+        asset,
+        initialPosition: initialPosition,
+        preload: preload,
+        tag: tag,
+      );
+    }
+    final file = files[url];
+    if (file == null) throw StateError('Preview media must be local');
+    return setFilePath(
+      file,
       initialPosition: initialPosition,
       preload: preload,
       tag: tag,
@@ -36,63 +55,171 @@ class _BundledAudio extends audio.AudioPlayer {
 }
 
 Future<void> main() async {
-  if (!kDebugMode) throw StateError('Offline preview is debug-only');
+  if (!kDebugMode) throw StateError('Preview is debug-only');
   WidgetsFlutterBinding.ensureInitialized();
-  final durations =
-      (jsonDecode(await rootBundle.loadString('assets/preview/durations.json'))
-              as Map<String, dynamic>)
-          .cast<String, int>();
+  final support = await getApplicationSupportDirectory();
+  final clips = Directory('${support.path}/prosody-preview-clips');
+  await clips.create(recursive: true);
+  final live = LiveSession(
+    ledger: File('${support.path}/prosody-live-budget.json'),
+  );
+  await live.initialize();
+  // Provision only via the authenticated, attached debug VM service. The key
+  // remains in memory; it is never an asset, build flag, preference or log value.
+  developer.registerExtension('ext.prosody.configureLivePreview', (
+    method,
+    args,
+  ) async {
+    try {
+      final key = args['key'];
+      if (key == null || args['sessionId'] != 'prosody-live-20261101-1') {
+        return developer.ServiceExtensionResponse.error(
+          -32602,
+          'Invalid preview configuration',
+        );
+      }
+      live.configure(key);
+      return developer.ServiceExtensionResponse.result(
+        jsonEncode({
+          'configured': live.configured,
+          'remainingAttempts': live.remainingAttempts,
+        }),
+      );
+    } catch (_) {
+      return developer.ServiceExtensionResponse.error(
+        -32602,
+        'Preview configuration unavailable',
+      );
+    }
+  });
+  final durations = (jsonDecode(
+    await rootBundle.loadString('assets/preview/durations.json'),
+  ) as Map<String, dynamic>).cast<String, int>();
+  final files = <String, String>{};
   final playback = await AudioService.init<ProsodyPlayback>(
-    builder: () => ProsodyPlayback(audioPlayer: _BundledAudio()),
+    builder: () => ProsodyPlayback(audioPlayer: _PreviewAudio(files)),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'run.prosody.preview.playback',
-      androidNotificationChannelName: 'Prosody offline preview',
+      androidNotificationChannelName: 'Prosody preview',
       androidNotificationOngoing: true,
     ),
   );
   await playback.configure();
   runApp(
-    OfflinePreview(
+    ProsodyPreview(
       playback: playback,
       api: PreviewApi(durationsMs: durations),
+      live: live,
+      clips: clips,
+      files: files,
     ),
   );
 }
 
-class OfflinePreview extends StatefulWidget {
+class ProsodyPreview extends StatefulWidget {
   final ProsodyPlayback playback;
   final PreviewApi api;
-  const OfflinePreview({super.key, required this.playback, required this.api});
+  final LiveSession live;
+  final Directory clips;
+  final Map<String, String> files;
+  const ProsodyPreview({
+    super.key,
+    required this.playback,
+    required this.api,
+    required this.live,
+    required this.clips,
+    required this.files,
+  });
   @override
-  State<OfflinePreview> createState() => _OfflinePreviewState();
+  State<ProsodyPreview> createState() => _ProsodyPreviewState();
 }
 
-class _OfflinePreviewState extends State<OfflinePreview> {
+class _ProsodyPreviewState extends State<ProsodyPreview> {
+  final _navigator = GlobalKey<NavigatorState>();
   bool _showFeed = true;
+  int _feedRevision = 0;
+  Future<void> _createBriefing() async {
+    await widget.playback.pause();
+    await _navigator.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => LiveBriefingScreen(
+          session: widget.live,
+          onGenerated: _publishLocal,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _publishLocal(LiveBriefing result) async {
+    if (result.mp3.isEmpty || result.mp3.length > 8 * 1024 * 1024) {
+      throw StateError('Generated audio is outside preview limits');
+    }
+    final id = 'live-${DateTime.now().microsecondsSinceEpoch}';
+    final file = File('${widget.clips.path}/$id.mp3');
+    final probe = audio.AudioPlayer();
+    var accepted = false;
+    try {
+      await file.writeAsBytes(result.mp3, flush: true);
+      final duration = await probe
+          .setFilePath(file.path)
+          .timeout(const Duration(seconds: 20));
+      if (duration == null ||
+          duration <= Duration.zero ||
+          duration > const Duration(minutes: 10)) {
+        throw StateError('Generated audio duration is outside preview limits');
+      }
+      if (!mounted) throw StateError('Preview closed');
+      await widget.playback.stop();
+      if (!mounted) throw StateError('Preview closed');
+      widget.api.addLiveBriefing(
+        id: id,
+        source: result.source,
+        script: result.script,
+        durationMs: duration.inMilliseconds,
+      );
+      widget.files['https://preview.invalid/$id.mp3'] = file.path;
+      accepted = true;
+      setState(() => _feedRevision++);
+    } finally {
+      await probe.dispose();
+      if (!accepted && await file.exists()) await file.delete();
+    }
+  }
+
   @override
   void dispose() {
     widget.api.close();
+    widget.live.dispose();
     unawaited(widget.playback.dispose());
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'Prosody offline preview',
+    navigatorKey: _navigator,
+    title: 'Prosody preview',
     debugShowCheckedModeBanner: false,
     theme: prosodyTheme(Brightness.light),
     darkTheme: prosodyTheme(Brightness.dark),
-    builder: (context, child) => Banner(
-      message: 'OFFLINE DEMO',
-      location: BannerLocation.topEnd,
-      color: blue,
-      child: child!,
+    builder: (context, child) => ListenableBuilder(
+      listenable: widget.live,
+      builder: (context, _) => Banner(
+        message: widget.live.configured ? 'LIVE PREVIEW' : 'OFFLINE DEMO',
+        location: BannerLocation.topEnd,
+        color: blue,
+        child: child!,
+      ),
     ),
     home: _showFeed
         ? FeedScreen(
+            key: ValueKey(_feedRevision),
             api: widget.api,
             playback: widget.playback,
-            onSignOut: () => setState(() => _showFeed = false),
+            onCreateBriefing: _createBriefing,
+            onSignOut: () {
+              widget.live.clearKey();
+              setState(() => _showFeed = false);
+            },
           )
         : Scaffold(
             body: SafeArea(
@@ -105,12 +232,12 @@ class _OfflinePreviewState extends State<OfflinePreview> {
                     const ProsodyMark(size: 80),
                     const SizedBox(height: 24),
                     const Text(
-                      'Try Prosody with sample briefings. No account is needed. Changes last only for this preview session.',
+                      'Sample briefings stay local. Live generation requires an explicitly configured test session. Progress is local to this preview.',
                     ),
                     const SizedBox(height: 24),
                     FilledButton(
                       onPressed: () => setState(() => _showFeed = true),
-                      child: const Text('Open sample feed'),
+                      child: const Text('Open preview feed'),
                     ),
                   ],
                 ),

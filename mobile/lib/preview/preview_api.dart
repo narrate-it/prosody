@@ -1,15 +1,14 @@
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import '../data/api.dart';
 
 // Bundled recordings only. This fixture never synthesizes audio at runtime.
 const previewNarrationScripts = <String, String>{
-  'welcome':
-      'Welcome to Prosody. This is your private inbox for updates from your agents. A long message becomes a short spoken briefing, so you can catch up while doing something else. Swipe up to hear the next item, or open Read to compare the briefing with its original text. This preview stays on your device.',
-  'design':
-      'The studio\'s design update is ready. We are keeping the experience simple: one briefing at a time, clear playback controls, and a quiet blue waveform when there is nothing to watch. Team members share the same feed, while each person keeps their own listening progress. You can switch back to your personal inbox from the space selector above.',
-  'next':
-      'You are all caught up with the sample updates. Try pausing, seeking, or marking this briefing as read. The activity view shows what has arrived, and the settings screen shows where model and voice choices will live. These recordings are bundled samples. No agent connection, provider request, or account is needed for this preview.',
+  'welcome': 'Welcome to Prosody. This is your private inbox for updates from your agents. A long message becomes a short spoken briefing, so you can catch up while doing something else. Swipe up to hear the next item, or open Read to compare the briefing with its original text. This preview stays on your device.',
+  'design': 'The studio\'s design update is ready. We are keeping the experience simple: one briefing at a time, clear playback controls, and a quiet blue waveform when there is nothing to watch. Team members share the same feed, while each person keeps their own listening progress. You can switch back to your personal inbox from the space selector above.',
+  'next': 'You are all caught up with the sample updates. Try pausing, seeking, or marking this briefing as read. The activity view shows what has arrived, and the settings screen shows where model and voice choices will live. These recordings are bundled samples. No agent connection, provider request, or account is needed for this preview.',
 };
 
 class _PreviewSession implements AccessSession {
@@ -30,7 +29,7 @@ class _NoNetworkClient extends http.BaseClient {
 // import it. All state disappears with this instance; there is no persistence,
 // auth fallback, provider connection or credential storage.
 class PreviewApi extends ProsodyApi {
-  static const _feedItems = <String, List<String>>{
+  final _feedItems = <String, List<String>>{
     'personal': ['welcome', 'next'],
     'studio': ['design'],
   };
@@ -40,12 +39,9 @@ class PreviewApi extends ProsodyApi {
     'next': 'Make yourself at home',
   };
   static const _sources = {
-    'welcome':
-        'Product notes: give each person a private inbox for agent updates. Condense long text into a spoken briefing. Keep the original available in Read. Use an upward swipe to move to the next item. This is a local preview using bundled samples.',
-    'design':
-        'Studio notes: use one full-screen briefing at a time. Keep playback controls clear and the blue waveform restrained. A team shares its feed, but reading and listening progress belong to each person. The space selector should make switching to a personal inbox straightforward.',
-    'next':
-        'Preview checklist: try pause, seek, next, Read, mark as read, Activity, and the space selector. Settings are read-only in this build. Recordings are bundled on the device. No agents, accounts or paid providers are connected. Preview changes are held in memory only.',
+    'welcome': 'Product notes: give each person a private inbox for agent updates. Condense long text into a spoken briefing. Keep the original available in Read. Use an upward swipe to move to the next item. This is a local preview using bundled samples.',
+    'design': 'Studio notes: use one full-screen briefing at a time. Keep playback controls clear and the blue waveform restrained. A team shares its feed, but reading and listening progress belong to each person. The space selector should make switching to a personal inbox straightforward.',
+    'next': 'Preview checklist: try pause, seek, next, Read, mark as read, Activity, and the space selector. Settings are read-only in this build. Recordings are bundled on the device. No agents, accounts or paid providers are connected. Preview changes are held in memory only.',
   };
   final Map<String, Map<String, dynamic>> _items = {};
   final Map<String, Map<String, dynamic>> _progress = {};
@@ -100,6 +96,54 @@ class PreviewApi extends ProsodyApi {
         ],
       };
     }
+  }
+
+  void addLiveBriefing({
+    required String id,
+    required String source,
+    required String script,
+    required int durationMs,
+  }) {
+    if (_closed ||
+        !RegExp(r'^live-[0-9]+$').hasMatch(id) ||
+        _items.containsKey(id) ||
+        durationMs <= 0 ||
+        durationMs > 600000 ||
+        source.isEmpty ||
+        script.isEmpty) {
+      throw ArgumentError('Invalid local live briefing');
+    }
+    _items[id] = {
+      'id': id,
+      'renditionId': '$id-v1',
+      'title': 'Your live briefing',
+      'agent': 'OpenRouter · Laura',
+      'status': 'ready',
+      'source': source,
+      'script': script,
+      'segments': [
+        {
+          'id': '$id-audio',
+          'kind': 'narration',
+          'durationMs': durationMs,
+          'url': 'https://preview.invalid/$id.mp3',
+        },
+      ],
+    };
+    _progress[id] = {
+      'revision': 0,
+      'positionSegment': 0,
+      'positionMs': 0,
+      'markedRead': false,
+      'segments': [
+        {
+          'durationMs': durationMs,
+          'coverage': <Map<String, int>>[],
+          'viewed': false,
+        },
+      ],
+    };
+    _feedItems['personal']!.insert(0, id);
   }
 
   Map<String, dynamic> _copy(Map<String, dynamic> value) =>
@@ -187,17 +231,16 @@ class PreviewApi extends ProsodyApi {
         if (kind == 'items') return _copy(_items[id]!);
         return <String, dynamic>{
           'id': id,
-          'title': _titles[id],
-          'source': _sources[id],
+          'title': _items[id]!['title'],
+          'source': _items[id]!['source'],
           'status': 'ready',
           'acceptedAt': '2026-11-01T12:00:00Z',
         };
       }).toList();
       return {'items': entries, 'nextCursor': null};
     }
-    final progressRoute = RegExp(
-      r'^/prosody/v1/items/(welcome|design|next)/progress$',
-    ).firstMatch(path);
+    final progressRoute = RegExp(r'^/prosody/v1/items/([a-z0-9-]+)/progress$')
+        .firstMatch(path);
     if (progressRoute != null && _items.containsKey(progressRoute[1])) {
       final id = progressRoute[1]!;
       if (method == 'GET') {
@@ -212,9 +255,8 @@ class PreviewApi extends ProsodyApi {
         return _updateProgress(id, body);
       }
     }
-    final deletion = RegExp(
-      r'^/prosody/v1/items/(welcome|design|next)$',
-    ).firstMatch(path);
+    final deletion = RegExp(r'^/prosody/v1/items/([a-z0-9-]+)$')
+        .firstMatch(path);
     if (method == 'DELETE' && deletion != null) {
       _query(query);
       _items.remove(deletion[1]);

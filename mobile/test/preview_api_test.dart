@@ -9,6 +9,47 @@ Matcher _status(int status) =>
 
 void main() {
   test(
+    'generated briefing enters personal feed with writable local progress',
+    () async {
+      final api = PreviewApi(durationsMs: _durations);
+      addTearDown(api.close);
+      api.addLiveBriefing(
+        id: 'live-123',
+        source: 'Source update',
+        script: 'Spoken update',
+        durationMs: 22000,
+      );
+      final item = (await api.items('personal')).items.first;
+      expect(item.id, 'live-123');
+      expect(item.source, 'Source update');
+      expect(item.script, 'Spoken update');
+      expect(item.duration.inMilliseconds, 22000);
+      expect(
+        item.segments.single.media.toString(),
+        'https://preview.invalid/live-123.mp3',
+      );
+      await api.updateProgress(item.id, {
+        'renditionId': item.renditionId,
+        'expectedRevision': 0,
+        'segment': 0,
+        'positionMs': 12000,
+        'played': [],
+        'viewed': false,
+      });
+      expect(
+        SavedProgress.fromJson(
+          await api.progress(item.id, item.renditionId),
+          item,
+        ).positionMs,
+        12000,
+      );
+      expect((await api.items('studio')).items.single.id, 'design');
+      await api.deleteItem(item.id);
+      expect((await api.items('personal')).items.first.id, 'welcome');
+    },
+  );
+
+  test(
     'fixture feeds decode with isolated contents and bundled media IDs',
     () async {
       final api = PreviewApi(durationsMs: _durations);

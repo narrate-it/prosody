@@ -125,3 +125,51 @@ func TestModelCatalogRetainsNullableTokenLimits(t *testing.T) {
 		t.Fatal("unknown completion bound admitted")
 	}
 }
+
+func TestSpeechCatalogQueryAndDefaultCatalogIsolation(t *testing.T) {
+	for _, speech := range []bool{false, true} {
+		name := "default catalog"
+		if speech {
+			name = "speech catalog"
+		}
+		t.Run(name, func(t *testing.T) {
+			calls := 0
+			client := New()
+			client.http.Transport = receiptTransport(func(request *http.Request) (*http.Response, error) {
+				calls++
+				if request.Method != http.MethodGet || request.URL.Path != "/api/v1/models" || request.Header.Get("Authorization") != "Bearer synthetic" {
+					t.Fatal("unexpected catalog route or credential binding")
+				}
+				wantQuery := ""
+				if speech {
+					wantQuery = "output_modalities=speech"
+				}
+				if request.URL.RawQuery != wantQuery {
+					t.Fatalf("query=%q want=%q", request.URL.RawQuery, wantQuery)
+				}
+				body := `{"data":[{"id":"catalog-text","architecture":{"input_modalities":["text"],"output_modalities":["text"]}}]}`
+				if speech {
+					body = `{"data":[{"id":"catalog-tts","supported_voices":["voice-from-provider"],"architecture":{"input_modalities":["text"],"output_modalities":["speech"]}}]}`
+				}
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
+			})
+			var models []Model
+			var err error
+			if speech {
+				models, err = client.SpeechModels(context.Background(), "synthetic")
+			} else {
+				models, err = client.Models(context.Background(), "synthetic")
+			}
+			if err != nil || calls != 1 || len(models) != 1 {
+				t.Fatalf("catalog calls=%d models=%d err=%v", calls, len(models), err)
+			}
+			if speech {
+				if models[0].ID != "catalog-tts" || len(models[0].Voices) != 1 || models[0].Voices[0] != "voice-from-provider" || len(models[0].Architecture.Output) != 1 || models[0].Architecture.Output[0] != "speech" {
+					t.Fatal("speech model metadata was lost or replaced")
+				}
+			} else if models[0].ID != "catalog-text" || len(models[0].Voices) != 0 {
+				t.Fatal("default catalog behavior changed")
+			}
+		})
+	}
+}

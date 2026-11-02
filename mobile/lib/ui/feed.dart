@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+
 import '../data/api.dart';
 import '../data/models.dart';
 import '../data/pagination.dart';
@@ -13,15 +15,19 @@ import 'activity.dart';
 import 'settings.dart';
 import 'theme.dart';
 
+enum _SpaceAction { activity, settings, create }
+
 class FeedScreen extends StatefulWidget {
   final ProsodyApi api;
   final ProsodyPlayback playback;
   final VoidCallback onSignOut;
+  final Future<void> Function()? onCreateBriefing;
   const FeedScreen({
     super.key,
     required this.api,
     required this.playback,
     required this.onSignOut,
+    this.onCreateBriefing,
   });
   @override
   State<FeedScreen> createState() => _FeedScreenState();
@@ -47,6 +53,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   String? _error, _cursor;
   FeedPagination _pagination = FeedPagination();
   bool _loading = true, _more = false;
+  bool _signingOut = false;
   int _loadRevision = 0;
   final _pages = PageController(keepPage: false);
   @override
@@ -69,9 +76,10 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _load() async {
+    final revision = _loadRevision;
     try {
       final feeds = await widget.api.feeds();
-      if (!mounted) return;
+      if (!mounted || revision != _loadRevision || _signingOut) return;
       setState(() => _feeds = feeds);
       if (feeds.isEmpty) {
         setState(() => _loading = false);
@@ -79,7 +87,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       }
       await _select(feeds.first);
     } catch (e) {
-      if (mounted) {
+      if (mounted && revision == _loadRevision && !_signingOut) {
         setState(() {
           _loading = false;
           _error = e is ApiFailure ? e.message : 'Could not load your inbox.';
@@ -89,7 +97,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _select(Feed feed) async {
-    if (!mounted) return;
+    if (!mounted || _signingOut) return;
     final revision = ++_loadRevision;
     // stop emits a location change. Block old-page callbacks before awaiting it
     // so they cannot borrow this new revision with the previous destination.
@@ -204,7 +212,8 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _spaces() async {
-    final selected = await showModalBottomSheet<Feed>(
+    _routeVisibility(false);
+    final selected = await showModalBottomSheet<Object>(
       context: context,
       showDragHandle: true,
       builder: (context) => SafeArea(
@@ -230,11 +239,80 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                 trailing: feed.id == _feed?.id ? const Icon(Icons.check) : null,
                 onTap: () => Navigator.pop(context, feed),
               ),
+            if (_feed != null) ...[
+              const Divider(),
+              if (widget.onCreateBriefing != null)
+                ListTile(
+                  leading: const Icon(Icons.edit_note),
+                  title: const Text('Create live briefing'),
+                  onTap: () => Navigator.pop(context, _SpaceAction.create),
+                ),
+              ListTile(
+                leading: const Icon(Icons.inbox_outlined),
+                title: const Text('Briefing activity'),
+                onTap: () => Navigator.pop(context, _SpaceAction.activity),
+              ),
+              ListTile(
+                leading: const Icon(Icons.tune),
+                title: const Text('Space settings'),
+                onTap: () => Navigator.pop(context, _SpaceAction.settings),
+              ),
+            ],
           ],
         ),
       ),
     );
-    if (selected != null && selected.id != _feed?.id) await _select(selected);
+    if (!mounted) return;
+    _routeVisibility(true);
+    if (selected is Feed && selected.id != _feed?.id) {
+      await _select(selected);
+    } else if (selected is _SpaceAction && _feed != null) {
+      final feed = _feed!;
+      _routeVisibility(false);
+      try {
+        if (selected == _SpaceAction.create) {
+          await widget.onCreateBriefing?.call();
+          return;
+        }
+        await Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => selected == _SpaceAction.activity
+                ? ActivityScreen(api: widget.api, feed: feed)
+                : SettingsScreen(api: widget.api, feed: feed),
+          ),
+        );
+      } finally {
+        if (mounted) _routeVisibility(true);
+      }
+    }
+  }
+
+  Future<void> _signOut() async {
+    if (_signingOut) return;
+    ++_loadRevision;
+    setState(() {
+      _signingOut = true;
+      _loading = true;
+    });
+    try {
+      await widget.playback.stop();
+      await widget.api.session.signOut();
+      if (mounted) widget.onSignOut();
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _items = [];
+          _error = 'Could not sign out. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _signingOut = false;
+          _loading = false;
+        });
+      }
+    }
   }
 
   Future<void> _markRead(Briefing item) async {
@@ -249,9 +327,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            error is ApiFailure
-                ? error.message
-                : 'Read status could not be confirmed. Refresh before trying again.',
+            error is ApiFailure ? error.message : 'Read status could not be confirmed. Refresh before trying again.',
           ),
         ),
       );
@@ -321,60 +397,34 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      leading: const Padding(padding: EdgeInsets.all(12), child: ProsodyMark()),
-      title: TextButton.icon(
-        onPressed: _spaces,
-        icon: const Icon(Icons.expand_more),
-        label: Text(_feed?.name ?? 'Your inbox'),
+      automaticallyImplyLeading: false,
+      centerTitle: false,
+      titleSpacing: 20,
+      title: TextButton(
+        onPressed: _signingOut ? null : _spaces,
+        style: TextButton.styleFrom(
+          foregroundColor: Theme.of(context).colorScheme.onSurface,
+          textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                _feed?.name ?? 'Your inbox',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.expand_more, size: 20),
+          ],
+        ),
       ),
       actions: [
         IconButton(
-          tooltip: 'Briefing activity',
-          onPressed: _feed == null
-              ? null
-              : () async {
-                  final feed = _feed!;
-                  _routeVisibility(false);
-                  try {
-                    await Navigator.of(context).push<void>(
-                      MaterialPageRoute<void>(
-                        builder: (_) =>
-                            ActivityScreen(api: widget.api, feed: feed),
-                      ),
-                    );
-                  } finally {
-                    if (mounted) _routeVisibility(true);
-                  }
-                },
-          icon: const Icon(Icons.inbox_outlined),
-        ),
-        IconButton(
-          tooltip: 'Space settings',
-          onPressed: _feed == null
-              ? null
-              : () async {
-                  _routeVisibility(false);
-                  await Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) =>
-                          SettingsScreen(api: widget.api, feed: _feed!),
-                    ),
-                  );
-                  if (mounted) _routeVisibility(true);
-                },
-          icon: const Icon(Icons.tune),
-        ),
-        PopupMenuButton<String>(
-          onSelected: (value) async {
-            if (value == 'logout') {
-              await widget.playback.stop();
-              await widget.api.session.signOut();
-              widget.onSignOut();
-            }
-          },
-          itemBuilder: (_) => [
-            const PopupMenuItem(value: 'logout', child: Text('Sign out')),
-          ],
+          tooltip: 'Sign out',
+          onPressed: _signingOut ? null : _signOut,
+          icon: const Icon(Icons.logout_rounded),
         ),
       ],
     ),
@@ -560,14 +610,10 @@ class _BriefingCard extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      tooltip: 'Back 15 seconds',
+                      tooltip: 'Back 10 seconds',
                       icon: const Icon(Icons.replay_10),
                       onPressed: active
-                          ? () => unawaited(
-                              handler.seekSegment(
-                                handler.position - const Duration(seconds: 15),
-                              ),
-                            )
+                          ? () => _skip(const Duration(seconds: -10))
                           : null,
                     ),
                     const SizedBox(width: 24),
@@ -589,14 +635,10 @@ class _BriefingCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 24),
                     IconButton(
-                      tooltip: 'Forward 15 seconds',
+                      tooltip: 'Forward 10 seconds',
                       icon: const Icon(Icons.forward_10),
                       onPressed: active
-                          ? () => unawaited(
-                              handler.seekSegment(
-                                handler.position + const Duration(seconds: 15),
-                              ),
-                            )
+                          ? () => _skip(const Duration(seconds: 10))
                           : null,
                     ),
                   ],
@@ -622,6 +664,14 @@ class _BriefingCard extends StatelessWidget {
       ),
     ),
   );
+  void _skip(Duration delta) {
+    final milliseconds = (handler.position + delta).inMilliseconds.clamp(
+      0,
+      handler.duration.inMilliseconds,
+    );
+    unawaited(handler.seekSegment(Duration(milliseconds: milliseconds)));
+  }
+
   String _time(Duration d) =>
       '${d.inMinutes}:${(d.inSeconds % 60).toString().padLeft(2, '0')}';
 }
