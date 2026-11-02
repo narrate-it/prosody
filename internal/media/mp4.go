@@ -265,6 +265,15 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 		if entry.kind != "mp4a" || entry.end-entry.body < 28 {
 			return "", 0, 0, ErrInvalid
 		}
+		config, err := atoms(r, entry.body+28, entry.end, budget)
+		if err != nil {
+			return "", 0, 0, err
+		}
+		for _, a := range config {
+			if a.kind == "sinf" {
+				return "", 0, 0, ErrInvalid
+			}
+		}
 		return kind, 0, 0, nil
 	}
 	if entry.kind != "avc1" || entry.end-entry.body < 78 {
@@ -284,7 +293,13 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 	}
 	avc := false
 	for _, a := range config {
-		if a.kind == "avcC" && a.end-a.body >= 7 {
+		if a.kind == "sinf" {
+			return "", 0, 0, ErrInvalid
+		}
+		if a.kind == "avcC" {
+			if avc || a.end-a.body < 7 {
+				return "", 0, 0, ErrInvalid
+			}
 			avc = true
 		}
 	}
