@@ -5,26 +5,38 @@ import 'models.dart';
 
 // Resume position is optional; current authority is not. A failed or expired
 // access check must still prevent selecting a previously fetched feed page.
-Future<SavedProgress?> optionalResume(ProsodyApi api, Briefing item) async {
+class ResumeLookup {
+  final SavedProgress? saved;
+  final bool unknown;
+  const ResumeLookup.saved(SavedProgress progress)
+    : saved = progress,
+      unknown = false;
+  const ResumeLookup.absent() : saved = null, unknown = false;
+  const ResumeLookup.unknown() : saved = null, unknown = true;
+}
+
+Future<ResumeLookup> optionalResume(ProsodyApi api, Briefing item) async {
   try {
-    return SavedProgress.fromJson(
-      await api.progress(item.id, item.renditionId),
-      item,
+    return ResumeLookup.saved(
+      SavedProgress.fromJson(
+        await api.progress(item.id, item.renditionId),
+        item,
+      ),
     );
   } on ApiFailure catch (error) {
+    if (error.status == 404) return const ResumeLookup.absent();
     if (error.status == 0 ||
-        error.status == 404 ||
         error.status == 408 ||
         error.status == 429 ||
         error.status >= 500) {
-      return null;
+      return const ResumeLookup.unknown();
     }
     rethrow;
   } on FormatException {
-    return null;
+    return const ResumeLookup.unknown();
   } on TimeoutException {
-    return null;
+    return const ResumeLookup.unknown();
   } on http.ClientException {
-    return null;
+    return const ResumeLookup.unknown();
   }
 }

@@ -18,10 +18,11 @@ func TestRewriteSeparatesSourceAndRejectsTruncation(t *testing.T) {
 			t.Error("request binding")
 		}
 		var p struct {
-			Messages []map[string]string `json:"messages"`
-			Model    string              `json:"model"`
+			Messages  []map[string]string `json:"messages"`
+			Model     string              `json:"model"`
+			MaxTokens int                 `json:"max_tokens"`
 		}
-		if json.NewDecoder(r.Body).Decode(&p) != nil || len(p.Messages) != 2 || p.Messages[0]["role"] != "system" || p.Messages[1]["content"] != "untrusted source" || p.Model != "selected" {
+		if json.NewDecoder(r.Body).Decode(&p) != nil || len(p.Messages) != 2 || p.Messages[0]["role"] != "system" || p.Messages[1]["content"] != "untrusted source" || p.Model != "selected" || p.MaxTokens != 400 {
 			t.Error("source/instruction boundary")
 		}
 		w.Header().Set("X-Request-Id", "request")
@@ -96,5 +97,31 @@ func TestNoRedirectOrPaidRetry(t *testing.T) {
 	_, err := c.Speech(context.Background(), "synthetic", "model", "voice", "script")
 	if err == nil || calls != 1 || strings.Contains(err.Error(), "sensitive-provider-body") {
 		t.Fatal("redirect, retry or error disclosure")
+	}
+}
+
+func TestModelCatalogRetainsNullableTokenLimits(t *testing.T) {
+	calls := 0
+	c := New()
+	c.http.Transport = receiptTransport(func(request *http.Request) (*http.Response, error) {
+		calls++
+		if request.Method != http.MethodGet || request.URL.Path != "/api/v1/models" {
+			t.Fatal("unexpected catalog request")
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(`{"data":[{"id":"bounded","context_length":8192,"top_provider":{"context_length":8192,"max_completion_tokens":4096},"supported_parameters":["max_tokens"],"architecture":{"input_modalities":["text"],"output_modalities":["text"]}},{"id":"unknown","context_length":8192,"top_provider":{"context_length":8192,"max_completion_tokens":null}}]}`))}, nil
+	})
+	models, err := c.Models(context.Background(), "synthetic")
+	if err != nil || calls != 1 || len(models) != 2 {
+		t.Fatalf("catalog result: %v", err)
+	}
+	if models[0].TopProvider.MaxCompletionTokens == nil || *models[0].TopProvider.MaxCompletionTokens != 4096 || models[1].TopProvider.MaxCompletionTokens != nil {
+		t.Fatal("completion limits lost or unknown limit defaulted")
+	}
+	cap, err := models[0].RewriteTokenLimit(7000, 8192)
+	if err != nil || cap != 1192 {
+		t.Fatalf("remaining context cap=%d err=%v", cap, err)
+	}
+	if _, err := models[1].RewriteTokenLimit(100, 8192); err == nil {
+		t.Fatal("unknown completion bound admitted")
 	}
 }

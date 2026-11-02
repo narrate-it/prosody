@@ -49,6 +49,26 @@ class ProgressRecorder {
   }
 
   bool _visible = true, _viewed = false, _sending = false, _closed = false;
+  bool _unknownResume = false;
+  static const _unknownResumeMessage =
+      'Your saved place could not be loaded. Playback can continue, but progress syncing is paused.';
+
+  // Called before installing a queue whose initial resume read has completed.
+  // Unknown is not an authoritative zero: even visible images must not cause
+  // the fallback position to overwrite an existing server position.
+  void setResumeWriteGate({required bool resumeKnown}) {
+    _unknownResume = !resumeKnown;
+    if (_unknownResume) {
+      failure.value = _unknownResumeMessage;
+    } else if (failure.value == _unknownResumeMessage) {
+      failure.value = null;
+    }
+    _sampler.take();
+    _sampler.discontinuity();
+    _viewed = false;
+    _resumePosition.reset();
+  }
+
   ProgressRecorder(this.api, this.handler) {
     handler.location.addListener(_changed);
     handler.discontinuity.addListener(_reset);
@@ -98,7 +118,7 @@ class ProgressRecorder {
   }
 
   void _complete() {
-    if (_item == null) return;
+    if (_item == null || _unknownResume) return;
     _observePosition(handler.duration.inMilliseconds);
     _sampler.sample(
       positionMs: _position,
@@ -157,7 +177,8 @@ class ProgressRecorder {
   void _capture() {
     final item = _item;
     final intervals = _sampler.take();
-    if (item == null ||
+    if (_unknownResume ||
+        item == null ||
         (intervals.isEmpty && !_viewed && !_resumePosition.dirty)) {
       return;
     }
@@ -178,6 +199,7 @@ class ProgressRecorder {
     _sending = true;
     try {
       while (_pending.isNotEmpty) {
+        if (_unknownResume || failure.value != null) return;
         final update = _pending.first;
         final identity = '${update.item.id}/${update.item.renditionId}';
         if (!_revisions.containsKey(identity)) {
@@ -190,6 +212,7 @@ class ProgressRecorder {
             update.item,
           ).revision;
         }
+        if (_unknownResume || failure.value != null) return;
         final progress = await api.updateProgress(update.item.id, {
           'renditionId': update.item.renditionId,
           'expectedRevision': _revisions[identity],
@@ -220,6 +243,10 @@ class ProgressRecorder {
   // On conflict the user opts into restoring this device's position.
   Future<void> resumeSync() async {
     if (_sending || _closed) return;
+    _unknownResume = false;
+    _sampler.take();
+    _viewed = false;
+    _resumePosition.reset();
     _revisions.clear();
     failure.value = null;
     _sampler.discontinuity();

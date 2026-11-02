@@ -706,3 +706,41 @@ vendor-only .gitattributes rule so baseline hashes remain meaningful; authored
 files continue to pass whitespace checks. No Android compilation/device evidence
 is claimed. Original hook remains enabled; final code commit runs the corrected
 package-aware lint/test hook, with no gate skipped.
+
+
+### 2026-11-01 — Second CodeRabbit follow-up: bounded models and unknown resume
+
+Accepted findings 4438319330 and 4438319339 against 7e4f511. Rewrite now takes
+current selected model metadata plus an explicitly admitted completion budget and
+trusted full-prompt token counter. The cap is the minimum of admitted budget,
+provider completion limit, and remaining context. Missing/null limits, unsupported
+max_tokens, invalid counts or counter failure prevent provider dispatch. There is
+no generic tokenizer estimate, model substitution or paid counting request.
+The host must qualify current provider-route metadata, complete message/framing
+accounting and financial admission; catalog metadata alone does not qualify all
+routes or guarantee reasoning/multilingual completion.
+
+Resume lookup now distinguishes saved, genuinely absent (404), and unknown state.
+Unknown state permits playback but blocks recorder capture and mutations until a
+known reload or explicit Use this device's position action. The latter clears
+unrecorded fallback observations and requires a current revision read before a
+future write. Independent cross-review closed both source findings. Go targeted
+budget/catalog/configuration tests passed; 20 targeted Flutter tests passed,
+including recorder-level preservation and explicit-override regressions.
+
+An existing integration gap remains explicit: recorder revision lookup treats
+404 as a sync failure rather than constructing revision zero. The composed human
+progress API must define initial progress semantics; this does not bypass the
+unknown-resume or authorization protections. No real provider or service/device
+acceptance claimed. Further final checks and exact PR receipt precede merge.
+Fresh admission passed at 39.81/51.41% interval idle, normal pressure, zero swap
+churn and no thermal/performance warning; bounded checks hold an owned lease.
+
+
+Final verification for the second follow-up: all 50 Flutter tests passed and
+Flutter analysis is clean. Targeted Go budget/catalog/configuration tests, root
+Go lint and the real PostgreSQL suite passed. The final commit additionally runs
+root lint/full Go tests through the package-aware hook. Independent reviewers
+cross-checked the other domain's changes and reported no remaining concrete
+blocker for these findings. Platform/provider/AMOS runtime gates remain open;
+this is source validation for the initial implementation PR, not full acceptance.
