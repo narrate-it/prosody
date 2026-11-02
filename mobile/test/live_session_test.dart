@@ -204,6 +204,75 @@ void main() {
     },
   );
 
+  test('reconfiguration before initialization continuation cannot adopt an old action', () async {
+    final client = _Provider();
+    final value = session(client);
+    await value.initialize();
+    value.configure('synthetic-key');
+    final pending = value.generate('Old action');
+    final rejected = expectLater(pending, throwsA(isA<LiveSessionFailure>()));
+    value.clearKey();
+    value.configure('synthetic-key');
+    await rejected;
+    expect(client.calls, 0);
+    expect(value.remainingAttempts, 4);
+  });
+
+  test('completed result remains bound to its issuing configuration', () async {
+    final value = session(_Provider());
+    await value.initialize();
+    value.configure('synthetic-key');
+    final result = await value.generate('Old source');
+    expect(value.canPublishResult(result), isTrue);
+    value.clearKey();
+    value.configure('synthetic-key');
+    expect(value.canPublishResult(result), isFalse);
+    final fresh = await value.generate('New source');
+    expect(value.canPublishResult(fresh), isTrue);
+    expect(value.canPublishResult(result), isFalse);
+    expect(value.remainingAttempts, 2);
+  });
+
+  for (final reconfigure in [false, true]) {
+    test(
+      'sign-out rejects delayed result even with same-key reconfiguration: $reconfigure',
+      () async {
+        final client = _Provider()..hold = Completer<void>();
+        final reserved = Completer<void>();
+        client.afterReservation = () async => reserved.complete();
+        final value = session(client);
+        await value.initialize();
+        value.configure('synthetic-key');
+        final revision = value.configurationRevision;
+        final pending = value.generate('Source');
+        final rejected = expectLater(
+          pending,
+          throwsA(isA<LiveSessionFailure>()),
+        );
+        await reserved.future;
+        value.clearKey();
+        if (reconfigure) value.configure('synthetic-key');
+        expect(value.isConfigurationCurrent(revision), isFalse);
+        client.hold!.complete();
+        await rejected;
+        expect(client.calls, 1);
+        expect(client.dispatched, 1);
+        expect(value.remainingAttempts, 3);
+        expect(value.busy, isFalse);
+        expect(value.configured, reconfigure);
+        if (reconfigure) {
+          expect(
+            value.isConfigurationCurrent(value.configurationRevision),
+            isTrue,
+          );
+          client.afterReservation = null;
+          await value.generate('New session source');
+          expect(value.remainingAttempts, 2);
+        }
+      },
+    );
+  }
+
   test('invalid source or absent key cannot reserve; clearing key preserves budget', () async {
     final client = _Provider();
     final value = session(client);

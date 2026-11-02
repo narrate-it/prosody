@@ -777,3 +777,10 @@ Go previously used Narrate conversational, preview had minimal instructions.
 17 mocked provider tests +Go briefing tests passed; independent review clear.
 Factual/source/budget limits retained. Audio warmth still needs listening; no paid
 request was made. See narration-craft.md for editorial guidance and limits.
+
+2026-11-02 hourly: prevented preview generation/result from surviving sign-out or
+same-key reconfiguration. Result-bound configuration checks also cover decoder
+and playback-stop awaits. Review exposed two handoff races, fixed with tests.
+13 targeted tests +analysis passed. No paid calls or device changes; provider may
+finish an already reserved attempt, no retry/refund. Keep reminder: full RFC and
+AMOS/device/provider acceptance remain open.

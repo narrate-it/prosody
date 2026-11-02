@@ -151,6 +151,13 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
   }
 
   Future<void> _publishLocal(LiveBriefing result) async {
+    void requireCurrentSession() {
+      if (!mounted || !widget.live.canPublishResult(result)) {
+        throw StateError('Preview session ended');
+      }
+    }
+
+    requireCurrentSession();
     if (result.mp3.isEmpty || result.mp3.length > 8 * 1024 * 1024) {
       throw StateError('Generated audio is outside preview limits');
     }
@@ -168,9 +175,9 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
           duration > const Duration(minutes: 10)) {
         throw StateError('Generated audio duration is outside preview limits');
       }
-      if (!mounted) throw StateError('Preview closed');
+      requireCurrentSession();
       await widget.playback.stop();
-      if (!mounted) throw StateError('Preview closed');
+      requireCurrentSession();
       widget.api.addLiveBriefing(
         id: id,
         source: result.source,

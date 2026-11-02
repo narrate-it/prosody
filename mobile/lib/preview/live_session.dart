@@ -25,6 +25,13 @@ class LiveSession extends ChangeNotifier {
   Future<void>? _initialization;
   String? _key, _error;
   int _attempts = 0;
+  int _configurationRevision = 0;
+  final _resultRevisions = Expando<int>('preview result revision');
+  bool canPublishResult(LiveBriefing result) =>
+      isConfigurationCurrent(_resultRevisions[result] ?? -1);
+  int get configurationRevision => _configurationRevision;
+  bool isConfigurationCurrent(int revision) =>
+      configured && revision == _configurationRevision;
   bool _ready = false, _blocked = false, _busy = false, _disposed = false;
 
   // Keep the public named argument while the ledger remains private.
@@ -67,6 +74,7 @@ class LiveSession extends ChangeNotifier {
     if (key.trim().isEmpty || key.contains('\r') || key.contains('\n')) {
       throw const LiveSessionFailure('A valid API key is required.');
     }
+    _configurationRevision++;
     _key = key;
     if (!_blocked) {
       _error = null;
@@ -75,6 +83,7 @@ class LiveSession extends ChangeNotifier {
   }
 
   void clearKey() {
+    _configurationRevision++;
     _key = null;
     _notify();
   }
@@ -171,13 +180,15 @@ class LiveSession extends ChangeNotifier {
     if (text.trim().isEmpty || text.runes.length > 4000) {
       throw const LiveSessionFailure('Enter between 1 and 4,000 characters.');
     }
+    final revision = _configurationRevision;
+    final key = _key;
     _busy = true;
     _error = null;
     _notify();
     var reservationStarted = false;
     try {
       await initialize();
-      if (!configured) {
+      if (key == null || !isConfigurationCurrent(revision)) {
         throw LiveSessionFailure(
           _error ?? 'Live generation is not configured.',
         );
@@ -187,12 +198,11 @@ class LiveSession extends ChangeNotifier {
           'The authorized preview budget has been fully reserved.',
         );
       }
-      final key = _key!;
-      return await _client.generate(
+      final result = await _client.generate(
         key: key,
         source: text,
         reserveAttempt: () async {
-          if (reservationStarted || _disposed || _key != key) {
+          if (reservationStarted || !isConfigurationCurrent(revision)) {
             throw const LiveSessionFailure(
               'This generation cannot be dispatched.',
             );
@@ -209,11 +219,18 @@ class LiveSession extends ChangeNotifier {
             );
           }
           _notify();
-          if (_disposed || _key != key) {
+          if (!isConfigurationCurrent(revision)) {
             throw const LiveSessionFailure('This live session has ended.');
           }
         },
       );
+      if (!isConfigurationCurrent(revision)) {
+        throw const LiveSessionFailure(
+          'This live session ended. Its result was discarded; the attempt remains reserved.',
+        );
+      }
+      _resultRevisions[result] = revision;
+      return result;
     } catch (failure) {
       _error = failure is LiveSessionFailure ? failure.message : 'Generation did not finish. Any reserved attempt remains spent; it will not be retried automatically.';
       throw LiveSessionFailure(_error!);
