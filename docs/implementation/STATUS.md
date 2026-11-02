@@ -865,3 +865,21 @@ independent source review found no blocker. Existing accounting counts the full
 Go prompt, preview limits/reservations unchanged. No paid generation or expressive
 voice acceptance is claimed; Laura output requires listening comparison.
 Capacity:idle79.83/50.78%, normal pressure, swap0/0.048MiB/s, no thermal warning.
+
+### 2026-11-02 — Invalidate preview results after sign-out
+
+Continued unblocked PR2 lifecycle work. LiveSession captures its key/configuration
+revision before the first await and binds each completed result to that revision.
+Sign-out/reconfiguration invalidates old requests and results even if the same key
+is provisioned again. Local publication checks the result's issuing configuration
+before file work, after decoding and after stopping playback; rejected files are
+removed. Existing provider work may finish, but its stale result cannot enter the
+feed. The reservation is retained, with no refund or automatic retry. This local
+preview lifecycle guard is not AMOS authority or provider cancellation.
+
+Independent review found two handoff gaps in the first version (capture after
+initialize and re-capture at publication); both were corrected with regressions.
+Final 13 session/navigation tests passed and Flutter analysis is clean. No paid
+calls, phone installation/hot reload, deployment or full RFC acceptance claimed.
+Capacity admitted at54.88/59.90% idle, normal pressure, zero swap churn and no
+thermal/performance warning. Build lease used for checks and commit gates.
