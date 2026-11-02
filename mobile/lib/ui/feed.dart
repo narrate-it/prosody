@@ -48,7 +48,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   FeedPagination _pagination = FeedPagination();
   bool _loading = true, _more = false;
   int _loadRevision = 0;
-  final _pages = PageController();
+  final _pages = PageController(keepPage: false);
   @override
   void initState() {
     super.initState();
@@ -59,7 +59,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   void _playbackChanged() {
-    if (!mounted) return;
+    if (!mounted || _loading) return;
     final index = widget.playback.location.value.item;
     if (_pages.hasClients && _pages.page?.round() != index) {
       _pages.jumpToPage(index);
@@ -89,7 +89,11 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _select(Feed feed) async {
+    if (!mounted) return;
     final revision = ++_loadRevision;
+    // stop emits a location change. Block old-page callbacks before awaiting it
+    // so they cannot borrow this new revision with the previous destination.
+    setState(() => _loading = true);
     await widget.playback.stop();
     if (!mounted || revision != _loadRevision) return;
     setState(() {
@@ -108,9 +112,8 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       var resumeSegment = 0;
       var resumePosition = Duration.zero;
       if (ready.isNotEmpty) {
-        final progress = await optionalResume(widget.api, ready.first);
-        if (!mounted || revision != _loadRevision) return;
-        _progress.setResumeWriteGate(resumeKnown: !progress.unknown);
+        final progress = await _prepareInitialResume(ready.first, revision);
+        if (progress == null) return;
         resumeSegment = progress.saved?.segment ?? 0;
         resumePosition = Duration(
           milliseconds: progress.saved?.positionMs ?? 0,
@@ -122,14 +125,15 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       setState(() {
         _items = ready;
         _cursor = page.nextCursor;
-        _loading = false;
       });
       await widget.playback.replaceFeed(
         ready,
         initialSegment: resumeSegment,
         initialPosition: resumePosition,
       );
-      if (_cursor != null && ready.length < 3) unawaited(_nextPage());
+      if (!mounted || revision != _loadRevision) return;
+      setState(() => _loading = false);
+      if (_cursor != null && ready.length <= 3) unawaited(_nextPage());
     } catch (e) {
       if (mounted && revision == _loadRevision) {
         setState(() {
@@ -140,23 +144,49 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     }
   }
 
+  Future<ResumeLookup?> _prepareInitialResume(
+    Briefing first,
+    int revision,
+  ) async {
+    final result = await optionalResume(widget.api, first);
+    if (!mounted || revision != _loadRevision) return null;
+    _progress.setResumeWriteGate(resumeKnown: !result.unknown);
+    return result;
+  }
+
   Future<void> _nextPage() async {
-    if (_cursor == null || _more || _feed == null) return;
+    if (_loading || _cursor == null || _more || _feed == null) return;
     _more = true;
     final revision = _loadRevision;
     final requestedCursor = _cursor;
     try {
       final page = await widget.api.items(_feed!.id, cursor: requestedCursor);
       if (!mounted || revision != _loadRevision) return;
-      _pagination.accept(requested: requestedCursor, next: page.nextCursor);
       final additional = newPlayableItems(_items, page.items);
+      final combined = [..._items, ...additional];
+      final needsInitialSelection =
+          widget.playback.current == null && combined.isNotEmpty;
+      ResumeLookup? resume;
+      if (needsInitialSelection) {
+        resume = await _prepareInitialResume(combined.first, revision);
+        if (resume == null) return;
+      }
+      _pagination.accept(requested: requestedCursor, next: page.nextCursor);
       setState(() {
-        _items = [..._items, ...additional];
+        _items = combined;
         _cursor = page.nextCursor;
       });
-      final hadSelection = widget.playback.current != null;
-      widget.playback.appendItems(additional);
-      if (!hadSelection && _items.isNotEmpty) await widget.playback.select(0);
+      if (needsInitialSelection) {
+        await widget.playback.replaceFeed(
+          combined,
+          initialSegment: resume!.saved?.segment ?? 0,
+          initialPosition: Duration(
+            milliseconds: resume.saved?.positionMs ?? 0,
+          ),
+        );
+      } else {
+        widget.playback.appendItems(additional);
+      }
     } catch (e) {
       if (mounted && revision == _loadRevision) {
         setState(() => _error = 'Could not load more briefings.');
@@ -402,10 +432,14 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
             ),
           )
         : PageView.builder(
+            // A replacement queue always starts at its restored first item.
+            // Do not carry a prior space's visible page into this new queue.
+            key: ValueKey(_loadRevision),
             controller: _pages,
             scrollDirection: Axis.vertical,
             itemCount: _items.length,
             onPageChanged: (index) {
+              if (_loading) return;
               if (widget.playback.location.value.item != index) {
                 unawaited(widget.playback.select(index));
               }
