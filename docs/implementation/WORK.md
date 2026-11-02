@@ -786,7 +786,7 @@ finish an already reserved attempt, no retry/refund. Keep reminder: full RFC and
 AMOS/device/provider acceptance remain open.
 
 2026-11-02 hourly: corrected live-preview failure text to distinguish no reserved
-attempt from retained reservation and uncertain budget state.15 targeted tests,
+attempt from retained reservation and uncertain budget state. 15 targeted tests,
 analysis and independent source review passed. No paid calls or phone changes.
 Remaining work includes actual iPhone/provider acceptance and AMOS integration;
 source tests do not qualify those paths or complete the RFC.
@@ -798,7 +798,7 @@ or device changes. Keep owned reminder: full RFC acceptance remains open.
 
 2026-11-02 hourly: preview DELETE API now removes registered generated MP3s before
 metadata, coalesces concurrent deletion and preserves retryability on cleanup
-failure.15 tests pass, including actual temporary-file cleanup/budget preservation;
+failure. 15 tests pass, including actual temporary-file cleanup/budget preservation;
 targeted analysis clean after style fixes. UI delete action and restart orphan
 retention remain separate unblocked follow-ups; production retention unqualified.
 No spend, phone updates or deployment.
@@ -810,12 +810,20 @@ Physical iPhone delete/queue acceptance and restart orphan cleanup remain open.
 No spend, deployment or phone changes; full RFC not complete.
 
 2026-11-02 hourly: verified composed preview deletion through real root/widget/API
-and temporary filesystem;2 tests pass for success/failure+retry, queue restoration,
-stop-before-delete and unchangedbudget. Nativeplayer is fake, so iPhone acceptance
-stillopen. No paidcalls/deviceupdates or automatic purge of published recordings.
+and temporary filesystem; 2 tests pass for success/failure+retry, queue restoration,
+stop-before-delete and unchanged budget. The native player is fake, so iPhone acceptance
+is still open. No paid calls/device updates or automatic purge of published recordings.
 
 2026-11-02 hourly: completed aggregate PR2 validation rather than adding more
-preview scope.110 Flutter tests+analysis and4 preflight tests pass; final independent
+preview scope. 110 Flutter tests+analysis and 4 preflight tests pass; final independent
 review clear at83fcd53/base6c7e12f. Recorded exact evidence/limits in PR-2-REVIEW.md.
 Next: ready PR for actual CodeRabbit review (draft had been skipped), address concrete
 findings and preserve separate native/provider/AMOS/full RFC acceptance gates.
+
+2026-11-02 hourly: CodeRabbit completed with three findings, all verified/fixed.
+MP3 selection uses reviewed exact IDs plus current catalog/voice; HTTP timeout
+aborts transport and cleans late responses; evidence spacing corrected.
+21 provider tests, analysis, Go checks and real PostgreSQL fixtures passed;
+independent cross-review clear. No paid calls/device changes/deployment. Push
+for review of the new head; do not infer approval or full acceptance from prior
+successful CodeRabbit check.

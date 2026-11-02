@@ -249,32 +249,60 @@ End when the useful point is complete, without a canned sign-off or recap.
     void Function(String?)? receipt,
   }) async {
     final watch = Stopwatch()..start();
-    final request = http.Request(
-      body == null ? 'GET' : 'POST',
-      Uri.parse('https://openrouter.ai/api/v1$path'),
-    )..followRedirects = false;
-    request.headers['Authorization'] = 'Bearer $key';
-    if (body != null) {
-      request.headers['Content-Type'] = 'application/json';
-      request.body = jsonEncode(body);
+    final abort = Completer<void>();
+    void abortRequest() {
+      if (!abort.isCompleted) abort.complete();
     }
-    final response = await _client.send(request).timeout(timeout);
-    receipt?.call(_receipt(response.headers['x-generation-id']));
-    if (response.statusCode != 200) {
-      _cancelBody(response.stream);
-      throw const FormatException();
+
+    final timer = Timer(timeout, abortRequest);
+    try {
+      final request = http.AbortableRequest(
+        body == null ? 'GET' : 'POST',
+        Uri.parse('https://openrouter.ai/api/v1$path'),
+        abortTrigger: abort.future,
+      )..followRedirects = false;
+      request.headers['Authorization'] = 'Bearer $key';
+      if (body != null) {
+        request.headers['Content-Type'] = 'application/json';
+        request.body = jsonEncode(body);
+      }
+      final pending = _client.send(request);
+      // A custom transport may ignore abortion. Cancel any late body as well,
+      // while retaining a bounded wait and the unknown/billed outcome semantics.
+      unawaited(
+        pending.then<void>((late) {
+          if (abort.isCompleted) _cancelBody(late.stream);
+        }, onError: (Object _, StackTrace __) {}),
+      );
+      final response = await pending.timeout(
+        timeout,
+        onTimeout: () {
+          abortRequest();
+          throw TimeoutException('Response deadline exceeded');
+        },
+      );
+      receipt?.call(_receipt(response.headers['x-generation-id']));
+      if (response.statusCode != 200) {
+        _cancelBody(response.stream);
+        throw const FormatException();
+      }
+      final remaining = timeout - watch.elapsed;
+      if (remaining <= Duration.zero) {
+        _cancelBody(response.stream);
+        throw TimeoutException('Response deadline exceeded');
+      }
+      final bytes = await collectBoundedBody(
+        response.stream,
+        maxBytes: maxBytes,
+        deadline: remaining,
+      );
+      return _Response(bytes, response.headers['content-type'] ?? '');
+    } catch (_) {
+      abortRequest();
+      rethrow;
+    } finally {
+      timer.cancel();
     }
-    final remaining = timeout - watch.elapsed;
-    if (remaining <= Duration.zero) {
-      _cancelBody(response.stream);
-      throw TimeoutException('Response deadline exceeded');
-    }
-    final bytes = await collectBoundedBody(
-      response.stream,
-      maxBytes: maxBytes,
-      deadline: remaining,
-    );
-    return _Response(bytes, response.headers['content-type'] ?? '');
   }
 }
 

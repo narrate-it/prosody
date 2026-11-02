@@ -978,3 +978,18 @@ See PR-2-REVIEW.md for exact scope and historical/device/DB evidence limits.
 PR2 was still draft with CodeRabbit skipped. Proceeding to review readiness after
 publishing this documentation receipt; no merge, deployment or acceptance implied.
 No paid calls or phone changes. Full RFC incomplete; retain owned hourly reminder.
+
+### 2026-11-02 — CodeRabbit PR2 findings addressed
+
+Verified and fixed all three findings on 4c41f87: evidence-note spacing, unsupported
+MP3 speech selection, and HTTP timeout without transport abort. The MP3 policy is
+an explicitly documented exact-ID compatibility list because current catalog data
+has no format field; unknown/PCM-only models remain blocked. Timeout now aborts
+transport, cleans late responses and cancels timers while retaining unknown billing
+and no-retry semantics. Dependency minimum is 1.5.0; locked 1.6.0 unchanged.
+
+21 Flutter provider tests and analysis passed. Go openrouter/configuration/briefing
+checks and real PostgreSQL fixtures passed; independent cross-review clear.
+See PR-2-REVIEW.md for comment IDs, sources and evidence limits. No paid calls,
+phone changes or deployment. Capacity recheck 49.61/50.83% interval idle, normal
+pressure, zero swap churn and no thermal warning. Full RFC remains incomplete.

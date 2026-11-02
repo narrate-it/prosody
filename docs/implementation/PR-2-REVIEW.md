@@ -41,3 +41,30 @@ service integration, production retention, Nanos deployment and TestFlight
 acceptance remain gated. No production fallback identity or competing scheduler
 was introduced. CodeRabbit had skipped the draft PR; readiness requests an actual
 review, not approval or merge. Full RFC work remains incomplete.
+
+## CodeRabbit follow-up — 2026-11-02
+
+CodeRabbit completed at `4c41f87` with a successful check and three concrete
+comments. A successful check did not mean there were no findings.
+
+- **4443418255:** corrected missing spaces in the evidence notes without changing
+  recorded facts.
+- **4443418304:** selection now requires an explicit MP3 compatibility policy in
+  `internal/openrouter/speech_formats.go`, plus current catalog modalities and
+  listed voice. The public catalog has no output-format field. Exact reviewed
+  IDs are accepted; PCM-only and unknown/future models are rejected until qualified.
+  This is a local request-format policy, not invented provider metadata or proof
+  of synthesis availability. See the [official TTS format documentation](https://openrouter.ai/docs/guides/overview/multimodal/tts).
+- **4443418321:** preview requests now use `http.AbortableRequest` with a deadline
+  covering headers and body, explicit abort on failure, late-response cleanup and
+  timer cleanup on success. Raised the dependency floor to 1.5.0; the lock already
+  uses 1.6.0. See [AbortableRequest](https://pub.dev/documentation/http/latest/http/AbortableRequest-class.html).
+  Cancellation is not proof that remote work stopped or was not billed. Reserved
+  attempts remain reserved and no automatic retry is added.
+
+Verification: 21 provider tests passed, including four new transport probes; Flutter
+analysis clean; Go openrouter/configuration/briefing tests and real PostgreSQL
+fixtures passed. Independent cross-review found no blocking issue in either code
+delta. One initial probe asserted before asynchronous abort notification; flushing
+that notification made the intended signal assertion deterministic. No live
+provider request, device update, deployment or merge was performed.
