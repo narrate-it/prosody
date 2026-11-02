@@ -754,3 +754,14 @@ OFFLINE DEMO banner, FeedScreen and a sample title. Actual audible playback,
 user gestures and background/lock-screen behavior still need human/device
 acceptance; debugger attachment alone does not establish them. Build lease
 released; preview remains attached for hot reload.
+
+2026-11-01: PR2 live preview and user feedback fixes implemented; see STATUS.
+User selected live text, elevenlabs/eleven-v4-turbo/Laura and $1 session allowance.
+91 Flutter tests +30 targeted follow-up passed; real PG fixture passed after
+cold-cache timeout and warm. Provider requests remain unexecuted. Physical iPhone
+update/key provisioning is next; preserve four attempts for owner testing.
+
+Follow-up: iPhone live preview installed and key provisioned (four attempts remain;
+no agent-paid generation). User reported slider and Mac sample voice; fixed drag
+state/single-release seek with two regressions and independent review; 12 targeted
+tests +full analysis passed. Explicit sample label prevents voice confusion.
