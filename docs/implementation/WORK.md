@@ -752,3 +752,17 @@ No codec/timeline/publication qualification is inferred from these structural
 fixtures. No provider calls, deployment or phone changes. Capacity load
 3.39/3.36/3.49; interval idle 36.19/28.52%, normal pressure, zero swap churn,
 no thermal/performance warning. Full RFC incomplete; retain reminder.
+
+### 2026-11-02 — AVC configuration ordering coverage
+
+Hosted check on e82a642 passed and CodeRabbit marked the audio-offset thread
+resolved. The final review body also suggested undersized-then-valid AVC coverage.
+Added that ordered case and a sole undersized configuration, with fixture override
+that replaces rather than appends to the default valid configuration. Confirmed
+the ordered case fails against original main 6c7e12f (incorrectly accepted), then
+restored the corrected source and passed the full media package. No production
+code changed. Merge held for review of the added coverage; no bypass or deployment.
+
+Capacity load 4.29/4.51/4.47; interval idle 46.26/36.31%, normal pressure,
+zero swap churn and no thermal/performance warning. No paid calls or device
+changes. Full RFC remains incomplete; keep the owned reminder.
