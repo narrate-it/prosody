@@ -58,6 +58,10 @@ func TestSynthesisRejectsOutputWithoutRetry(t *testing.T) {
 			if err == nil || p.calls != 1 || len(got.Audio) != 0 || got.GenerationID != "fixture-request" {
 				t.Fatal("invalid output accepted or receipt lost")
 			}
+			var attempt *openrouter.AttemptError
+			if !errors.As(err, &attempt) || got.Outcome.State != openrouter.ResponseReceived || attempt.Outcome != got.Outcome {
+				t.Fatal("media rejection lost attempt")
+			}
 			if tc.name == "remaining budget" && !errors.Is(err, media.ErrDuration) {
 				t.Fatalf("duration error: %v", err)
 			}
@@ -71,9 +75,12 @@ func TestSynthesisUncertainOutcomeAndPreflight(t *testing.T) {
 	if !errors.Is(err, uncertain) || p.calls != 1 || got.GenerationID != "fixture-request" || got.RequestID != "fixture-transport" || len(got.Audio) != 0 {
 		t.Fatal("uncertain result retried or changed")
 	}
+	if got.Outcome.State != openrouter.MayHaveActed {
+		t.Fatal("untyped provider error treated as safe")
+	}
 	for _, budget := range []time.Duration{0, 11 * time.Minute} {
-		_, err = Synthesize(context.Background(), p, "test-key", "model", "voice", "Briefing.", budget, 1<<20)
-		if err == nil || p.calls != 1 {
+		got, err = Synthesize(context.Background(), p, "test-key", "model", "voice", "Briefing.", budget, 1<<20)
+		if err == nil || p.calls != 1 || got.Outcome.State != openrouter.NotDispatched {
 			t.Fatal("invalid budget dispatched")
 		}
 	}

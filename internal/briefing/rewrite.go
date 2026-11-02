@@ -50,7 +50,18 @@ type TokenBudget struct {
 // Rewrite performs one paid request, never an automatic repair or retry. The
 // returned script is not publishable audio: synthesis and measured duration
 // validation are separate required stages.
-func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model, source content.TextSubmission, budget TokenBudget) (Result, error) {
+func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model, source content.TextSubmission, budget TokenBudget) (result Result, failure error) {
+	state := openrouter.NotDispatched
+	defer func() {
+		observation := result.Provider.Outcome
+		observation.State = state
+		observation.RequestID, observation.GenerationID = result.Provider.RequestID, result.Provider.GenerationID
+		observation.PromptTokens, observation.CompletionTokens = result.Provider.PromptTokens, result.Provider.CompletionTokens
+		result.Provider.Outcome, failure = openrouter.FinishAttempt(observation, failure)
+	}()
+	if err := ctx.Err(); err != nil {
+		return Result{}, err
+	}
 	if p == nil {
 		return Result{}, errors.New("briefing provider required")
 	}
@@ -77,14 +88,16 @@ func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model
 		return Result{}, err
 	}
 	digest := sha256.Sum256([]byte(instructions))
+	state = openrouter.MayHaveActed
 	out, err := p.Rewrite(ctx, key, model.ID, instructions, source.Text, maxTokens)
-	result := Result{InstructionsDigest: hex.EncodeToString(digest[:]), Provider: out}
+	result = Result{InstructionsDigest: hex.EncodeToString(digest[:]), Provider: out}
 	// Keep accounting identifiers on every post-dispatch failure, but never
 	// expose rejected provider text as a usable script through either field.
 	result.Provider.Text = ""
 	if err != nil {
 		return result, err
 	}
+	state = openrouter.ResponseReceived
 	script := strings.TrimSpace(out.Text)
 	if script == "" || len(strings.Fields(script)) > 1100 || strings.Contains(script, "```") {
 		return result, errors.New("briefing script requires repair")

@@ -43,6 +43,14 @@ func TestRewriteRetainsReceiptWithoutRejectedContent(t *testing.T) {
 			if err == nil || p.calls != 1 || got.Script != "" || got.Provider.Text != "" || got.Provider.GenerationID != "generation" || got.Provider.RequestID != "request" || got.Provider.PromptTokens != 20 || got.Provider.CompletionTokens != 10 || len(got.InstructionsDigest) != 64 {
 				t.Fatal("receipt lost, rejected content exposed, or request retried")
 			}
+			want := openrouter.ResponseReceived
+			if tc.err != nil {
+				want = openrouter.MayHaveActed
+			}
+			var attempt *openrouter.AttemptError
+			if !errors.As(err, &attempt) || got.Provider.Outcome.State != want || attempt.Outcome != got.Provider.Outcome {
+				t.Fatal("typed receipt lost")
+			}
 			if tc.err != nil && !errors.Is(err, tc.err) {
 				t.Fatal("provider failure replaced")
 			}
