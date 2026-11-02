@@ -24,8 +24,9 @@ func (s Selection) Validate(catalog []openrouter.Model) error {
 	}
 	text, speech := false, false
 	for _, model := range catalog {
-		if model.ID == s.TextModel && slices.Contains(model.Architecture.Input, "text") && slices.Contains(model.Architecture.Output, "text") && model.ContextLength >= 8192 {
-			text = true
+		if model.ID == s.TextModel {
+			_, _, err := model.TextLimits()
+			text = err == nil
 		}
 		if model.ID == s.SpeechModel && slices.Contains(model.Architecture.Input, "text") && slices.Contains(model.Architecture.Output, "audio") && slices.Contains(model.Voices, s.Voice) {
 			speech = true

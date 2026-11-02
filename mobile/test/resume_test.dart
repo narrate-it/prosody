@@ -148,10 +148,12 @@ void main() {
           } else {
             final result = await optionalResume(api, item);
             if (mode == 'saved') {
-              expect(result?.positionMs, 400);
-              expect(result?.revision, 7);
+              expect(result.saved?.positionMs, 400);
+              expect(result.saved?.revision, 7);
+              expect(result.unknown, isFalse);
             } else {
-              expect(result, isNull);
+              expect(result.saved, isNull);
+              expect(result.unknown, mode != '404');
             }
           }
           expect(calls, 1);

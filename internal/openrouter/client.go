@@ -40,7 +40,12 @@ type Model struct {
 	ID            string `json:"id"`
 	Name          string `json:"name"`
 	ContextLength int    `json:"context_length"`
-	Architecture  struct {
+	TopProvider   struct {
+		ContextLength       *int `json:"context_length"`
+		MaxCompletionTokens *int `json:"max_completion_tokens"`
+	} `json:"top_provider"`
+	SupportedParameters []string `json:"supported_parameters"`
+	Architecture        struct {
 		Input  []string `json:"input_modalities"`
 		Output []string `json:"output_modalities"`
 	} `json:"architecture"`
@@ -106,7 +111,7 @@ type RewriteResult struct {
 }
 
 func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source string, maxTokens int) (RewriteResult, error) {
-	if model == "" || source == "" || maxTokens < 1 || maxTokens > 8192 {
+	if model == "" || source == "" || maxTokens < 1 || maxTokens > MaxRewriteCompletionTokens {
 		return RewriteResult{}, errors.New("invalid rewrite request")
 	}
 	payload := struct {

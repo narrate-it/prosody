@@ -36,14 +36,31 @@ type Result struct {
 	Provider           openrouter.RewriteResult
 }
 
+// TokenBudget is supplied after current authority and financial admission.
+// CountPromptTokens must count (or conservatively upper-bound) both complete
+// messages and the selected model/provider's chat framing and any applicable
+// reasoning-related input overhead. There is deliberately no generic tokenizer
+// fallback: unknown accounting prevents paid dispatch. Neither this accounting
+// nor the resulting cap guarantees useful output from a reasoning model.
+type TokenBudget struct {
+	MaxCompletionTokens int
+	CountPromptTokens   func(modelID, instructions, source string) (int, error)
+}
+
 // Rewrite performs one paid request, never an automatic repair or retry. The
 // returned script is not publishable audio: synthesis and measured duration
 // validation are separate required stages.
-func Rewrite(ctx context.Context, p Provider, key, model string, source content.TextSubmission) (Result, error) {
+func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model, source content.TextSubmission, budget TokenBudget) (Result, error) {
 	if p == nil {
 		return Result{}, errors.New("briefing provider required")
 	}
 	if err := source.Validate(); err != nil {
+		return Result{}, err
+	}
+	if budget.CountPromptTokens == nil {
+		return Result{}, openrouter.ErrTokenBudget
+	}
+	if _, err := model.RewriteTokenLimit(1, budget.MaxCompletionTokens); err != nil {
 		return Result{}, err
 	}
 	craft, err := narration.Assemble("conversational")
@@ -51,8 +68,16 @@ func Rewrite(ctx context.Context, p Provider, key, model string, source content.
 		return Result{}, err
 	}
 	instructions := craft + policy
+	promptTokens, err := budget.CountPromptTokens(model.ID, instructions, source.Text)
+	if err != nil {
+		return Result{}, err
+	}
+	maxTokens, err := model.RewriteTokenLimit(promptTokens, budget.MaxCompletionTokens)
+	if err != nil {
+		return Result{}, err
+	}
 	digest := sha256.Sum256([]byte(instructions))
-	out, err := p.Rewrite(ctx, key, model, instructions, source.Text, 8192)
+	out, err := p.Rewrite(ctx, key, model.ID, instructions, source.Text, maxTokens)
 	result := Result{InstructionsDigest: hex.EncodeToString(digest[:]), Provider: out}
 	// Keep accounting identifiers on every post-dispatch failure, but never
 	// expose rejected provider text as a usable script through either field.

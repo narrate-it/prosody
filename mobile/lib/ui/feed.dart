@@ -110,8 +110,13 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       if (ready.isNotEmpty) {
         final progress = await optionalResume(widget.api, ready.first);
         if (!mounted || revision != _loadRevision) return;
-        resumeSegment = progress?.segment ?? 0;
-        resumePosition = Duration(milliseconds: progress?.positionMs ?? 0);
+        _progress.setResumeWriteGate(resumeKnown: !progress.unknown);
+        resumeSegment = progress.saved?.segment ?? 0;
+        resumePosition = Duration(
+          milliseconds: progress.saved?.positionMs ?? 0,
+        );
+      } else {
+        _progress.setResumeWriteGate(resumeKnown: true);
       }
       _pagination.accept(requested: null, next: page.nextCursor);
       setState(() {
