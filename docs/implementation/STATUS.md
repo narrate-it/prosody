@@ -932,3 +932,21 @@ phone update, production deletion or deployment. Orphan cleanup across app resta
 is not added: in-memory preview metadata still resets, as documented.
 Capacity admitted25.21/38.31% interval idle, normal pressure, zero swap churn and
 no thermal warning. Full RFC acceptance remains open; retain hourly reminder.
+
+### 2026-11-02 — Personal preview deletion control
+
+Prior media-cleanup independent review is now clear. Added a confirmed Delete
+briefing action to the Read sheet only when explicitly composed and in a personal
+feed. The preview root rechecks personal membership, stops the active clip before
+cleanup and rebuilds its queue after success or failure. Pending actions disable
+the button; cancel has no effect, safe failure permits explicit retry. Production
+main does not supply the capability and team feeds do not expose it. This is not
+production owner/admin authorization acceptance or provider-side erasure.
+
+19 focused UI/API tests passed (confirmation/cancel, single flight, failure/retry,
+personal/production/team visibility and existing file cleanup/control regressions).
+One analyzer style finding was corrected; targeted recheck clean. Independent
+source review found no blocker. Actual iPhone deletion/decoder/queue restoration
+remains an acceptance check; no phone update, paid calls or deployment performed.
+Capacity48.37/49.10% interval idle, normal pressure, zero swap churn, no thermal
+warning. Full RFC remains incomplete; retain owned reminder.

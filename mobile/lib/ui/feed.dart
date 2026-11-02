@@ -12,6 +12,7 @@ import '../playback/handler.dart';
 import '../playback/queue.dart';
 import '../playback/progress_recorder.dart';
 import 'activity.dart';
+import 'delete_briefing_button.dart';
 import 'settings.dart';
 import 'theme.dart';
 
@@ -22,12 +23,14 @@ class FeedScreen extends StatefulWidget {
   final ProsodyPlayback playback;
   final VoidCallback onSignOut;
   final Future<void> Function()? onCreateBriefing;
+  final Future<void> Function(Briefing)? onDeleteBriefing;
   const FeedScreen({
     super.key,
     required this.api,
     required this.playback,
     required this.onSignOut,
     this.onCreateBriefing,
+    this.onDeleteBriefing,
   });
   @override
   State<FeedScreen> createState() => _FeedScreenState();
@@ -355,6 +358,10 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
                 ),
               ),
               _MarkReadButton(onMark: () => _markRead(item)),
+              if (_feed?.kind == 'personal' && widget.onDeleteBriefing != null)
+                DeleteBriefingButton(
+                  onDelete: () => widget.onDeleteBriefing!(item),
+                ),
               const TabBar(
                 tabs: [
                   Tab(text: 'Original'),
