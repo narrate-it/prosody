@@ -9,7 +9,7 @@ import 'package:prosody/preview/live_session.dart';
 
 class _Provider implements LiveBriefingProvider {
   int calls = 0, dispatched = 0;
-  bool fail = false;
+  bool fail = false, failBeforeReservation = false;
   Completer<void>? hold;
   Future<void> Function()? afterReservation;
 
@@ -20,6 +20,9 @@ class _Provider implements LiveBriefingProvider {
     required Future<void> Function() reserveAttempt,
   }) async {
     calls++;
+    if (failBeforeReservation) {
+      throw const LiveProviderFailure('private provider detail');
+    }
     await reserveAttempt();
     dispatched++;
     await afterReservation?.call();
@@ -232,6 +235,37 @@ void main() {
     expect(value.canPublishResult(result), isFalse);
     expect(value.remainingAttempts, 2);
   });
+
+  for (final beforeReservation in [true, false]) {
+    test(
+      'failure message matches actual reservation: before=$beforeReservation',
+      () async {
+        final client = _Provider()
+          ..failBeforeReservation = beforeReservation
+          ..fail = !beforeReservation;
+        final value = session(client);
+        await value.initialize();
+        value.configure('synthetic-key');
+        await expectLater(
+          value.generate('Source'),
+          throwsA(isA<LiveSessionFailure>()),
+        );
+        expect(value.remainingAttempts, beforeReservation ? 4 : 3);
+        expect(client.dispatched, beforeReservation ? 0 : 1);
+        expect(
+          value.error,
+          contains(
+            beforeReservation
+                ? 'No attempt was reserved'
+                : 'This attempt remains reserved',
+          ),
+        );
+        expect(value.error, isNot(contains('private provider detail')));
+        expect(value.error, isNot(contains('synthetic-key')));
+        expect(client.calls, 1);
+      },
+    );
+  }
 
   for (final reconfigure in [false, true]) {
     test(

@@ -883,3 +883,17 @@ Final 13 session/navigation tests passed and Flutter analysis is clean. No paid
 calls, phone installation/hot reload, deployment or full RFC acceptance claimed.
 Capacity admitted at54.88/59.90% idle, normal pressure, zero swap churn and no
 thermal/performance warning. Build lease used for checks and commit gates.
+
+### 2026-11-02 — Accurate preview failure/budget messaging
+
+Continued PR2 live-preview acceptance work. Pre-reservation failures no longer
+claim an attempt was spent. The session records successful ledger completion and
+uses fixed safe messages for unreserved failure, retained reservation, and blocked
+uncertain budget state. Provider text and credentials never enter these messages;
+no automatic retry/refund or change to provider dispatch was added.
+
+15 session/navigation tests passed, including two new pre/post-reservation failure
+cases; Flutter analysis clean; independent source review clear. Commit hook runs
+required Go lint/tests unchanged. No paid calls, device update or deployment.
+Capacity admitted:47.14/39.94% idle, normal pressure, zero swap churn, no thermal
+warning. Full RFC acceptance remains open; retain owned hourly reminder.
