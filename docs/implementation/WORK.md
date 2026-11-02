@@ -827,3 +827,8 @@ aborts transport and cleans late responses; evidence spacing corrected.
 independent cross-review clear. No paid calls/device changes/deployment. Push
 for review of the new head; do not infer approval or full acceptance from prior
 successful CodeRabbit check.
+
+2026-11-02 hourly: reconciled CodeRabbit success/no actionable comments at dd7df26
+and passed unsigned physical-iPhone preview compilation (arm64/iphoneos). Exact
+receipt in PR-2-REVIEW.md; no product source changed, phone updates or paid calls.
+Signing/install and actual runtime acceptance remain separate. Full RFC incomplete.

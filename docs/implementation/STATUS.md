@@ -993,3 +993,13 @@ checks and real PostgreSQL fixtures passed; independent cross-review clear.
 See PR-2-REVIEW.md for comment IDs, sources and evidence limits. No paid calls,
 phone changes or deployment. Capacity recheck 49.61/50.83% interval idle, normal
 pressure, zero swap churn and no thermal warning. Full RFC remains incomplete.
+
+### 2026-11-02 — Corrected-head native compilation
+
+CodeRabbit's completed check on dd7df26 succeeded; its latest review summary says
+no actionable comments. Verified an unsigned physical-iPhone debug preview build
+at that exact code revision: Flutter exit 0, Xcode 69.8s, total 98.7s. Artifact is
+arm64/iphoneos with expected bundle ID; working tree stayed clean. Receipt is in
+PR-2-REVIEW.md. No signing/install, phone update, provider call or deployment.
+Local build output is unsigned and must not be treated as install-ready.
+Actual device/provider/AMOS/Nanos/full RFC acceptance remains open; keep reminder.
