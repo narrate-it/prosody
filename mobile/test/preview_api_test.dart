@@ -1,3 +1,8 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:prosody/preview/local_media.dart';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:prosody/data/api.dart';
 import 'package:prosody/data/models.dart';
@@ -8,6 +13,103 @@ Matcher _status(int status) =>
     isA<ApiFailure>().having((error) => error.status, 'status', status);
 
 void main() {
+  test(
+    'deleting generated item removes its owned MP3 but preserves other files',
+    () async {
+      final directory = await Directory.systemTemp.createTemp(
+        'prosody-delete-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final clip = File('${directory.path}/clip.mp3');
+      final ledger = File('${directory.path}/budget.json');
+      await clip.writeAsBytes([1, 2, 3]);
+      await ledger.writeAsString('retained-budget');
+      final files = {'https://preview.invalid/live-123.mp3': clip.path};
+      final api = PreviewApi(
+        durationsMs: _durations,
+        onDelete: (id) => deletePreviewMedia(files, id),
+      );
+      addTearDown(api.close);
+      api.addLiveBriefing(
+        id: 'live-123',
+        source: 'Source',
+        script: 'Script',
+        durationMs: 20000,
+      );
+      await api.deleteItem('live-123');
+      expect(await clip.exists(), isFalse);
+      expect(files, isEmpty);
+      expect(await ledger.readAsString(), 'retained-budget');
+      await deletePreviewMedia(files, '../../budget.json');
+      expect(await ledger.exists(), isTrue);
+      files['https://preview.invalid/live-124.mp3'] = clip.path;
+      await deletePreviewMedia(files, 'live-124');
+      expect(files, isEmpty);
+    },
+  );
+
+  test(
+    'delete coalesces cleanup and retains metadata until cleanup succeeds',
+    () async {
+      final cleanup = Completer<void>();
+      final ids = <String>[];
+      final api = PreviewApi(
+        durationsMs: _durations,
+        onDelete: (id) {
+          ids.add(id);
+          return cleanup.future;
+        },
+      );
+      addTearDown(api.close);
+      api.addLiveBriefing(
+        id: 'live-123',
+        source: 'Source',
+        script: 'Script',
+        durationMs: 20000,
+      );
+      final first = api.deleteItem('live-123');
+      final duplicate = api.deleteItem('live-123');
+      expect(ids, ['live-123']);
+      expect((await api.items('personal')).items.first.id, 'live-123');
+      cleanup.complete();
+      await Future.wait([first, duplicate]);
+      expect((await api.items('personal')).items.first.id, 'welcome');
+      await expectLater(
+        api.progress('live-123', 'live-123-v1'),
+        throwsA(_status(404)),
+      );
+      await api.deleteItem('live-123');
+      await api.deleteItem('unknown');
+      expect(ids, ['live-123']);
+    },
+  );
+
+  test(
+    'failed cleanup preserves item and progress for explicit retry',
+    () async {
+      var calls = 0;
+      final api = PreviewApi(
+        durationsMs: _durations,
+        onDelete: (_) {
+          calls++;
+          if (calls == 1) throw StateError('private filesystem detail');
+          return Future<void>.value();
+        },
+      );
+      addTearDown(api.close);
+      await expectLater(api.deleteItem('welcome'), throwsA(_status(503)));
+      expect((await api.items('personal')).items.first.id, 'welcome');
+      expect(
+        (await api.progress('welcome', 'welcome-preview-v1'))['revision'],
+        0,
+      );
+      expect(calls, 1);
+      await api.deleteItem('welcome');
+      expect(calls, 2);
+      expect((await api.items('personal')).items.first.id, 'next');
+    },
+  );
+
   test(
     'generated briefing enters personal feed with writable local progress',
     () async {

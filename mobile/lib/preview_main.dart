@@ -13,6 +13,7 @@ import 'package:path_provider/path_provider.dart';
 
 import 'playback/handler.dart';
 import 'preview/preview_api.dart';
+import 'preview/local_media.dart';
 import 'preview/live_provider.dart';
 import 'preview/live_session.dart';
 import 'preview/live_screen.dart';
@@ -108,7 +109,10 @@ Future<void> main() async {
   runApp(
     ProsodyPreview(
       playback: playback,
-      api: PreviewApi(durationsMs: durations),
+      api: PreviewApi(
+        durationsMs: durations,
+        onDelete: (id) => deletePreviewMedia(files, id),
+      ),
       live: live,
       clips: clips,
       files: files,

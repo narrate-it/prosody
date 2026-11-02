@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -46,13 +47,35 @@ class PreviewApi extends ProsodyApi {
   final Map<String, Map<String, dynamic>> _items = {};
   final Map<String, Map<String, dynamic>> _progress = {};
   bool _closed = false;
+  final Future<void> Function(String id)? _onDelete;
+  final Map<String, Future<void>> _deletions = {};
 
-  PreviewApi({required Map<String, int> durationsMs})
-    : super(
-        Uri.parse('https://preview.invalid'),
-        _PreviewSession(),
-        client: _NoNetworkClient(),
-      ) {
+  Future<void> _removeItem(String id) async {
+    try {
+      await Future<void>.sync(() => _onDelete?.call(id));
+      _items.remove(id);
+      _progress.remove(id);
+    } catch (_) {
+      throw const ApiFailure(
+        503,
+        'Could not remove local media. Try deleting again.',
+      );
+    } finally {
+      unawaited(_deletions.remove(id));
+    }
+  }
+
+  PreviewApi({
+    required Map<String, int> durationsMs,
+    Future<void> Function(String id)? onDelete,
+    // Keep the public argument named while storing its callback privately.
+    // ignore: prefer_initializing_formals
+  }) : _onDelete = onDelete,
+       super(
+         Uri.parse('https://preview.invalid'),
+         _PreviewSession(),
+         client: _NoNetworkClient(),
+       ) {
     if (durationsMs.length != previewNarrationScripts.length ||
         previewNarrationScripts.keys.any(
           (id) =>
@@ -259,8 +282,10 @@ class PreviewApi extends ProsodyApi {
         .firstMatch(path);
     if (method == 'DELETE' && deletion != null) {
       _query(query);
-      _items.remove(deletion[1]);
-      _progress.remove(deletion[1]);
+      final id = deletion[1]!;
+      if (_items.containsKey(id)) {
+        await _deletions.putIfAbsent(id, () => _removeItem(id));
+      }
       return {};
     }
     throw const ApiFailure(

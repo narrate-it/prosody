@@ -914,3 +914,21 @@ rejection, invalid option and release remaining blocked with both artifacts. Loc
 Shell syntax and whitespace checks passed. No provider call, device connection,
 signing, install or deployment. Commit-gate admission:28.37/38.99% interval idle,
 normal pressure, zero swap churn and no thermal/performance warning.
+
+### 2026-11-02 — Preview deletion removes owned generated media
+
+Connected the existing preview DELETE API to private generated-file cleanup.
+Only registered owned file paths can be removed; bundled/unknown IDs never become
+filesystem paths. Already missing files are idempotent. Concurrent deletes share
+cleanup; metadata/progress disappear only after cleanup succeeds. Failure returns
+a fixed safe error and retains item/progress for explicit retry. The budget ledger
+is never a cleanup target. This covers the local API/composition, not production
+retention or a newly implemented human deletion control (UI wiring remains open).
+
+15 preview/control tests passed, including real temporary-file deletion preserving
+the budget file, duplicate pending deletes, and failure/retry. Analysis initially
+flagged two style issues; corrected and targeted analysis clean. No paid calls,
+phone update, production deletion or deployment. Orphan cleanup across app restarts
+is not added: in-memory preview metadata still resets, as documented.
+Capacity admitted25.21/38.31% interval idle, normal pressure, zero swap churn and
+no thermal warning. Full RFC acceptance remains open; retain hourly reminder.

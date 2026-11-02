@@ -795,3 +795,10 @@ source tests do not qualify those paths or complete the RFC.
 simulator-only TestFlight/preview instructions. Four hermetic CLI tests and actual
 read-only --preview-device pass; no runtime/release acceptance inferred. No spend
 or device changes. Keep owned reminder: full RFC acceptance remains open.
+
+2026-11-02 hourly: preview DELETE API now removes registered generated MP3s before
+metadata, coalesces concurrent deletion and preserves retryability on cleanup
+failure.15 tests pass, including actual temporary-file cleanup/budget preservation;
+targeted analysis clean after style fixes. UI delete action and restart orphan
+retention remain separate unblocked follow-ups; production retention unqualified.
+No spend, phone updates or deployment.
