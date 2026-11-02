@@ -813,3 +813,9 @@ No spend, deployment or phone changes; full RFC not complete.
 and temporary filesystem;2 tests pass for success/failure+retry, queue restoration,
 stop-before-delete and unchangedbudget. Nativeplayer is fake, so iPhone acceptance
 stillopen. No paidcalls/deviceupdates or automatic purge of published recordings.
+
+2026-11-02 hourly: completed aggregate PR2 validation rather than adding more
+preview scope.110 Flutter tests+analysis and4 preflight tests pass; final independent
+review clear at83fcd53/base6c7e12f. Recorded exact evidence/limits in PR-2-REVIEW.md.
+Next: ready PR for actual CodeRabbit review (draft had been skipped), address concrete
+findings and preserve separate native/provider/AMOS/full RFC acceptance gates.
