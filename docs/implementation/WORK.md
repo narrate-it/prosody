@@ -765,3 +765,9 @@ Follow-up: iPhone live preview installed and key provisioned (four attempts rema
 no agent-paid generation). User reported slider and Mac sample voice; fixed drag
 state/single-release seek with two regressions and independent review; 12 targeted
 tests +full analysis passed. Explicit sample label prevents voice confusion.
+
+2026-11-01 hourly continuation: fixed PR2 live-editor navigation dropping an
+already reserved generation result. Both removed/covered-route regressions pass;
+seven budget tests pass; analysis clean; independent review clear. No provider
+calls or phone changes. AMOS and actual device/provider acceptance remain open;
+keep the owned reminder until full authorized implementation/acceptance completes.
