@@ -616,3 +616,56 @@ Existing mixed-media seek checks passed. This verifies native Dart arithmetic,
 not browser arithmetic or actual media playback. Formatting completed; Flutter,
 service and device acceptance remain pending. No heavy admission retry, provider
 call, spend or deployment. Full work remains incomplete; retain hourly reminder.
+
+
+### 2026-11-01 — PR #1 independent headless review and admitted validation
+
+David replaced the unavailable CodeRabbit gate with independent headless review.
+PR #1 contains initial source commit 0a8a3ba; local follow-up 3ca4b11 fixes known
+provider receipt loss and playback transition/dwell findings. Two reviewers
+inspected backend and mobile separately, then cross-reviewed each other's fixes.
+Cross-review accepted the Go fixes but found an additional stale advancement
+ownership race in playback; that finding remains open while its fix is prepared.
+No merge is claimed by this entry.
+
+Fresh admission for this explicit review/merge task passed: interval CPU idle
+81.0/62.5%, normal pressure, zero swap churn, no thermal/performance warning.
+A phase-boundary sample also passed at 30.73/39.0% idle. The numeric load ceiling
+in the shared policy applies to the named ten-core host, not this four-core Mac.
+The owned shared build lease was acquired for bounded checks.
+
+Executed: full root Go tests; disposable PostgreSQL storage tests including
+later reads/Activity cases; pinned AMOS 809e060e adapter tests; Flutter analysis
+(clean after ten test-tool style fixes); all 29 Flutter tests including two new
+playback regressions. The new cross-review race still needs its own regression.
+Go lint initially hit toolchain export incompatibility; the already installed
+Go 1.27.0 matched the linter. After checking cleanup errors, lint passed with
+zero issues. Commit 3ca4b11 ran full root lint and tests through a temporary
+package-aware hook. The original hook remains enabled and unchanged; its broken
+multi-directory invocation was replaced only for that commit, with no check
+skipped. Initial PR commit's explicitly authorized hook bypass is historical.
+
+These are local source/fixture checks. Real provider, AMOS authority, mobile
+authentication, physical background playback, Nanos and TestFlight acceptance
+remain unfinished. No deployment/spend/signing. Hourly reminder remains owned
+and active because the full RFC implementation is incomplete.
+
+
+### 2026-11-01 — Review findings closed; final playback regression passes
+
+The independent cross-review accepted the generation-scoped advancement fix.
+All three targeted handler tests now pass: visual dwell/cancellation without view
+credit, stale replacement after stop, and a pending obsolete decoder load that
+must not block a newer visual queue. Flutter analysis is clean on the final
+source. The earlier full 29-test run passed; only handler code/tests changed
+subsequently and the three affected tests passed. Initial fake-clock harness
+hang and a fake-player name collision were corrected, not counted as passes.
+Root independently inspected the reviewers' fixes; each reviewer cross-reviewed
+the other domain's delta. No remaining concrete source-review blockers reported.
+
+A final phase admission passed at 39.21/58.1% idle, normal pressure, no swap
+churn or thermal/performance warning. Root Go lint/full tests, real disposable
+PostgreSQL tests and pinned AMOS adapter tests passed as recorded above. Merge
+is authorized as an initial partial implementation, not deployment or full RFC
+acceptance. The exact remote merge receipt will be recorded in PR #1. Existing
+runtime/mobile/provider acceptance gaps and the hourly reminder remain open.

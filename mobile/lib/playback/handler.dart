@@ -38,7 +38,8 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   final List<StreamSubscription<dynamic>> _subscriptions = [];
   List<Briefing> _items = [];
   int _generation = 0;
-  bool _advancing = false;
+  int? _advancingGeneration;
+  bool get _advancing => _advancingGeneration == _generation;
   bool _transitioning = false;
   bool _playing = false;
   bool get isPlaying => _playing;
@@ -54,7 +55,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     await session.configure(const AudioSessionConfiguration.speech());
     _subscriptions.add(
       _audio.playerStateStream.listen((s) {
-        if (_transitioning || video.value != null || _segment?.kind == 'image') {
+        if (_transitioning ||
+            video.value != null ||
+            _segment?.kind == 'image') {
           return;
         }
         _playing = s.playing;
@@ -226,10 +229,10 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     mediaItem.add(queue.value[index]);
     failure.value = null;
     final selected = _segment!;
-    _transitioning = false;
     VideoPlayerController? initializing;
     try {
       if (selected.kind == 'image') {
+        _transitioning = false;
         if (autoplay) {
           await play();
         } else {
@@ -259,6 +262,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
         await _audio.setUrl(selected.media.toString());
         if (generation != _generation) return;
       }
+      _transitioning = false;
       if (autoplay) {
         await play();
       } else {
@@ -266,7 +270,10 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       }
     } catch (_) {
       await initializing?.dispose();
-      if (generation == _generation) _fail();
+      if (generation == _generation) {
+        _transitioning = false;
+        _fail();
+      }
     }
   }
 
@@ -290,7 +297,8 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
 
   Future<void> _advanceSegment() async {
     if (_advancing || _items.isEmpty) return;
-    _advancing = true;
+    final advancingGeneration = _generation;
+    _advancingGeneration = advancingGeneration;
     try {
       final p = location.value;
       if (p.segment + 1 < _items[p.item].segments.length) {
@@ -303,7 +311,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
         if (generation == _generation) _waitingForMore = true;
       }
     } finally {
-      _advancing = false;
+      if (_advancingGeneration == advancingGeneration) {
+        _advancingGeneration = null;
+      }
     }
   }
 
