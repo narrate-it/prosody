@@ -847,3 +847,21 @@ phone hot reload performed for this hourly task. Physical slider/Laura acceptanc
 and the existing AMOS integration gates remain open; full RFC is not complete.
 Capacity admission: idle49.9/58.70%, normal pressure, swap0/0.096MiB/s, no thermal
 or performance warning. Scoped build lease held for checks and commit gates.
+
+### 2026-11-01 — Human spoken briefing craft
+
+Owner requested voice-conversation and podcast craft. Audit: Go already composed
+Narrate conversational craft; the live Flutter preview only used a basic
+condensation prompt. Both now share adapted single-listener guidance from voice
+conversation, emotional pacing, concreteness, narrative spine and rapport skills.
+Use natural contractions/thought groups, varied rhythm, grounded significance,
+and source-appropriate warmth; prohibit fabricated emotion, examples, intimacy,
+interview dialogue and unsupported speech tags. Policy revision2 changes the Go
+instruction digest. Supplied audio/video and bundled recordings stay unchanged.
+See docs/design/narration-craft.md for rationale and an authored example.
+
+Verification:17 mocked live-provider tests and Go briefing tests passed;
+independent source review found no blocker. Existing accounting counts the full
+Go prompt, preview limits/reservations unchanged. No paid generation or expressive
+voice acceptance is claimed; Laura output requires listening comparison.
+Capacity:idle79.83/50.78%, normal pressure, swap0/0.048MiB/s, no thermal warning.

@@ -771,3 +771,9 @@ already reserved generation result. Both removed/covered-route regressions pass;
 seven budget tests pass; analysis clean; independent review clear. No provider
 calls or phone changes. AMOS and actual device/provider acceptance remain open;
 keep the owned reminder until full authorized implementation/acceptance completes.
+
+2026-11-01: adapted David's voice and podcast craft into both rewrite prompts;
+Go previously used Narrate conversational, preview had minimal instructions.
+17 mocked provider tests +Go briefing tests passed; independent review clear.
+Factual/source/budget limits retained. Audio warmth still needs listening; no paid
+request was made. See narration-craft.md for editorial guidance and limits.
