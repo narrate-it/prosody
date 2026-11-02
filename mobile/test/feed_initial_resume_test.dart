@@ -30,6 +30,16 @@ class _Playback extends ProsodyPlayback {
   Duration _position = Duration.zero;
   final starts = <({String id, int segment, Duration position})>[];
   int appends = 0;
+  void playAt(Duration position) {
+    _position = position;
+    playbackState.add(
+      PlaybackState(
+        processingState: AudioProcessingState.ready,
+        playing: true,
+      ),
+    );
+  }
+
   @override
   Briefing? get current => _current;
   @override
@@ -376,6 +386,18 @@ void main() {
           expect(playback.current, isNull);
         }
         expect(writes, 0);
+        if (mode == 'saved' || mode == 'unknown') {
+          // Deliver the active position before completion so the known-resume
+          // control actually dirties and dispatches a recorder update.
+          await _flush(tester, () async {
+            playback.playAt(const Duration(milliseconds: 400));
+          });
+          await _flush(tester, () async {
+            playback.completed.value++;
+          });
+          expect(reads, mode == 'saved' ? 2 : 1);
+          expect(writes, mode == 'saved' ? 1 : 0);
+        }
       } finally {
         await _flush(tester, () => tester.pumpWidget(const SizedBox.shrink()));
         api.close();
