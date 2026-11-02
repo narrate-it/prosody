@@ -33,7 +33,7 @@ func openFixture(t *testing.T) (*sql.DB, string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { closeFixture(t, db) })
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if _, err = db.ExecContext(ctx, Migration); err != nil {
@@ -76,7 +76,7 @@ func TestCommittedReplayNewConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	receipt, fresh, err := Accept(ctx, FromSQL(tx), a)
 	if err != nil || !fresh {
 		t.Fatalf("fresh=%t err=%v", fresh, err)
@@ -89,12 +89,12 @@ func TestCommittedReplayNewConnection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer other.Close()
+	defer closeFixture(t, other)
 	retry, err := other.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer retry.Rollback()
+	defer rollbackFixture(t, retry)
 	a.ItemID = testID(t)
 	a.StageWork = func(context.Context, string) (string, error) {
 		t.Error("replay enqueued another job")
@@ -128,7 +128,7 @@ func TestConcurrentKeyStagesOnlyOneWorkIntent(t *testing.T) {
 				results <- err
 				return
 			}
-			defer tx.Rollback()
+			defer rollbackFixture(t, tx)
 			_, _, err = Accept(ctx, FromSQL(tx), input)
 			if err == nil {
 				err = tx.Commit()
@@ -159,7 +159,7 @@ func TestEnqueueFailureRollsBackSource(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	a.StageWork = func(context.Context, string) (string, error) { return "", fmt.Errorf("effect admission refused") }
 	if _, _, err = Accept(ctx, FromSQL(tx), a); err == nil {
 		t.Fatal("accepted failed work intent")
@@ -182,7 +182,7 @@ func TestDistinctSubmissionCannotReuseWorkID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	receipt, _, err := Accept(ctx, FromSQL(tx), a)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +197,7 @@ func TestDistinctSubmissionCannotReuseWorkID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer second.Rollback()
+	defer rollbackFixture(t, second)
 	if _, _, err = Accept(ctx, FromSQL(second), a); err == nil {
 		t.Fatal("accepted duplicate work identity")
 	}

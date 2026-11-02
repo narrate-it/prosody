@@ -3,6 +3,8 @@ package openrouter
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -22,7 +24,10 @@ func TestRewriteSeparatesSourceAndRejectsTruncation(t *testing.T) {
 		if json.NewDecoder(r.Body).Decode(&p) != nil || len(p.Messages) != 2 || p.Messages[0]["role"] != "system" || p.Messages[1]["content"] != "untrusted source" || p.Model != "selected" {
 			t.Error("source/instruction boundary")
 		}
-		json.NewEncoder(w).Encode(map[string]any{"id": "generation", "choices": []any{map[string]any{"message": map[string]string{"content": "Briefing."}, "finish_reason": finish}}})
+		w.Header().Set("X-Request-Id", "request")
+		if err := json.NewEncoder(w).Encode(map[string]any{"id": "generation", "usage": map[string]int{"prompt_tokens": 20, "completion_tokens": 10}, "choices": []any{map[string]any{"message": map[string]string{"content": "Briefing."}, "finish_reason": finish}}}); err != nil {
+			t.Errorf("write rewrite fixture: %v", err)
+		}
 	}))
 	defer s.Close()
 	c := New()
@@ -32,8 +37,47 @@ func TestRewriteSeparatesSourceAndRejectsTruncation(t *testing.T) {
 		t.Fatalf("rewrite: %v", err)
 	}
 	finish = "length"
-	if _, err = c.Rewrite(context.Background(), "synthetic", "selected", "craft", "untrusted source", 400); err == nil {
-		t.Fatal("truncated script accepted")
+	res, err = c.Rewrite(context.Background(), "synthetic", "selected", "craft", "untrusted source", 400)
+	if err == nil || res.Text != "" || res.GenerationID != "generation" || res.RequestID != "request" || res.PromptTokens != 20 || res.CompletionTokens != 10 {
+		t.Fatal("truncated script accepted or receipt lost")
+	}
+}
+
+type receiptTransport func(*http.Request) (*http.Response, error)
+
+func (f receiptTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+type interruptedBody struct{}
+
+func (interruptedBody) Read([]byte) (int, error) { return 0, errors.New("private body failure") }
+func (interruptedBody) Close() error             { return nil }
+
+func TestSpeechRetainsHeadersOnFailure(t *testing.T) {
+	for _, mode := range []string{"interrupted", "invalid type", "empty", "denied"} {
+		t.Run(mode, func(t *testing.T) {
+			calls := 0
+			c := New()
+			c.http.Transport = receiptTransport(func(*http.Request) (*http.Response, error) {
+				calls++
+				body := io.ReadCloser(io.NopCloser(strings.NewReader("private invalid bytes")))
+				contentType, status := "audio/mpeg", http.StatusOK
+				switch mode {
+				case "interrupted":
+					body = interruptedBody{}
+				case "invalid type":
+					contentType = "application/json"
+				case "empty":
+					body = io.NopCloser(strings.NewReader(""))
+				case "denied":
+					status = http.StatusForbidden
+				}
+				return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {contentType}, "X-Generation-Id": {"generation"}, "X-Request-Id": {"request"}}, Body: body}, nil
+			})
+			got, err := c.Speech(context.Background(), "synthetic", "model", "voice", "script")
+			if err == nil || calls != 1 || len(got.Audio) != 0 || got.GenerationID != "generation" || got.RequestID != "request" || strings.Contains(err.Error(), "private") {
+				t.Fatal("receipt lost, invalid content exposed, or automatic retry")
+			}
+		})
 	}
 }
 func TestNoRedirectOrPaidRetry(t *testing.T) {
@@ -42,7 +86,9 @@ func TestNoRedirectOrPaidRetry(t *testing.T) {
 		calls++
 		w.Header().Set("Location", "/other")
 		w.WriteHeader(http.StatusTemporaryRedirect)
-		w.Write([]byte("sensitive-provider-body"))
+		if _, err := w.Write([]byte("sensitive-provider-body")); err != nil {
+			t.Errorf("write denial fixture: %v", err)
+		}
 	}))
 	defer s.Close()
 	c := New()

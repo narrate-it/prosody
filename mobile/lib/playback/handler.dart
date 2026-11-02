@@ -15,7 +15,9 @@ class PlaybackLocation {
 
 // One handler owns both the visible player and OS/background controls.
 class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
-  final audio.AudioPlayer _audio = audio.AudioPlayer();
+  final audio.AudioPlayer _audio;
+  ProsodyPlayback({audio.AudioPlayer? audioPlayer})
+    : _audio = audioPlayer ?? audio.AudioPlayer();
   final ValueNotifier<PlaybackLocation> location = ValueNotifier(
     const PlaybackLocation(0, 0),
   );
@@ -23,6 +25,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   final ValueNotifier<int> completed = ValueNotifier(0);
   bool _completed = false;
   bool _waitingForMore = false;
+  Timer? _visualTimer;
   final Set<String> visibleImages = {};
   Duration get itemOffset => current == null
       ? Duration.zero
@@ -36,6 +39,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   List<Briefing> _items = [];
   int _generation = 0;
   bool _advancing = false;
+  bool _transitioning = false;
   bool _playing = false;
   bool get isPlaying => _playing;
   Duration get position => _segment == null || _segment!.kind == 'image'
@@ -50,7 +54,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     await session.configure(const AudioSessionConfiguration.speech());
     _subscriptions.add(
       _audio.playerStateStream.listen((s) {
-        if (video.value != null) return;
+        if (_transitioning || video.value != null || _segment?.kind == 'image') {
+          return;
+        }
         _playing = s.playing;
         _broadcast();
         if (s.processingState == audio.ProcessingState.completed) {
@@ -65,7 +71,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     );
     _subscriptions.add(
       _audio.errorStream.listen((_) {
-        _fail();
+        if (!_transitioning) _fail();
       }),
     );
     _subscriptions.add(
@@ -140,7 +146,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     int initialSegment = 0,
     Duration initialPosition = Duration.zero,
   }) async {
+    final replacementGeneration = _generation + 1;
     await stop();
+    if (_generation != replacementGeneration) return;
     _items = newPlayableItems(const [], items);
     queue.add(
       _items
@@ -202,9 +210,13 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       return;
     }
     final generation = ++_generation;
+    _transitioning = true;
+    _visualTimer?.cancel();
+    _visualTimer = null;
     _waitingForMore = false;
     _playing = false;
     await _audio.stop();
+    if (generation != _generation) return;
     final previous = video.value;
     video.value = null;
     await previous?.dispose();
@@ -214,10 +226,15 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     mediaItem.add(queue.value[index]);
     failure.value = null;
     final selected = _segment!;
+    _transitioning = false;
     VideoPlayerController? initializing;
     try {
       if (selected.kind == 'image') {
-        _broadcast();
+        if (autoplay) {
+          await play();
+        } else {
+          _broadcast();
+        }
         return;
       }
       if (selected.media == null) {
@@ -265,7 +282,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   }
 
   void _decoderCompleted() {
-    if (_completed || _advancing || _segment == null) return;
+    if (_transitioning || _completed || _advancing || _segment == null) return;
     _completed = true;
     completed.value++;
     unawaited(_advanceSegment());
@@ -281,8 +298,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       } else if (p.item + 1 < _items.length) {
         await select(p.item + 1);
       } else {
+        final generation = _generation;
         await pause();
-        _waitingForMore = true;
+        if (generation == _generation) _waitingForMore = true;
       }
     } finally {
       _advancing = false;
@@ -292,8 +310,23 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   Future<void> advanceVisual() => _advanceSegment();
   @override
   Future<void> play() async {
-    if (_segment == null || _segment!.kind == 'image') return;
+    if (_segment == null) return;
     final generation = _generation;
+    if (_segment!.kind == 'image') {
+      // A visual-only segment has no audio duration. Give it a default dwell
+      // so locked-screen queues continue; elapsed time never credits a view.
+      // Resuming a paused visual gives the person a fresh five-second dwell.
+      if (_visualTimer?.isActive == true) return;
+      _playing = true;
+      _visualTimer = Timer(const Duration(seconds: 5), () {
+        _visualTimer = null;
+        if (generation == _generation && _playing) {
+          unawaited(_advanceSegment());
+        }
+      });
+      _broadcast();
+      return;
+    }
     if (_completed && position >= duration) await seekSegment(Duration.zero);
     if (generation != _generation) return;
     final session = await AudioSession.instance;
@@ -318,9 +351,14 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> pause() async {
+    final generation = _generation;
+    _visualTimer?.cancel();
+    _visualTimer = null;
     _waitingForMore = false;
     await _audio.pause();
+    if (generation != _generation) return;
     await video.value?.pause();
+    if (generation != _generation) return;
     _playing = false;
     _broadcast();
   }
@@ -384,18 +422,24 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   Future<void> skipToQueueItem(int index) => select(index);
   @override
   Future<void> stop() async {
-    ++_generation;
+    final generation = ++_generation;
+    _transitioning = true;
+    _visualTimer?.cancel();
+    _visualTimer = null;
     _waitingForMore = false;
     await _audio.stop();
+    if (generation != _generation) return;
     final previous = video.value;
     video.value = null;
     await previous?.dispose();
+    if (generation != _generation) return;
     _playing = false;
     _items = [];
     visibleImages.clear();
     location.value = const PlaybackLocation(0, 0);
     queue.add([]);
     mediaItem.add(null);
+    _transitioning = false;
     _broadcast();
     await super.stop();
   }

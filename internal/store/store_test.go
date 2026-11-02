@@ -45,7 +45,7 @@ func TestPostgresAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer db.Close()
+	defer closeFixture(t, db)
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if _, err = db.ExecContext(ctx, Migration); err != nil {
@@ -56,7 +56,7 @@ func TestPostgresAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	if _, err = tx.ExecContext(ctx, `INSERT INTO public.app_prosody_feeds(workspace_id,id,kind,title) VALUES($1,$2,'personal',$3)`, workspace, feed, []byte("inbox")); err != nil {
 		t.Fatal(err)
 	}
@@ -96,5 +96,20 @@ func TestPostgresAcceptance(t *testing.T) {
 	var count int
 	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM public.app_prosody_submissions WHERE id=$1`, item).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("rollback count=%d err=%v", count, err)
+	}
+}
+
+// A transaction may already have committed, rolled back, or been canceled.
+func rollbackFixture(t *testing.T, tx *sql.Tx) {
+	t.Helper()
+	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
+		t.Errorf("rollback fixture: %v", err)
+	}
+}
+
+func closeFixture(t *testing.T, resource interface{ Close() error }) {
+	t.Helper()
+	if err := resource.Close(); err != nil {
+		t.Errorf("close fixture: %v", err)
 	}
 }

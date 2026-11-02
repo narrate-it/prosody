@@ -62,8 +62,9 @@ Future<void> checkMarkReadTransport() async {
           if (request.url.queryParameters['renditionId'] != 'rendition') {
             throw StateError('Rendition selector lost');
           }
-          if (mode == 'denied')
+          if (mode == 'denied') {
             return http.Response('private error detail', 403);
+          }
           return http.Response(
             jsonEncode({
               ...progress,
@@ -84,10 +85,12 @@ Future<void> checkMarkReadTransport() async {
             (body['played'] as List).isNotEmpty) {
           throw StateError('Mark-read changed saved position or consumption');
         }
-        if (mode == 'conflict')
+        if (mode == 'conflict') {
           return http.Response('private conflict detail', 409);
-        if (mode == 'lost-response')
+        }
+        if (mode == 'lost-response') {
           throw TimeoutException('test response lost after commit');
+        }
         return http.Response(
           jsonEncode({
             ...progress,

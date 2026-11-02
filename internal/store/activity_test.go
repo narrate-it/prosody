@@ -83,7 +83,7 @@ func insertActivityFixture(t *testing.T, db *sql.DB, base Acceptance, at time.Ti
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	if _, _, err = Accept(ctx, FromSQL(tx), a); err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +172,7 @@ func TestActivityStatusesPaginationAndScope(t *testing.T) {
 		t.Fatal(err)
 	}
 	page, err := ReadActivity(ctx, FromSQLRead(tx), a.Scope.WorkspaceID, a.Submission.FeedID, "", 50)
-	tx.Rollback()
+	rollbackFixture(t, tx)
 	if err != nil || len(page.Items) != 2 {
 		t.Fatalf("tombstone: %+v %v", page, err)
 	}
@@ -188,7 +188,7 @@ func TestActivityStatusesPaginationAndScope(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	if _, err := ReadActivity(ctx, FromSQLRead(tx), a.Scope.WorkspaceID, a.Submission.FeedID, "", 2); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("deleted feed: %v", err)
 	}

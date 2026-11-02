@@ -23,6 +23,7 @@ type Synthesized struct {
 	SHA256   [32]byte
 	// Retained even when returned audio fails validation, for host reconciliation.
 	GenerationID string
+	RequestID    string
 }
 
 // Synthesize performs exactly one speech request after caller-owned authority and
@@ -37,7 +38,7 @@ func Synthesize(ctx context.Context, p SpeechProvider, key, model, voice, script
 		return Synthesized{}, errors.New("invalid narration synthesis request")
 	}
 	out, err := p.Speech(ctx, key, model, voice, script)
-	result := Synthesized{GenerationID: out.GenerationID}
+	result := Synthesized{GenerationID: out.GenerationID, RequestID: out.RequestID}
 	if err != nil {
 		return result, err
 	}

@@ -2,6 +2,7 @@ package briefing_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -13,13 +14,39 @@ import (
 type provider struct {
 	calls                        int
 	instructions, source, output string
+	err                          error
 }
 
 func (p *provider) Rewrite(_ context.Context, _, _, instructions, source string, _ int) (openrouter.RewriteResult, error) {
 	p.calls++
 	p.instructions = instructions
 	p.source = source
-	return openrouter.RewriteResult{Text: p.output}, nil
+	return openrouter.RewriteResult{Text: p.output, GenerationID: "generation", RequestID: "request", PromptTokens: 20, CompletionTokens: 10}, p.err
+}
+
+func TestRewriteRetainsReceiptWithoutRejectedContent(t *testing.T) {
+	uncertain := errors.New("provider outcome uncertain")
+	for _, tc := range []struct {
+		name, text string
+		err        error
+	}{
+		{"overlong", strings.Repeat("word ", 1101), nil},
+		{"code", "```not narration```", nil},
+		{"empty", " ", nil},
+		{"result and error", "not publishable", uncertain},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &provider{output: tc.text, err: tc.err}
+			s := content.TextSubmission{WorkspaceID: "w", FeedID: "f", IdempotencyKey: "k", Text: "Source"}
+			got, err := briefing.Rewrite(context.Background(), p, "synthetic", "selected", s)
+			if err == nil || p.calls != 1 || got.Script != "" || got.Provider.Text != "" || got.Provider.GenerationID != "generation" || got.Provider.RequestID != "request" || got.Provider.PromptTokens != 20 || got.Provider.CompletionTokens != 10 || len(got.InstructionsDigest) != 64 {
+				t.Fatal("receipt lost, rejected content exposed, or request retried")
+			}
+			if tc.err != nil && !errors.Is(err, tc.err) {
+				t.Fatal("provider failure replaced")
+			}
+		})
+	}
 }
 
 func TestCraftSourceBoundaryAndBoundedRepair(t *testing.T) {

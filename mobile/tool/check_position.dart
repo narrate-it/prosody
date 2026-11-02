@@ -21,18 +21,21 @@ void checkPosition() {
   position.observe(5000, durationMs: 10000);
   if (position.dirty) throw StateError('Unchanged position repeatedly dirtied');
   position.observe(1000, durationMs: 10000);
-  if (!position.dirty || position.value != 1000)
+  if (!position.dirty || position.value != 1000) {
     throw StateError('Backward seek lost');
+  }
   position.observe(20000, durationMs: 10000);
   if (position.value != 10000) throw StateError('Decoder overshoot persisted');
   position.observe(-10, durationMs: 10000);
   if (position.value != 0) throw StateError('Negative position persisted');
   position.reset();
-  if (position.dirty || position.value != 0)
+  if (position.dirty || position.value != 0) {
     throw StateError('New segment inherited position');
+  }
   position.observe(5000, durationMs: 0);
-  if (position.dirty || position.value != 0)
+  if (position.dirty || position.value != 0) {
     throw StateError('Image inherited audio position');
+  }
 }
 
 void main() {

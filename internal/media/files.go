@@ -59,8 +59,10 @@ func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, m
 		return Object{}, fmt.Errorf("create upload: %w", err)
 	}
 	name := tmp.Name()
-	defer os.Remove(name)
-	defer tmp.Close()
+	// Best-effort temporary-name cleanup does not change publication outcome.
+	defer func() { _ = os.Remove(name) }()
+	// The successful write path checks Close; this also closes on early error.
+	defer func() { _ = tmp.Close() }()
 	hash := sha256.New()
 	n, err := io.Copy(io.MultiWriter(tmp, hash), io.LimitReader(contextReader{ctx, r}, maxBytes+1))
 	if err != nil {
@@ -129,7 +131,8 @@ func (f *Files) Reconcile(ctx context.Context, workspace, asset string, expected
 	if err != nil {
 		return false, err
 	}
-	defer file.Close()
+	// Read-only descriptor cleanup must not replace the reconciliation result.
+	defer func() { _ = file.Close() }()
 	info, err := file.Stat()
 	if err != nil {
 		return false, fmt.Errorf("inspect original asset: %w", err)
