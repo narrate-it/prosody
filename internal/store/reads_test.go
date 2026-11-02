@@ -74,7 +74,7 @@ func insertReadFixture(t *testing.T, db *sql.DB, base Acceptance, at time.Time, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	if _, _, err = Accept(ctx, FromSQL(tx), a); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestReadReadyPaginationAndSecretProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	page, err := ReadReadyBriefings(ctx, FromSQLRead(tx), a.Scope.WorkspaceID, a.Submission.FeedID, "", 2)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestReadReadyPaginationAndSecretProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer nextTx.Rollback()
+	defer rollbackFixture(t, nextTx)
 	next, err := ReadReadyBriefings(ctx, FromSQLRead(nextTx), a.Scope.WorkspaceID, a.Submission.FeedID, page.NextCursor, 2)
 	if err != nil || len(next.Items) != 1 || next.Items[0].ID != ids[2] || next.NextCursor != "" {
 		t.Fatalf("next page=%+v err=%v", next, err)
@@ -177,7 +177,7 @@ func TestReadDeniesDeletedAndAmbiguousItems(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	if _, err = ReadReadyBriefing(ctx, FromSQLRead(tx), a.Scope.WorkspaceID, a.Submission.FeedID, id); err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestReadFeedsWorkspaceAndCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	second := testID(t)
 	if _, err = tx.ExecContext(ctx, `INSERT INTO public.app_prosody_feeds(workspace_id,id,kind,title) VALUES($1,$2,'team',$3)`, a.Scope.WorkspaceID, second, []byte("Team\x00name")); err != nil {
 		t.Fatal(err)
@@ -319,7 +319,7 @@ func TestReadyListHoldsTombstoneUntilTransactionCloses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer readTx.Rollback()
+	defer rollbackFixture(t, readTx)
 	page, err := ReadReadyBriefings(ctx, FromSQLRead(readTx), a.Scope.WorkspaceID, a.Submission.FeedID, "", 2)
 	if err != nil || len(page.Items) != 1 {
 		t.Fatalf("initial page=%+v err=%v", page, err)
@@ -334,7 +334,7 @@ func TestReadyListHoldsTombstoneUntilTransactionCloses(t *testing.T) {
 			finished <- err
 			return
 		}
-		defer tx.Rollback()
+		defer rollbackFixture(t, tx)
 		var pid int
 		if err = tx.QueryRowContext(ctx, `SELECT pg_catalog.pg_backend_pid()`).Scan(&pid); err != nil {
 			finished <- err
@@ -404,7 +404,7 @@ func TestReadyListHoldsTombstoneUntilTransactionCloses(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer fresh.Rollback()
+	defer rollbackFixture(t, fresh)
 	page, err = ReadReadyBriefings(ctx, FromSQLRead(fresh), a.Scope.WorkspaceID, a.Submission.FeedID, "", 2)
 	if err != nil || len(page.Items) != 0 {
 		t.Fatalf("fresh read includes tombstone: %+v %v", page, err)

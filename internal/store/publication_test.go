@@ -33,7 +33,7 @@ func TestPublicationAtomicityAndMediaAdmission(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer initial.Rollback()
+			defer rollbackFixture(t, initial)
 			receipt, _, err := Accept(ctx, FromSQL(initial), a)
 			if err != nil {
 				t.Fatal(err)
@@ -51,7 +51,7 @@ func TestPublicationAtomicityAndMediaAdmission(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer tx.Rollback()
+			defer rollbackFixture(t, tx)
 			if _, err = tx.ExecContext(ctx, `INSERT INTO public.app_prosody_assets(workspace_id,id,mime,byte_size,sha256,duration_ms,generated) VALUES($1,$2,'audio/mpeg',1,$3,$4,$5)`, assetWorkspace, assetID, make([]byte, 32), tc.duration, tc.kind == "narration"); err != nil {
 				t.Fatal(err)
 			}

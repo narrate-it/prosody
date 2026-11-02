@@ -19,7 +19,7 @@ func TestProgressIsolationRevisionAndDeletion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	receipt, _, err := Accept(ctx, FromSQL(tx), a)
 	if err != nil {
 		t.Fatal(err)

@@ -24,7 +24,7 @@ type speechStub struct {
 
 func (p *speechStub) Speech(_ context.Context, key, model, voice, script string) (openrouter.SpeechResult, error) {
 	p.calls++
-	return openrouter.SpeechResult{Audio: p.audio, GenerationID: "fixture-request", ContentType: "audio/mpeg"}, p.err
+	return openrouter.SpeechResult{Audio: p.audio, GenerationID: "fixture-request", RequestID: "fixture-transport", ContentType: "audio/mpeg"}, p.err
 }
 func TestSynthesisMeasuredOutput(t *testing.T) {
 	p := &speechStub{audio: append([]byte(nil), silence...)}
@@ -68,7 +68,7 @@ func TestSynthesisUncertainOutcomeAndPreflight(t *testing.T) {
 	uncertain := errors.New("uncertain provider outcome")
 	p := &speechStub{err: uncertain}
 	got, err := Synthesize(context.Background(), p, "test-key", "model", "voice", "Briefing.", time.Second, 1<<20)
-	if !errors.Is(err, uncertain) || p.calls != 1 || got.GenerationID != "fixture-request" {
+	if !errors.Is(err, uncertain) || p.calls != 1 || got.GenerationID != "fixture-request" || got.RequestID != "fixture-transport" || len(got.Audio) != 0 {
 		t.Fatal("uncertain result retried or changed")
 	}
 	for _, budget := range []time.Duration{0, 11 * time.Minute} {

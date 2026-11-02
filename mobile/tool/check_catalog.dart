@@ -22,8 +22,9 @@ void checkCatalog() {
     throw StateError('Valid selection changed');
   }
   (model['voices'] as List).add('later');
-  if (decoded.single.voices.length != 1)
+  if (decoded.single.voices.length != 1) {
     throw StateError('Catalog aliases input');
+  }
   rejects([model, model]);
   rejects([
     {
@@ -57,8 +58,9 @@ void checkCatalog() {
   ]);
   rejects([null]);
   rejects(null);
-  if (providerCatalogFromJson([]).isNotEmpty)
+  if (providerCatalogFromJson([]).isNotEmpty) {
     throw StateError('Empty catalog changed');
+  }
   final text = providerCatalogFromJson([
     {'id': 'text', 'name': 'Text'},
   ]);

@@ -71,7 +71,8 @@ func (c *Client) request(ctx context.Context, key, method, path string, payload 
 	if err != nil {
 		return nil, nil, errors.New("provider transport failed; outcome may be unknown")
 	}
-	defer res.Body.Close()
+	// Body read/status determines the outcome; cleanup cannot undo a paid call.
+	defer func() { _ = res.Body.Close() }()
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
 		return nil, res.Header, &ProviderError{Status: res.StatusCode, RequestID: res.Header.Get("X-Request-Id")}
 	}
@@ -100,7 +101,7 @@ func (c *Client) Models(ctx context.Context, key string) ([]Model, error) {
 }
 
 type RewriteResult struct {
-	Text, GenerationID             string
+	Text, GenerationID, RequestID  string
 	PromptTokens, CompletionTokens int
 }
 
@@ -114,9 +115,10 @@ func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source s
 		MaxTokens int                 `json:"max_tokens"`
 		Stream    bool                `json:"stream"`
 	}{model, []map[string]string{{"role": "system", "content": instructions}, {"role": "user", "content": source}}, maxTokens, false}
-	b, _, err := c.request(ctx, key, http.MethodPost, "/chat/completions", payload, 2<<20)
+	b, h, err := c.request(ctx, key, http.MethodPost, "/chat/completions", payload, 2<<20)
+	receipt := RewriteResult{GenerationID: h.Get("X-Generation-Id"), RequestID: h.Get("X-Request-Id")}
 	if err != nil {
-		return RewriteResult{}, err
+		return receipt, err
 	}
 	var result struct {
 		ID      string `json:"id"`
@@ -131,18 +133,26 @@ func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source s
 			Completion int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	if json.Unmarshal(b, &result) != nil || len(result.Choices) != 1 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
-		return RewriteResult{}, errors.New("invalid rewrite response")
+	if json.Unmarshal(b, &result) != nil {
+		return receipt, errors.New("invalid rewrite response")
+	}
+	if result.ID != "" {
+		receipt.GenerationID = result.ID
+	}
+	receipt.PromptTokens, receipt.CompletionTokens = result.Usage.Prompt, result.Usage.Completion
+	if len(result.Choices) != 1 || strings.TrimSpace(result.Choices[0].Message.Content) == "" {
+		return receipt, errors.New("invalid rewrite response")
 	}
 	if result.Choices[0].FinishReason != "stop" {
-		return RewriteResult{}, errors.New("incomplete rewrite response")
+		return receipt, errors.New("incomplete rewrite response")
 	}
-	return RewriteResult{result.Choices[0].Message.Content, result.ID, result.Usage.Prompt, result.Usage.Completion}, nil
+	receipt.Text = result.Choices[0].Message.Content
+	return receipt, nil
 }
 
 type SpeechResult struct {
-	Audio                     []byte
-	ContentType, GenerationID string
+	Audio                                []byte
+	ContentType, GenerationID, RequestID string
 }
 
 // Speech returns the original provider bytes. Publication must separately
@@ -152,11 +162,13 @@ func (c *Client) Speech(ctx context.Context, key, model, voice, text string) (Sp
 		return SpeechResult{}, errors.New("invalid speech request")
 	}
 	b, h, err := c.request(ctx, key, http.MethodPost, "/audio/speech", map[string]string{"model": model, "voice": voice, "input": text, "response_format": "mp3"}, 64<<20)
+	receipt := SpeechResult{ContentType: h.Get("Content-Type"), GenerationID: h.Get("X-Generation-Id"), RequestID: h.Get("X-Request-Id")}
 	if err != nil {
-		return SpeechResult{}, err
+		return receipt, err
 	}
 	if len(b) == 0 || !strings.HasPrefix(h.Get("Content-Type"), "audio/") {
-		return SpeechResult{}, errors.New("invalid speech response")
+		return receipt, errors.New("invalid speech response")
 	}
-	return SpeechResult{b, h.Get("Content-Type"), h.Get("X-Generation-Id")}, nil
+	receipt.Audio = b
+	return receipt, nil
 }

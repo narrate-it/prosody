@@ -83,11 +83,12 @@ Future<void> checkFeedDirectory() async {
   try {
     await loadFeedDirectory((cursor) async {
       attempts++;
-      if (cursor == null)
+      if (cursor == null) {
         return {
           'feeds': [feed('one')],
           'nextCursor': 'two',
         };
+      }
       throw failure;
     });
     throw StateError('Partial directory returned after failure');

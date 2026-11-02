@@ -78,7 +78,8 @@ func ReadActivity(ctx context.Context, tx ReadTransaction, workspace, feed, curs
 	if err != nil {
 		return page, fmt.Errorf("read activity: %w", err)
 	}
-	defer rows.Close()
+	// Success closes explicitly below; cleanup must not replace a read error.
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var item SubmissionSummary
 		var source []byte

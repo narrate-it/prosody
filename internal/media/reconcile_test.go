@@ -54,7 +54,11 @@ func TestReconcileImmutableWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			t.Errorf("close fixture file: %v", err)
+		}
+	}()
 	saved, err := io.ReadAll(file)
 	if err != nil || !bytes.Equal(saved, original) {
 		t.Fatal("reconciliation changed original bytes")

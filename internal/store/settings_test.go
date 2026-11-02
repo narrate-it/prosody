@@ -40,7 +40,7 @@ func TestProviderSettingsPersistenceAndRevocation(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer tx.Rollback()
+		defer rollbackFixture(t, tx)
 		snapshot, err := SaveSettings(ctx, FromSQL(tx), vault, c)
 		if !errors.Is(err, want) {
 			t.Fatalf("settings got %v want %v", err, want)
@@ -94,7 +94,7 @@ func TestProviderSettingsPersistenceAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
+	defer rollbackFixture(t, tx)
 	snapshot, err := CurrentSettings(ctx, FromSQL(tx), change.WorkspaceID, change.FeedID)
 	if err != nil || bytes.Contains(snapshot, secret) {
 		t.Fatalf("admission snapshot: %v", err)
@@ -134,7 +134,7 @@ func TestProviderSettingsPersistenceAndRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer check.Rollback()
+	defer rollbackFixture(t, check)
 	if _, err = CurrentSettings(ctx, FromSQL(check), change.WorkspaceID, change.FeedID); !errors.Is(err, ErrUnavailable) {
 		t.Fatalf("revoked settings admitted: %v", err)
 	}

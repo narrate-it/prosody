@@ -59,8 +59,9 @@ Future<void> checkBoundedBody() async {
     ticker.cancel();
     await trickle.close();
   }
-  if (!stopped || delivered == 0)
+  if (!stopped || delivered == 0) {
     throw StateError('Deadline did not stop trickling body');
+  }
 
   final empty = await collectBoundedBody(
     const Stream.empty(),

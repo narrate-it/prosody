@@ -91,7 +91,8 @@ func ReadFeeds(ctx context.Context, tx ReadTransaction, workspace, cursor string
 	if err != nil {
 		return page, fmt.Errorf("read workspace feeds: %w", err)
 	}
-	defer rows.Close()
+	// Success closes explicitly below; cleanup must not replace a read error.
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var f FeedSummary
 		var title []byte
@@ -267,7 +268,8 @@ func ReadReadyBriefings(ctx context.Context, tx ReadTransaction, workspace, feed
 	if err != nil {
 		return page, fmt.Errorf("read ready briefings: %w", err)
 	}
-	defer rows.Close()
+	// Success closes explicitly below; cleanup must not replace a read error.
+	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		briefing, err := scanReadyBriefing(rows, workspace, feed)
 		if err != nil {
