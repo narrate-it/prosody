@@ -51,6 +51,9 @@ func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, m
 	if err != nil || r == nil || maxBytes <= 0 || maxBytes > 1<<30 {
 		return Object{}, ErrInvalid
 	}
+	if err = ctx.Err(); err != nil {
+		return Object{}, err
+	}
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return Object{}, fmt.Errorf("create asset directory: %w", err)
 	}
@@ -68,6 +71,11 @@ func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, m
 	if err != nil {
 		return Object{}, fmt.Errorf("write upload: %w", err)
 	}
+	// A reader may cancel while returning final bytes with EOF; io.Copy
+	// normalizes that EOF to success, so check the context again explicitly.
+	if err = ctx.Err(); err != nil {
+		return Object{}, err
+	}
 	if n == 0 || n > maxBytes {
 		return Object{}, ErrInvalid
 	}
@@ -76,6 +84,12 @@ func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, m
 	}
 	if err = tmp.Close(); err != nil {
 		return Object{}, fmt.Errorf("close upload: %w", err)
+	}
+	// Honor known cancellation before publication, including during Sync/Close.
+	// Cancellation can still race Link; never remove a target or infer rollback
+	// from cancellation/errors after publication. Reconcile uncertain outcomes.
+	if err = ctx.Err(); err != nil {
+		return Object{}, err
 	}
 	// Link is atomic no-replace on the same filesystem; unlike Rename it cannot
 	// silently overwrite an existing immutable asset.
