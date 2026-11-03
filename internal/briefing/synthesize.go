@@ -38,6 +38,7 @@ func Synthesize(ctx context.Context, p SpeechProvider, key, model, voice, script
 		observation.State = state
 		observation.RequestID, observation.GenerationID = result.RequestID, result.GenerationID
 		result.Outcome, failure = openrouter.FinishAttempt(observation, failure)
+		result.RequestID, result.GenerationID = result.Outcome.RequestID, result.Outcome.GenerationID
 	}()
 	if err := ctx.Err(); err != nil {
 		return Synthesized{}, err

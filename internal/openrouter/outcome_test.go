@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -98,6 +99,12 @@ func TestPaidAttemptObservations(t *testing.T) {
 				if int(calls.Load()) != wantCalls {
 					t.Fatalf("calls %d, want %d", calls.Load(), wantCalls)
 				}
+				if mode == "canceled after acceptance" && !errors.Is(err, context.Canceled) {
+					t.Fatal("cancellation identity lost")
+				}
+				if mode == "truncated" && !errors.Is(err, io.ErrUnexpectedEOF) {
+					t.Fatal("read error identity lost")
+				}
 				if mode == "success" {
 					if err != nil || !usable {
 						t.Fatalf("success: %v", err)
@@ -132,7 +139,7 @@ func TestDeadlineAfterTransportHandoffIsUnknown(t *testing.T) {
 	client.http.Transport = transport
 	result, err := client.Rewrite(context.Background(), "synthetic", "model", "policy", "source", 20)
 	var failure *AttemptError
-	if transport.calls != 1 || !errors.As(err, &failure) || result.Outcome.State != MayHaveActed || failure.Outcome != result.Outcome || result.Text != "" {
+	if !errors.Is(err, context.DeadlineExceeded) || transport.calls != 1 || !errors.As(err, &failure) || result.Outcome.State != MayHaveActed || failure.Outcome != result.Outcome || result.Text != "" {
 		t.Fatalf("deadline outcome lost: %+v, %v", result.Outcome, err)
 	}
 }

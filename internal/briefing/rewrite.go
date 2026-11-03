@@ -58,6 +58,8 @@ func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model
 		observation.RequestID, observation.GenerationID = result.Provider.RequestID, result.Provider.GenerationID
 		observation.PromptTokens, observation.CompletionTokens = result.Provider.PromptTokens, result.Provider.CompletionTokens
 		result.Provider.Outcome, failure = openrouter.FinishAttempt(observation, failure)
+		result.Provider.RequestID, result.Provider.GenerationID = result.Provider.Outcome.RequestID, result.Provider.Outcome.GenerationID
+		result.Provider.PromptTokens, result.Provider.CompletionTokens = result.Provider.Outcome.PromptTokens, result.Provider.Outcome.CompletionTokens
 	}()
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
