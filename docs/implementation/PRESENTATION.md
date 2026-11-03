@@ -24,11 +24,23 @@ or image/jpeg, matching current publication validation.
 Links must be absolute HTTPS at exactly the configured origin (including port),
 without user info, query (even empty), or fragment. The origin has no path beyond
 an optional slash. The helper does not create paths, fetch URLs, follow redirects
-or mint tokens. Paths are already-bound opaque host input, not discovered or
-proved safe by this helper. The host must ensure they contain no credentials or
+or mint tokens. A required pure `LinkRenderer` port (`BriefingInputs.ExpectedURL`) receives each
+exact workspace/feed/item/rendition/asset identity. Every supplied link must equal
+the renderer's expected raw URL exactly, and that expected URL must pass the same
+UTF-8/origin/no-credentials/query/fragment guards. A different endpoint at the same
+origin is denied. There is no default renderer or native route constructor; no
+approved renderer/template currently exists in this package. Renderer errors deny
+the entire response with the fixed safe error and no raw diagnostic.
+
+The future host must bind the renderer to its exact admitted template and current
+metadata. Returning a matching string is a data consistency check, never approval
+or proof of authority. The helper does not discover or prove a route safe. The host must ensure they contain no credentials or
 bearer capabilities and must enforce a no-redirect delivery policy.
 
-Output retains every assetId/imageIds selector and adds url/images; it adds the
+Output retains every assetId/imageIds selector and adds url/images in the same
+order and cardinality regardless of link-map order. It preserves the nonzero store
+publishedAt timestamp (including its JSON-representable offset/precision) as an
+additive field without freezing a new native DTO contract. It adds the
 explicit agent label and preserves title, source and script byte-for-byte. Native
 parent IDs remain in the input closure binding; the output preserves Flutter's
 existing wire shape. `MarshalFeeds` requires exactly one explicit workspace/feed
@@ -71,9 +83,29 @@ Executed `go test -json -p 1 -timeout 90s ./internal/presentation`: all seven
 top-level tests passed (42 named test/subtest pass records), exit 0. Independent
 source review found one invalid-UTF-8 URL fidelity issue; the shared origin/link
 guard and regression fixed it, and the exact corrected source passed independent
-delta re-review before execution. Required hook gates are pending.
+delta re-review before execution. That receipt applies to the initial candidate; the route-renderer/timestamp
+follow-up below requires fresh tests and preserved commit gates.
 
 Capacity admitted: load 6.06/7.18/7.00, interval idle 19.11/45.14%
 (average 32.125%), normal pressure, zero swap churn and no thermal/performance
 warnings. The owned build lease was released after the bounded package tests. No provider calls,
 DB provisioning, native changes, signing, installation or deployment.
+
+
+## Route-renderer and publication-time follow-up
+
+The local helper now requires the future host's exact route renderer rather than
+accepting any endpoint at the configured origin. No route template or authority
+API is supplied here. It also preserves PublishedAt from the existing store DTO
+and rejects a zero timestamp, consistent with the store read boundary; timestamps
+that JSON cannot represent also fail with the fixed error. Added regression cases
+for a wrong endpoint at the correct origin, renderer failure without private error
+text/body, malformed expected links, missing renderer, timestamp preservation, and
+image/link reordering without identity, order or cardinality loss. Executed follow-up: all eight top-level tests pass (50 named test/subtest pass
+records). An isolated Go overlay control removing timestamp emission and exact
+URL equality caused both corresponding regressions to fail; the actual reviewed
+source was never mutated. The full corrected package then passed. The preserved
+lint/full-unit hook runs for this checkpoint. Capacity admitted at load
+3.79/3.72/3.74, interval idle 47.42/47.63%, normal pressure, zero swap churn
+and no thermal/performance warnings. Agent attribution still requires an explicit
+legitimate label; the source-of-attribution choice remains a host decision.
