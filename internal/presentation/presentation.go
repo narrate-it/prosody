@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -59,11 +60,17 @@ type MediaLink struct {
 	URL string
 }
 
+// LinkRenderer renders the future host's exact admitted route/template for an
+// asset identity. It must be pure; its returned URL is data, never authorization.
+// No default renderer or approved native media route exists in this package.
+type LinkRenderer func(AssetIdentity) (string, error)
+
 // BriefingInputs must contain exactly the attributions and assets used by a page.
 type BriefingInputs struct {
 	Attributions []Attribution
 	Published    []AssetMetadata
 	Links        []MediaLink
+	ExpectedURL  LinkRenderer
 }
 
 // FeedPermission is an explicit native permission projection, including false.
@@ -90,6 +97,7 @@ type briefing struct {
 	Source      string    `json:"source"`
 	Script      string    `json:"script"`
 	Segments    []segment `json:"segments"`
+	PublishedAt time.Time `json:"publishedAt"`
 }
 type briefingPage struct {
 	Items      []briefing `json:"items"`
@@ -166,7 +174,7 @@ func encode(v any) ([]byte, error) {
 // Origin is configuration (HTTPS scheme and host only), not a URL allowlist grant.
 func MarshalBriefings(scope Scope, page store.BriefingReadPage, inputs BriefingInputs, origin string) ([]byte, error) {
 	base, ok := originURL(origin)
-	if !ok || (base.Path != "" && base.Path != "/") || !validScope(scope) || len(page.Items) > MaxItems || !text(page.NextCursor, 4096) || len(inputs.Attributions) != len(page.Items) || len(inputs.Published) > MaxResources || len(inputs.Links) != len(inputs.Published) {
+	if inputs.ExpectedURL == nil || !ok || (base.Path != "" && base.Path != "/") || !validScope(scope) || len(page.Items) > MaxItems || !text(page.NextCursor, 4096) || len(inputs.Attributions) != len(page.Items) || len(inputs.Published) > MaxResources || len(inputs.Links) != len(inputs.Published) {
 		return nil, ErrInvalid
 	}
 	budget := visits(2)
@@ -201,6 +209,10 @@ func MarshalBriefings(scope Scope, page store.BriefingReadPage, inputs BriefingI
 		if !budget.add(5) || !exists || expected != m.AssetMetadata || !linkURL(m.URL, base) {
 			return nil, ErrInvalid
 		}
+		expectedURL, err := inputs.ExpectedURL(m.AssetIdentity)
+		if err != nil || !linkURL(expectedURL, base) || m.URL != expectedURL {
+			return nil, ErrInvalid
+		}
 		if _, exists = links[m.AssetIdentity]; exists {
 			return nil, ErrInvalid
 		}
@@ -215,11 +227,11 @@ func MarshalBriefings(scope Scope, page store.BriefingReadPage, inputs BriefingI
 	for _, item := range page.Items {
 		id := identity(scope, item)
 		agent, exists := attrs[id]
-		if !budget.add(4) || !exists || !store.UUID(item.ID) || !store.UUID(item.RenditionID) || seenItems[item.ID] || item.Status != "ready" || !text(item.Title, 4096) || !text(item.Source, 65536) || !text(item.Script, 256000) || len(item.Segments) == 0 || len(item.Segments) > MaxSegments || !g.add("item", item.ID) || !g.add("rendition", item.RenditionID) {
+		if !budget.add(4) || !exists || !store.UUID(item.ID) || !store.UUID(item.RenditionID) || seenItems[item.ID] || item.Status != "ready" || item.PublishedAt.IsZero() || !text(item.Title, 4096) || !text(item.Source, 65536) || !text(item.Script, 256000) || len(item.Segments) == 0 || len(item.Segments) > MaxSegments || !g.add("item", item.ID) || !g.add("rendition", item.RenditionID) {
 			return nil, ErrInvalid
 		}
 		seenItems[item.ID] = true
-		b := briefing{ID: item.ID, RenditionID: item.RenditionID, Title: item.Title, Agent: agent, Status: item.Status, Source: item.Source, Script: item.Script, Segments: make([]segment, 0, len(item.Segments))}
+		b := briefing{PublishedAt: item.PublishedAt, ID: item.ID, RenditionID: item.RenditionID, Title: item.Title, Agent: agent, Status: item.Status, Source: item.Source, Script: item.Script, Segments: make([]segment, 0, len(item.Segments))}
 		seenSegments := map[string]bool{}
 		var narrationMS, totalMS int64
 		for _, s := range item.Segments {

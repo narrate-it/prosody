@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/narrate-it/prosody/internal/presentation"
 	"github.com/narrate-it/prosody/internal/store"
@@ -17,11 +18,14 @@ const feedID = "00000000-0000-7000-8000-000000000002"
 const origin = "https://media.example.invalid"
 
 func uuid(n int) string { return fmt.Sprintf("00000000-0000-7000-8000-%012d", n) }
+func expectedURL(id presentation.AssetIdentity) (string, error) {
+	return origin + "/already-bound/" + id.AssetID, nil
+}
 func fixture() (presentation.Scope, store.BriefingReadPage, presentation.BriefingInputs) {
 	scope := presentation.Scope{WorkspaceID: workspace, FeedID: feedID}
 	id := presentation.ItemIdentity{WorkspaceID: workspace, FeedID: feedID, ItemID: uuid(3), RenditionID: uuid(4)}
-	page := store.BriefingReadPage{Items: []store.ReadyBriefing{{ID: id.ItemID, RenditionID: id.RenditionID, Title: " Original title ", Status: "ready", Source: "Original\nsource", Script: "Exact script.", Segments: []store.PublishedSegment{{ID: uuid(5), Kind: "narration", AssetID: uuid(6), DurationMS: 1000}, {ID: uuid(7), Kind: "image", ImageIDs: []string{uuid(8)}}}}}, NextCursor: "opaque-cursor"}
-	inputs := presentation.BriefingInputs{Attributions: []presentation.Attribution{{ItemIdentity: id, Label: "Release worker"}}}
+	page := store.BriefingReadPage{Items: []store.ReadyBriefing{{ID: id.ItemID, RenditionID: id.RenditionID, PublishedAt: time.Date(2026, 11, 2, 15, 4, 5, 123000000, time.FixedZone("fixture", -7*3600)), Title: " Original title ", Status: "ready", Source: "Original\nsource", Script: "Exact script.", Segments: []store.PublishedSegment{{ID: uuid(5), Kind: "narration", AssetID: uuid(6), DurationMS: 1000}, {ID: uuid(7), Kind: "image", ImageIDs: []string{uuid(8)}}}}}, NextCursor: "opaque-cursor"}
+	inputs := presentation.BriefingInputs{ExpectedURL: expectedURL, Attributions: []presentation.Attribution{{ItemIdentity: id, Label: "Release worker"}}}
 	for i, asset := range []string{uuid(6), uuid(8)} {
 		mime := "audio/mpeg"
 		if i == 1 {
@@ -50,7 +54,7 @@ func TestBriefingWirePreservesContentAndResourceIDs(t *testing.T) {
 	}
 	value := decode(t, got)
 	item := value["items"].([]any)[0].(map[string]any)
-	for key, want := range map[string]string{"id": page.Items[0].ID, "renditionId": page.Items[0].RenditionID, "title": page.Items[0].Title, "source": page.Items[0].Source, "script": page.Items[0].Script, "agent": "Release worker", "status": "ready"} {
+	for key, want := range map[string]string{"id": page.Items[0].ID, "renditionId": page.Items[0].RenditionID, "title": page.Items[0].Title, "source": page.Items[0].Source, "script": page.Items[0].Script, "agent": "Release worker", "status": "ready", "publishedAt": page.Items[0].PublishedAt.Format(time.RFC3339Nano)} {
 		if item[key] != want {
 			t.Fatalf("field %s changed", key)
 		}
@@ -79,6 +83,27 @@ func TestBriefingRejectsInvalidBindingsWithoutOutput(t *testing.T) {
 		name   string
 		change func(*presentation.Scope, *store.BriefingReadPage, *presentation.BriefingInputs, *string)
 	}{
+		{"missing renderer", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+			i.ExpectedURL = nil
+		}},
+		{"same origin wrong endpoint", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+			i.Links[0].URL = origin + "/unrelated"
+		}},
+		{"renderer error", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+			i.ExpectedURL = func(presentation.AssetIdentity) (string, error) { return "", errors.New("private renderer detail") }
+		}},
+		{"renderer foreign origin", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+			i.ExpectedURL = func(presentation.AssetIdentity) (string, error) { return "https://foreign.invalid/file", nil }
+		}},
+		{"renderer invalid utf8", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+			i.ExpectedURL = func(presentation.AssetIdentity) (string, error) { return origin + "/" + string([]byte{255}), nil }
+		}},
+		{"missing publication time", func(_ *presentation.Scope, p *store.BriefingReadPage, _ *presentation.BriefingInputs, _ *string) {
+			p.Items[0].PublishedAt = time.Time{}
+		}},
+		{"unrepresentable publication time", func(_ *presentation.Scope, p *store.BriefingReadPage, _ *presentation.BriefingInputs, _ *string) {
+			p.Items[0].PublishedAt = time.Date(10000, 1, 1, 0, 0, 0, 0, time.UTC)
+		}},
 		{"invalid utf8 URL", func(_ *presentation.Scope, _ *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
 			i.Links[0].URL = origin + "/" + string([]byte{255})
 		}},
@@ -212,7 +237,7 @@ func TestCompleteNativeGraphIncludesParentsButNotSegmentIDs(t *testing.T) {
 			for n := 0; n < assets; n++ {
 				m := presentation.AssetMetadata{AssetIdentity: presentation.AssetIdentity{ItemIdentity: inputs.Attributions[0].ItemIdentity, AssetID: uuid(100 + n)}, SHA256: strings.Repeat("a", 64), MIME: "image/png", ByteSize: 1}
 				inputs.Published = append(inputs.Published, m)
-				inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: m, URL: origin + "/x"})
+				inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: m, URL: origin + "/already-bound/" + m.AssetID})
 				if n%20 == 0 {
 					page.Items[0].Segments = append(page.Items[0].Segments, store.PublishedSegment{ID: uuid(1000 + n), Kind: "image"})
 				}
@@ -252,7 +277,7 @@ func TestRepeatedReferenceVisitsHaveIndependentBudget(t *testing.T) {
 					m := presentation.AssetMetadata{AssetIdentity: presentation.AssetIdentity{ItemIdentity: id, AssetID: uuid(300 + a)}, SHA256: strings.Repeat("a", 64), MIME: "image/png", ByteSize: 1}
 					images = append(images, m.AssetID)
 					inputs.Published = append(inputs.Published, m)
-					inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: m, URL: origin + "/x"})
+					inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: m, URL: origin + "/already-bound/" + m.AssetID})
 				}
 				for s := 0; s < 100; s++ {
 					item.Segments = append(item.Segments, store.PublishedSegment{ID: uuid(1000 + s), Kind: "image", ImageIDs: images})
@@ -297,5 +322,37 @@ func TestFeedPermissionsAreExplicitAndScopeBound(t *testing.T) {
 		if !errors.Is(err, presentation.ErrInvalid) || b != nil {
 			t.Fatal("missing, duplicate or foreign permission accepted")
 		}
+	}
+}
+
+func TestReorderedLinksPreserveImageIdentityOrderAndCardinality(t *testing.T) {
+	scope, page, inputs := fixture()
+	metadata := inputs.Published[1]
+	metadata.AssetID = uuid(9)
+	inputs.Published = append(inputs.Published, metadata)
+	inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: metadata, URL: origin + "/already-bound/" + metadata.AssetID})
+	page.Items[0].Segments[1].ImageIDs = []string{uuid(9), uuid(8)}
+	inputs.Links[0], inputs.Links[2] = inputs.Links[2], inputs.Links[0]
+	expected := map[presentation.AssetIdentity]string{}
+	for _, m := range inputs.Links {
+		expected[m.AssetIdentity] = m.URL
+	}
+	inputs.ExpectedURL = func(id presentation.AssetIdentity) (string, error) {
+		u, ok := expected[id]
+		if !ok {
+			return "", errors.New("private unknown identity")
+		}
+		return u, nil
+	}
+	b, err := presentation.MarshalBriefings(scope, page, inputs, origin)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := decode(t, b)["items"].([]any)[0].(map[string]any)
+	image := item["segments"].([]any)[1].(map[string]any)
+	ids := image["imageIds"].([]any)
+	urls := image["images"].([]any)
+	if len(ids) != 2 || len(urls) != 2 || ids[0] != uuid(9) || ids[1] != uuid(8) || urls[0] != origin+"/already-bound/"+uuid(9) || urls[1] != origin+"/already-bound/"+uuid(8) {
+		t.Fatal("reordered mappings lost image identity, order or cardinality")
 	}
 }
