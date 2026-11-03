@@ -30,9 +30,17 @@ type AttemptError struct {
 }
 
 func (e *AttemptError) Error() string {
+	if e == nil {
+		return "provider attempt failed (may_have_acted)"
+	}
 	return "provider attempt failed (" + string(normalizeState(e.Outcome.State)) + ")"
 }
-func (e *AttemptError) Unwrap() error { return e.cause }
+func (e *AttemptError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.cause
+}
 
 // FinishAttempt preserves a provider's typed observation. An untyped error after
 // a port handoff is conservatively unknown. This helper does not schedule work.
@@ -42,7 +50,11 @@ func FinishAttempt(outcome AttemptOutcome, err error) (AttemptOutcome, error) {
 		return outcome, nil
 	}
 	var prior *AttemptError
-	if errors.As(err, &prior) {
+	matched := errors.As(err, &prior)
+	if matched && prior == nil {
+		// A malformed diagnostic is not evidence of a completed or absent effect.
+		outcome.State = MayHaveActed
+	} else if matched {
 		outcome.State = normalizeState(prior.Outcome.State)
 		outcome.Status = prior.Outcome.Status
 		if outcome.PromptTokens == 0 {
