@@ -120,12 +120,19 @@ func Publish(ctx context.Context, tx Transaction, p Publication) error {
 	if err != nil {
 		return fmt.Errorf("encode manifest: %w", err)
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO public.app_prosody_renditions(workspace_id,item_id,id,settings_revision,manifest_bytes,script_bytes,provenance_bytes,narration_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, p.WorkspaceID, p.ItemID, p.RenditionID, p.SettingsRevision, manifest, p.Script, p.Provenance, total)
+	inserted, err := tx.ExecContext(ctx, `INSERT INTO public.app_prosody_renditions(workspace_id,item_id,id,settings_revision,manifest_bytes,script_bytes,provenance_bytes,narration_ms) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, p.WorkspaceID, p.ItemID, p.RenditionID, p.SettingsRevision, manifest, p.Script, p.Provenance, total)
 	if err != nil {
 		return fmt.Errorf("persist rendition: %w", err)
 	}
-	if _, err = tx.ExecContext(ctx, `UPDATE public.app_prosody_submissions SET status='ready' WHERE workspace_id=$1 AND id=$2`, p.WorkspaceID, p.ItemID); err != nil {
+	if err = onePublicationRow(inserted); err != nil {
+		return err
+	}
+	updated, err := tx.ExecContext(ctx, `UPDATE public.app_prosody_submissions SET status='ready' WHERE workspace_id=$1 AND id=$2`, p.WorkspaceID, p.ItemID)
+	if err != nil {
 		return fmt.Errorf("publish item: %w", err)
+	}
+	if err = onePublicationRow(updated); err != nil {
+		return err
 	}
 	if err = p.StageReady(ctx, p.ItemID, p.RenditionID); err != nil {
 		return fmt.Errorf("stage ready notification: %w", err)
@@ -159,4 +166,18 @@ func DurationCeilingMS(nanoseconds int64) (int64, error) {
 		return 0, ErrInvalid
 	}
 	return (nanoseconds + 999999) / 1000000, nil
+}
+
+func onePublicationRow(result sql.Result) error {
+	if result == nil {
+		return ErrInvalid
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count publication rows: %w", err)
+	}
+	if count != 1 {
+		return ErrConflict
+	}
+	return nil
 }
