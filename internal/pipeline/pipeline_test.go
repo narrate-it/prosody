@@ -358,3 +358,27 @@ func TestReentryRequiresNativeProofAndOriginalWork(t *testing.T) {
 		})
 	}
 }
+
+func TestArbitraryPortErrorsDoNotExposeSensitiveBytes(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name  string
+		setup func(*fixture, error)
+	}{
+		{"dispatch", func(f *fixture, err error) { f.dispatchErr = err }},
+		{"checkpoint", func(f *fixture, err error) { f.checkpointErr = err }},
+		{"receipt validation", func(f *fixture, err error) { f.validateErr = err }},
+		{"publish", func(f *fixture, err error) { f.publishErr = err }},
+		{"resume", func(f *fixture, err error) { f.resumeErr = err }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			f := newFixture()
+			tc.setup(f, errors.New("private source script audio credential"))
+			_, err := pipeline.Reenter(context.Background(), f)
+			if err != pipeline.ErrUnresolved {
+				t.Fatalf("expected fixed unknown classification, got %v", err)
+			}
+		})
+	}
+}

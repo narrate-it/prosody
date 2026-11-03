@@ -145,17 +145,17 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 	work := execution.Work()
 	receipt, done, err := publication(ctx, execution, work)
 	if err != nil || done {
-		return receipt, err
+		return receipt, safeError(err)
 	}
 	var prior CheckpointReceipt
 	var rewrite CheckpointReceipt
 	for _, stage := range [...]Stage{Rewrite, Speech} {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return nil, safeError(err)
 		}
 		record, err := execution.LookupStage(ctx, stage)
 		if err != nil {
-			return nil, err
+			return nil, safeError(err)
 		}
 		switch record.Status {
 		case Unresolved:
@@ -168,7 +168,7 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 			}
 			record.Candidate, err = execution.Dispatch(ctx, stage, prior)
 			if err != nil {
-				return nil, err
+				return nil, safeError(err)
 			}
 			fallthrough
 		case Accepted:
@@ -178,7 +178,7 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 			binding := record.Candidate.Projection()
 			record.Receipt, err = execution.Checkpoint(ctx, record.Candidate)
 			if err != nil {
-				return nil, err
+				return nil, safeError(err)
 			}
 			if nilValue(record.Receipt) || record.Receipt.Projection() != binding {
 				return nil, ErrInvalid
@@ -194,7 +194,7 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 			return nil, ErrInvalid
 		}
 		if err := execution.ValidateCheckpoint(ctx, record.Receipt); err != nil {
-			return nil, err
+			return nil, safeError(err)
 		}
 		prior = record.Receipt
 		if stage == Rewrite {
@@ -203,13 +203,13 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 	}
 	receipt, err = execution.Publish(ctx, rewrite, prior)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	if nilValue(receipt) || receipt.Work() != work {
 		return nil, ErrInvalid
 	}
 	if err := execution.ValidatePublication(ctx, receipt); err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	return receipt, nil
 }
@@ -224,11 +224,11 @@ func Reenter(ctx context.Context, reconciliation Reconciliation) (PublicationRec
 	work := reconciliation.Work()
 	receipt, done, err := publication(ctx, reconciliation, work)
 	if err != nil || done {
-		return receipt, err
+		return receipt, safeError(err)
 	}
 	execution, err := reconciliation.Resume(ctx)
 	if err != nil {
-		return nil, err
+		return nil, safeError(err)
 	}
 	if nilValue(execution) || execution.Work() != work {
 		return nil, ErrInvalid
@@ -239,7 +239,7 @@ func Reenter(ctx context.Context, reconciliation Reconciliation) (PublicationRec
 func publication(ctx context.Context, port Publications, work Work) (PublicationReceipt, bool, error) {
 	record, err := port.LookupPublication(ctx)
 	if err != nil {
-		return nil, false, err
+		return nil, false, safeError(err)
 	}
 	switch record.Status {
 	case PublicationAbsent:
@@ -254,7 +254,7 @@ func publication(ctx context.Context, port Publications, work Work) (Publication
 			return nil, false, ErrInvalid
 		}
 		if err := port.ValidatePublication(ctx, record.Receipt); err != nil {
-			return nil, false, err
+			return nil, false, safeError(err)
 		}
 		return record.Receipt, true, nil
 	default:
@@ -299,5 +299,24 @@ func nilValue(value any) bool {
 		return v.IsNil()
 	default:
 		return false
+	}
+}
+
+// Port failures can originate near sensitive candidate/provider bytes. Return
+// only fixed classifications; never expose arbitrary adapter error strings.
+func safeError(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, context.Canceled):
+		return context.Canceled
+	case errors.Is(err, context.DeadlineExceeded):
+		return context.DeadlineExceeded
+	case errors.Is(err, ErrInvalid):
+		return ErrInvalid
+	case errors.Is(err, ErrOutputLost):
+		return ErrOutputLost
+	default:
+		return ErrUnresolved
 	}
 }

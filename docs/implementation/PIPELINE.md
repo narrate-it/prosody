@@ -26,8 +26,8 @@ or one audio artifact <=32 MiB, its role/ID/type and full-byte SHA256. These
 are consumer ceilings, not admitted native registration limits. Registered
 codecs must additionally validate canonical request/result envelopes, the
 ordered manifest, actual UTF-8/script/audio format, immutable artifact identity
-and declared MIME. No byte payload is put into this package's errors or
-metadata. Go memory lifetime is not secure zeroization.
+and declared MIME. Arbitrary adapter errors are reduced to fixed classifications; no byte
+payload is put into this package's returned errors or metadata. Go memory lifetime is not secure zeroization.
 
 Checkpoint must validate the actual accepted candidate and atomically commit
 private bytes plus its opaque native committed receipt. Callback success,
