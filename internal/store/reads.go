@@ -87,7 +87,7 @@ func ReadFeeds(ctx context.Context, tx ReadTransaction, workspace, cursor string
 		}
 		after = c.AfterID
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT id,kind,CASE WHEN octet_length(title)<=4096 THEN title ELSE NULL END FROM public.app_prosody_feeds WHERE workspace_id=$1 AND deleted_at IS NULL AND id>$2::uuid ORDER BY id LIMIT $3`, workspace, after, limit+1)
+	rows, err := tx.QueryContext(ctx, readFeedsSQL, workspace, after, limit+1)
 	if err != nil {
 		return page, fmt.Errorf("read workspace feeds: %w", err)
 	}
@@ -246,7 +246,7 @@ func ReadReadyBriefings(ctx context.Context, tx ReadTransaction, workspace, feed
 		return page, err
 	}
 	var now time.Time
-	if err := tx.QueryRowContext(ctx, `SELECT pg_catalog.clock_timestamp()`).Scan(&now); err != nil {
+	if err := tx.QueryRowContext(ctx, readClockSQL).Scan(&now); err != nil {
 		return page, fmt.Errorf("read publication cutoff: %w", err)
 	}
 	if cursor == "" {
@@ -254,17 +254,7 @@ func ReadReadyBriefings(ctx context.Context, tx ReadTransaction, workspace, feed
 	} else if c.Cutoff.After(now) {
 		return page, ErrInvalid
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.id,r.id,r.published_at,
- CASE WHEN octet_length(s.source_bytes)<=65536 THEN s.source_bytes ELSE NULL END,
- CASE WHEN octet_length(r.script_bytes)<=256000 THEN r.script_bytes ELSE NULL END,
- CASE WHEN octet_length(r.manifest_bytes)<=262144 THEN r.manifest_bytes ELSE NULL END,
- (SELECT count(*) FROM public.app_prosody_renditions all_r WHERE all_r.workspace_id=s.workspace_id AND all_r.item_id=s.id)
- FROM public.app_prosody_submissions s
- JOIN public.app_prosody_renditions r ON r.workspace_id=s.workspace_id AND r.item_id=s.id
- WHERE s.workspace_id=$1 AND s.feed_id=$2 AND s.status='ready' AND s.deleted_at IS NULL
- AND r.published_at<=$3
- AND ($4::boolean=false OR (r.published_at,s.id,r.id)>($5::timestamptz,$6::uuid,$7::uuid))
- ORDER BY r.published_at,s.id,r.id LIMIT $8 FOR SHARE OF s`, workspace, feed, c.Cutoff, cursor != "", c.PublishedAt, c.ItemID, c.RenditionID, limit+1)
+	rows, err := tx.QueryContext(ctx, readReadyBriefingsSQL, workspace, feed, c.Cutoff, cursor != "", c.PublishedAt, c.ItemID, c.RenditionID, limit+1)
 	if err != nil {
 		return page, fmt.Errorf("read ready briefings: %w", err)
 	}
@@ -305,21 +295,13 @@ func ReadReadyBriefing(ctx context.Context, tx ReadTransaction, workspace, feed,
 	if err := lockReadableFeed(ctx, tx, workspace, feed); err != nil {
 		return ReadyBriefing{}, err
 	}
-	row := tx.QueryRowContext(ctx, `SELECT s.id,r.id,r.published_at,
- CASE WHEN octet_length(s.source_bytes)<=65536 THEN s.source_bytes ELSE NULL END,
- CASE WHEN octet_length(r.script_bytes)<=256000 THEN r.script_bytes ELSE NULL END,
- CASE WHEN octet_length(r.manifest_bytes)<=262144 THEN r.manifest_bytes ELSE NULL END,
- (SELECT count(*) FROM public.app_prosody_renditions all_r WHERE all_r.workspace_id=s.workspace_id AND all_r.item_id=s.id)
- FROM public.app_prosody_submissions s
- JOIN public.app_prosody_renditions r ON r.workspace_id=s.workspace_id AND r.item_id=s.id
- WHERE s.workspace_id=$1 AND s.feed_id=$2 AND s.id=$3 AND s.status='ready' AND s.deleted_at IS NULL
- ORDER BY r.published_at,r.id LIMIT 1 FOR SHARE OF s`, workspace, feed, item)
+	row := tx.QueryRowContext(ctx, readReadyBriefingSQL, workspace, feed, item)
 	return scanReadyBriefing(row, workspace, feed)
 }
 
 func lockReadableFeed(ctx context.Context, tx ReadTransaction, workspace, feed string) error {
 	var id string
-	err := tx.QueryRowContext(ctx, `SELECT id FROM public.app_prosody_feeds WHERE workspace_id=$1 AND id=$2 AND deleted_at IS NULL FOR SHARE`, workspace, feed).Scan(&id)
+	err := tx.QueryRowContext(ctx, readableFeedSQL, workspace, feed).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrUnavailable
 	}
