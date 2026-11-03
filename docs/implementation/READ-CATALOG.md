@@ -55,33 +55,33 @@ locations, never resource authority selectors. Clock/cursor cutoffs are not
 cross-request snapshot or gap-free arrival guarantees. Native registration
 must still review its exact typed codecs and parameter binding semantics.
 
-The existing source accepts page limit 1..50 and sends limit+1 (maximum51) to
-SQL. Future initial human routes must enforce 1..10 and SQL limit<=11 with at
-most11 returned application rows. This catalog changes neither source limit nor
+The existing source accepts page limit 1..50 and sends limit+1 (maximum 51) to
+SQL. Future initial human routes must enforce 1..10 and SQL limit <= 11 with at
+most 11 returned application rows. This catalog changes neither source limit nor
 runtime behavior and does not silently truncate an oversized initial response.
 One lookahead row remains legitimate pagination, not an overflow workaround.
 
 `ConsumptionReadBudgets` records the proposed application-query call ceilings:
-feeds1 (`feeds`), activity3 (`readable-feed`, `clock`, `activity`), ready-list3
-(`readable-feed`, `clock`, `ready-list`), detail2 (`readable-feed`, `ready-detail`).
+feeds 1 (`feeds`), activity 3 (`readable-feed`, `clock`, `activity`), ready-list 3
+(`readable-feed`, `clock`, `ready-list`), detail 2 (`readable-feed`, `ready-detail`).
 Each listed statement executes at most once per route call. Native authority/
 resource control queries require separate finite, reviewed budgets.
 
 Column metadata names exact scan order and SQL types. SQL CASE bounds source
-bytes to65536, script bytes to256000 and manifest bytes to262144; oversized
+bytes to 65536, script bytes to 256000 and manifest bytes to 262144; oversized
 values become NULL and existing codecs reject them. Ready rows therefore
-carry up to583680 bounded payload bytes per row, excluding scalar/transport
-encodings: 51 source rows can exceed29MB, while 11 initial rows carry up to
-6420480 bytes. Activity source bytes cap65536; feed title bytes cap4096.
+carry up to 583680 bounded payload bytes per row, excluding scalar/transport
+encodings: 51 source rows can exceed 29 MB, while 11 initial rows carry up to
+6420480 bytes. Activity source bytes cap 65536; feed title bytes cap 4096.
 Column metadata distinguishes SQL bounds, typed scalars and source validation
 (e.g. personal/team, processing/failed/ready, exactly one rendition).
-The proposed initial cumulative raw application payload budget is8MiB and
-encoded JSON budget1MiB; neither is enforced by these descriptive functions.
+The proposed initial cumulative raw application payload budget is 8 MiB and
+encoded JSON budget 1 MiB; neither is enforced by these descriptive functions.
 
 Future native result/route manifests must separately cover every returned
 workspace/feed/item/rendition/asset resource and required parent edge, exact
 published manifest membership, bounded array selectors, 256 unique native
-resources and32768 occurrence visits. Manifest-local segment IDs are not native
+resources and 32768 occurrence visits. Manifest-local segment IDs are not native
 resources. SQL matching alone cannot discharge those closure/locking checks.
 No audience, human bearer wire, media URL template or player compatibility is
 selected here. No native currentness, least-privilege or semantic SQL admission
@@ -92,7 +92,7 @@ claim follows from this catalog.
 Hermetic tests freeze all six full SQL hashes, parse both source files to check
 seven callsites and exact argument expressions/order, and parse constant literal
 bindings to reject drift. Additional cases check IDs, workspace-zero exception,
-slot classes, source51/initial11 and page50/10 separation, exact route call
+slot classes, source 51/initial 11 and page 50/10 separation, exact route call
 budgets, payload bounds and returned metadata isolation. They do not execute
 SQL or qualify provider/native/service behavior. Existing database tests require
 an explicitly owned disposable fixture (`PROSODY_TEST_DATABASE_URL`); without
@@ -100,13 +100,13 @@ one they skip and do not establish database behavior. No fixture was provisioned
 and no native route or service was enabled for this task.
 
 Executed Go 1.27.0 / GOMAXPROCS=2, `go test -json -p 1 -count=1
--timeout 60s ./internal/store`: exit0, 49 passed and20 skipped test/subtest
+-timeout 60s ./internal/store`: exit 0, 49 passed and 20 skipped test/subtest
 records. All four catalog tests plus six hash subtests passed (10 pass records).
 The database-dependent cases skipped without an owned fixture. A source-only
 expansion check also reproduced both original source files byte-for-byte.
 Preserved full commit gates are run before the initial source commit.
 
-Capacity admission: one-minute load3.71; interval CPU idle81.68/83.61%
-(average82.645%), normal pressure, zero swap churn, no thermal/performance
+Capacity admission: one-minute load 3.71; interval CPU idle 81.68/83.61%
+(average 82.645%), normal pressure, zero swap churn, no thermal/performance
 warnings. The exact owned build lease covers only these bounded checks/gates
 and is released afterward. No native/provider/database qualification is inferred.
