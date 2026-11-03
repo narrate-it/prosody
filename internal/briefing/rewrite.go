@@ -82,7 +82,7 @@ func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model
 	if err := ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	if p == nil {
+	if missingProvider(p) {
 		return Result{}, errors.New("briefing provider required")
 	}
 	if err := source.Validate(); err != nil {
