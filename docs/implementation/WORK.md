@@ -1730,3 +1730,21 @@ project guard fails against the original project (one assertion failure); the
 prior real native archive failure is separately retained. No new native build or
 upload occurred during these tests. Independent source review is clear; required
 hook and new-head hosted review remain separate.
+
+### 2026-11-03 — PR7 rebased after the publication guard landed
+
+PR #14 landed at dc95bca3. The same checkpoint PR #7 now inherits that guard and
+has no publication source/test delta. Backup ref
+`backup/checkpoints-before-publication-dc95` preserves original f596a1b. Rebase
+conflicts retained all main records plus the complete original PR7 November 2
+entry in chronological position; checkpoint code, tests, migration002 and exact
+SQL catalog remain byte-identical to f596a1b.
+
+Fresh scoped checkpoint/catalog/port and publication-count tests passed on the
+rebased source. `TestPrivateCheckpointPostgres` explicitly SKIPPED because the
+owned fixture was not configured; no fixture was provisioned or adopted. PR7
+stays DRAFT, migration002 remains UNENABLED and native atomic checkpoint receipts
+remain unsupported. Unit/double evidence is not DB rollback/receipt qualification.
+Capacity interval idle 40.11/47.00%, normal pressure, zero swap churn and no thermal
+warning; required commit hooks stay enabled. No provider/device/deployment effect.
+Full RFC remains incomplete; keep the owned reminder.

@@ -104,3 +104,18 @@ Real DB acceptance still requires an explicitly owned admitted fixture; none has
 been adopted or provisioned. Migration remains disabled. Independent review of
 this implementation delta and native registration/receipt qualification remain
 pending; the implementer is not the independent reviewer of this delta.
+
+
+## Publication guard dependency landed — 2026-11-03
+
+PR #14 landed at `dc95bca3`; PR #7 is rebased onto that main revision and now
+inherits the identical publication guard/test instead of carrying its own delta.
+The saved original head is `f596a1b` at backup ref
+`backup/checkpoints-before-publication-dc95`. Checkpoint code/tests, migration002
+and SQL catalog are byte-identical to that original head. Rebase record conflicts
+preserve complete entries from both parents, ordered by date.
+
+Fresh scoped checkpoint/catalog/port tests passed. The real PostgreSQL checkpoint
+test explicitly skipped with the DB environment removed. Migration remains
+UNENABLED, this PR stays DRAFT, and native atomic checkpoint receipts are still
+unsupported. Neither a rebase nor unit evidence opens DB/native acceptance gates.
