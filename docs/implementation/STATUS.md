@@ -1225,8 +1225,8 @@ The full RFC remains incomplete; retain the owned reminder.
 
 PR2 is LANDED at `1cd648b1f510ba14bcf2ada1ce7a8ec2f5222b8f`; earlier
 pending-review entries are superseded. The final CodeRabbit check was SKIPPED
-because no new files required review after the source-equivalent documentation
-update; this is not pending or fresh code-review evidence.
+because no new files required review after the source-equivalent rebase;
+this is not pending or fresh code-review evidence.
 
 PR13's test-only composition branch rebased onto that landed main, retaining
 its test bytes and synthetic authority/receipt boundary. A fresh Go 1.27.0 /
