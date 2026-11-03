@@ -29,7 +29,7 @@ accepted candidate bindings; committed receipts are required on replay/advance,
 not before their own insertion. Error/cancel/lost COMMIT may be UNKNOWN: reconcile
 the SAME identity/bytes/receipt before advance or any retry. Lost remotely settled
 output without qualified original-result lookup remains manual, never a new paid
-Call. A new admitted fence may validate an earlier immutable receipt; its prior
+call. A new admitted fence may validate an earlier immutable receipt; its prior
 fence is not current authority. Current native APIs do not implement this seam.
 
 Publication additionally checks each final write affected exactly one row before
@@ -46,3 +46,61 @@ changed result/attempt/artifact, stale source/settings, foreign workspace, sourc
 processing/no final rendition and feed tombstones. It has NOT run: no approved DB
 fixture is configured and DB-backed tests skip. No SQL migration execution, native
 receipt/fence/commit qualification, provider calls, service or deployment occurred.
+
+## Local codec and callback revision — 2026-11-03
+
+The private binding encoding is version 1: compact Go `encoding/json` of an
+ordered `version`, `binding` struct envelope, exposed through the pure
+`EncodeCheckpointBinding` codec so future registration need not duplicate it.
+This encoder creates no native capability. It preserves the declared binding struct
+field names/order. The explicit local version is separate from `CodecDigest`,
+which identifies the native-accepted stage result codec. Changing this byte
+encoding requires a new encoding version and native registration; old unversioned
+local fixture rows are not silently reinterpreted. No deployed checkpoint rows or
+supported native registration exist to migrate in this preparation branch.
+
+The current fence is deliberately absent from the immutable envelope. Original
+invocation and accepted attempt identities remain fixed when a new worker fence
+is admitted. Before processing-only checkpoint recovery, the future host must
+first perform native final-publication reconciliation. An already-published job
+must not be changed back to processing to retrieve provisional bytes.
+
+Snapshot validation now requires one exactly spelled `settingsRevision` positive
+integer, valid lossless JSON and no duplicate top-level fields; field-name casing
+cannot change which revision is observed. Other settings fields still belong to
+the frozen configuration codec. Source/settings SHA-256 remains over the exact
+persisted bytes. The read SQL additionally bounds binding bytes and uses the
+stage-specific artifact byte ceiling. Catalog argument/column types, row counts,
+callback call-count ceilings and schema/SQL digests are explicit review targets.
+
+Cancellation is checked before callbacks and before returning fresh/private-byte
+results. Cancellation after an insert does not prove rollback: the native owner
+must reconcile the same transaction identity and receipt before advancement.
+No private row, fresh flag or successful callback constructs a native receipt.
+
+New hermetic transaction-port cases exercise exact argument slots and read/write
+sequencing, malformed settings with matching hashes, realm/person/feed mismatches,
+missing/tombstoned source results, stale actual bytes and binding/result/attempt
+changes, insert zero/one/multiple/nil/error results and cancellation before/after
+callbacks. Publication cases now include nil and erroring row counts on both
+writes. These doubles do not establish SQL isolation, rollback, row locks,
+concurrency, atomic native receipt insertion or real source tombstone filtering.
+
+Verification: the checkpoint/catalog/port and publication row-count tests pass
+with `PROSODY_TEST_DATABASE_URL` explicitly removed. Regression probes against
+the previous callback source fail for duplicate/case-folded/lossy-Unicode settings
+and cancellation before/after callbacks; restored source passes. The prior-source
+probe adds only a version constant so the new test sources can compile; it does
+not change the tested old callback behavior. An initial RED attempt reached the
+port's exact-argument guard because the test fixture had not refreshed its binding
+bytes after changing a digest; fixing that fixture yielded the intended semantic
+failure assertions. This evidence is not real PostgreSQL or native acceptance.
+
+Resource coordination: first fresh admission passed but the lease was held by
+another worker; no tests ran until the parent explicitly reported its release.
+The authorized next phase passed (34.50/48.73% interval idle, normal pressure,
+zero swap churn, no thermal/performance warning) and acquired an owned lease.
+Real DB acceptance still requires an explicitly owned admitted fixture; none has
+been adopted or provisioned. Migration remains disabled. Independent review of
+this implementation delta and native registration/receipt qualification remain
+pending; the implementer is not the independent reviewer of this delta.
