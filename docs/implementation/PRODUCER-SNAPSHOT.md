@@ -86,7 +86,19 @@ acceptance follows from these pure checks.
 
 Local verification on 2026-11-03 UTC: `go test -p 1 -timeout 30s
 ./internal/producer` passed. The source received independent read-only review;
-the final documentation/test follow-up is pending. Capacity admission passed at
+the final documentation/test follow-up subsequently cleared at `9c04208`. Capacity admission passed at
 52.98/44.48% interval idle, normal pressure, zero swap churn and no thermal warning;
 the required commit gate runs under an owned shared build lease. No DB fixture,
 provider call, native binding, device update or deployment was performed.
+
+
+### Fixed format compatibility fixture
+
+The completed hosted review on `9c04208` correctly noted that round-trip tests
+alone could accept an accidental format change on both sides. A fixed JSON
+literal and independently computed SHA-256 now pin revision-1 bytes, field order,
+scope and UTC nanosecond formatting. Encode must produce those exact bytes/digest;
+Decode must accept the fixed stored fixture. The producer package tests pass and
+independent read-only review cleared this test-only delta. Product code and the
+pending label-source decision are unchanged; this is not persistence/native
+capture acceptance. The required commit gate remains enabled.
