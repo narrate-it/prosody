@@ -103,7 +103,7 @@ func ConsumptionReadCatalog() []ReadStatement {
 		{ID: "feeds", SQL: readFeedsSQL, WorkspaceParameter: 1, Arguments: []ReadArgument{uuid(1, "workspace", "workspace"), uuid(2, "after_feed_id", "cursor-location"), limit(3)}, Columns: []ReadColumn{
 			{Name: "feed_id", SQLType: "uuid", MaxBytes: 36, Bound: "typed UUID; source FeedID validation"},
 			{Name: "kind", SQLType: "text", MaxBytes: 8, Bound: "source permits personal/team only"},
-			{Name: "title", SQLType: "text", MaxBytes: 4096, Bound: "SQL octet_length CASE; source rejects empty/invalid UTF-8"},
+			{Name: "title", SQLType: "bytea", MaxBytes: 4096, Bound: "SQL octet_length CASE; source rejects empty/invalid UTF-8"},
 		}, SourceMaxRows: 51, InitialMaxRows: 11, MaxVariableBytesPerRow: 4096},
 		{ID: "clock", SQL: readClockSQL, WorkspaceParameter: 0, Columns: []ReadColumn{{Name: "now", SQLType: "timestamptz", Bound: "typed time.Time"}}, SourceMaxRows: 1, InitialMaxRows: 1},
 		{ID: "readable-feed", SQL: readableFeedSQL, WorkspaceParameter: 1, Arguments: []ReadArgument{uuid(1, "workspace", "workspace"), uuid(2, "feed", "resource-feed")}, Columns: []ReadColumn{{Name: "feed_id", SQLType: "uuid", MaxBytes: 36, Bound: "typed UUID"}}, SourceMaxRows: 1, InitialMaxRows: 1},
