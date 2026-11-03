@@ -705,6 +705,35 @@ verified checkpoint. Owned build lease released after verification.
 Independent final source re-review found no remaining blocker in this delta;
 the retained-page finding is closed by the new page identity and regression.
 
+### 2026-11-01 — Resume recorder stimulus follow-up
+
+PR #1 merged at 6c7e12f with exact-tree verification; its final non-blocking
+review note requested stronger later-page unknown-resume capture coverage.
+This follow-up simulates active playback at 400ms before completion and checks
+read/write counts. The saved-resume case is a positive control proving that the
+same stimulus reaches dispatch; unknown resume must retain one read/no writes.
+Source only: tests and analysis have not run. Capacity measurement timed out,
+so no build lease, heavy test or automatic admission retry was attempted.
+The user subsequently connected an iPhone; the owned Prosody simulator was shut
+down to reduce load. Physical-device signing/playback acceptance remains open.
+
+
+### 2026-11-01 — PR #3 targeted verification
+
+Fresh admission passed: interval CPU idle 59.89/60.4%, pressure normal, swap
+rates below 0.15 MiB/s and no thermal/performance warning. Under an owned lease,
+all seven feed-resume widget cases passed on the PR1 toolchain (Flutter 3.32.1,
+Dart 3.8.1), preserving this test-only PR's dependency lock. Initial run exposed
+a harness timeout: pumpAndSettle cannot finish while the waveform animates.
+Replaced only the new stimulus waits with bounded asynchronous delivery/pump.
+Mutation check temporarily removed the caller write gate: the unknown case failed
+with Expected 1 / Actual 2 progress reads, demonstrating the new assertion catches
+the missing gate. Restored production source byte-for-byte; restored unknown case
+passed, and analysis is clean. The fake's zero completion duration means this
+checks dispatch suppression, not realistic end-of-segment timing. No native
+build or new provider/device acceptance claimed. Lease released; iPhone preview
+from the separate PR2 worktree was left running.
+Independent final source review found no remaining blocker in this test delta.
 ### 2026-11-02 — MP4 metadata protection regression
 
 Isolated continuation branch `fix/mp4-probe-protection`, code `9fa78fe`, from
@@ -866,34 +895,3 @@ Independent source review already cleared exact helper/test bytes after digest
 allocation bound and safe error corrections. No DB fixture, native route, service,
 provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range profile
 remain acceptance gates. Required hook stays enabled; full RFC incomplete.
-
-
-### 2026-11-01 — Resume recorder stimulus follow-up
-
-PR #1 merged at 6c7e12f with exact-tree verification; its final non-blocking
-review note requested stronger later-page unknown-resume capture coverage.
-This follow-up stimulates active playback at 400ms before completion and checks
-read/write counts. The saved-resume case is a positive control proving that the
-same stimulus reaches dispatch; unknown resume must retain one read/no writes.
-Source only: tests and analysis have not run. Capacity measurement timed out,
-so no build lease, heavy test or automatic admission retry was attempted.
-The user subsequently connected an iPhone; the owned Prosody simulator was shut
-down to reduce load. Physical-device signing/playback acceptance remains open.
-
-
-### 2026-11-01 — PR #3 targeted verification
-
-Fresh admission passed: interval CPU idle 59.89/60.4%, pressure normal, swap
-rates below 0.15 MiB/s and no thermal/performance warning. Under an owned lease,
-all seven feed-resume widget cases passed on the PR1 toolchain (Flutter 3.32.1,
-Dart 3.8.1), preserving this test-only PR's dependency lock. Initial run exposed
-a harness timeout: pumpAndSettle cannot finish while the waveform animates.
-Replaced only the new stimulus waits with bounded asynchronous delivery/pump.
-Mutation check temporarily removed the caller write gate: the unknown case failed
-with Expected 1 / Actual 2 progress reads, demonstrating the new assertion catches
-the missing gate. Restored production source byte-for-byte; restored unknown case
-passed, and analysis is clean. The fake's zero completion duration means this
-checks dispatch suppression, not realistic end-of-segment timing. No native
-build or new provider/device acceptance claimed. Lease released; iPhone preview
-from the separate PR2 worktree was left running.
-Independent final source review found no remaining blocker in this test delta.
