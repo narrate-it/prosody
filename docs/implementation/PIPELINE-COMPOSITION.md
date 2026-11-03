@@ -46,3 +46,20 @@ Capacity admission: one-minute load 5.06, interval CPU idle 44.2/49.1%
 warning. Checks use one exact owned build lease, released after the gate.
 No live provider call, credential lookup, database fixture, provisioning,
 device, signing or deployment action is part of this test-only task.
+
+
+## Rebased verification, 2026-11-03
+
+Rebased the existing PR13 branch onto landed main
+`1cd648b1f510ba14bcf2ada1ce7a8ec2f5222b8f`, which includes briefing policy
+revision 2 and the provider-catalog changes. Test source is byte-identical to
+the initial independently reviewed candidate. The same focused command above
+passed freshly: three top-level tests plus seven subtests, 10 pass records and
+no skips. The preserved full Go hook gates the rebased checkpoint; hosted
+review/merge remain pending. The earlier capacity receipt is historical.
+
+Current admission: load 6.06, interval idle 50.0/44.35% (average 47.175%),
+normal pressure, zero swap churn and no thermal/performance warning. The exact
+owned lease covers these bounded checks and is released after the gate.
+Synthetic receipts remain data-flow fixtures, not native/provider/database or
+mobile qualification. No live call, fixture provisioning or device change.

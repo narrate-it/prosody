@@ -1219,3 +1219,23 @@ The producer label-source choice remains pending; neither alternative is activat
 Native B/C integration, source bridge, provider/device, Nanos and TestFlight
 acceptance remain open. No deployment, spend or signing in this continuation.
 The full RFC remains incomplete; retain the owned reminder.
+
+
+### 2026-11-03 — Landed preview and rebased composition checkpoint
+
+PR2 is LANDED at `1cd648b1f510ba14bcf2ada1ce7a8ec2f5222b8f`; earlier
+pending-review entries are superseded. The final CodeRabbit check was SKIPPED
+because no new files required review after the source-equivalent documentation
+update; this is not pending or fresh code-review evidence.
+
+PR13's test-only composition branch rebased onto that landed main, retaining
+its test bytes and synthetic authority/receipt boundary. A fresh Go 1.27.0 /
+GOMAXPROCS=2 focused run passed all three top-level composition tests and seven
+subtests (10 pass records, no skips), exercising current briefing policy revision
+2, real synthesis/MP3 decoding and exact artifact bytes/hash/duration. The
+preserved Go commit hook gates this checkpoint. Hosted review and merge of PR13
+remain pending. These local fixtures do not qualify native settlement, database
+atomicity/durability, provider transport or device acceptance. Full RFC, native
+B/C/source bridge, approved database fixture and device/TestFlight gates remain
+OPEN; retain the owned incomplete-RFC reminder. No paid calls, provisioning,
+deployment or signing occurred.
