@@ -1304,3 +1304,17 @@ the fresh full media suite passed all 34 records, no skips. Both already-cancele
 and late-canceled replacements return the context cause/zero Object and retain
 the original bytes, size and hash; the owned fixtures leave no upload temp.
 These observations are not rollback/no-effect proof or global cleanup promises.
+
+
+Post-close boundary follow-up: public Put now delegates to its private
+implementation core with fixed real `(*os.File).Close`; Files/NewFiles/public
+API and deferred actual-close cleanup are unchanged. A per-call test closer
+performs real Close, verifies the descriptor is closed, then cancels context.
+The internal test exercises that same core, not the public wrapper directly;
+existing public Put controls retain the fixed real-close path. A compiled
+mutation removing only the final pre-Link context check published the 14-byte
+target and failed the new test. Restored source passed all 35 media named
+records, no skips. The required lint/full-Go hook gates this follow-up.
+No mutable global/instance hook, timing race or filesystem framework was added.
+Post-Link uncertainty, best-effort cleanup, prior-object reconciliation and all
+native/I/O/Nanos qualification limits remain unchanged; no new authority proof.
