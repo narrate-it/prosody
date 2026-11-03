@@ -43,7 +43,7 @@ func Synthesize(ctx context.Context, p SpeechProvider, key, model, voice, script
 	if err := ctx.Err(); err != nil {
 		return Synthesized{}, err
 	}
-	if p == nil || strings.TrimSpace(key) == "" || strings.TrimSpace(model) == "" || strings.TrimSpace(voice) == "" || !utf8.ValidString(script) || strings.TrimSpace(script) == "" || len(script) > 64000 || len(strings.Fields(script)) > 1100 || strings.Contains(script, "```") || remaining <= 0 || remaining > content.MaxNarrationDuration || maxBytes <= 0 || maxBytes > 64<<20 {
+	if missingProvider(p) || strings.TrimSpace(key) == "" || strings.TrimSpace(model) == "" || strings.TrimSpace(voice) == "" || !utf8.ValidString(script) || strings.TrimSpace(script) == "" || len(script) > 64000 || len(strings.Fields(script)) > 1100 || strings.Contains(script, "```") || remaining <= 0 || remaining > content.MaxNarrationDuration || maxBytes <= 0 || maxBytes > 64<<20 {
 		return Synthesized{}, errors.New("invalid narration synthesis request")
 	}
 	state = openrouter.MayHaveActed

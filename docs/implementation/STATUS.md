@@ -1252,3 +1252,23 @@ migration, service, provider call, DB fixture, signing or deployment in this chi
 Fresh capacity interval idle 16.83/26.53% (average 21.68%), normal pressure, zero swap
 churn, no thermal warning; verification uses the owned shared build lease. Full
 RFC remains incomplete; keep the owned reminder.
+
+
+### 2026-11-03 — Typed-nil briefing provider guard
+
+Reproduced the missing-port bug on main `dc95bca3`: actual nil
+`*openrouter.Client` values panic through both public briefing APIs, while
+callable nil receivers can reach dispatch. The unchanged-source regression was
+RED (5 passed / 8 failed test/subtest records). A shared unexported nil-provider
+guard now rejects missing ports before token accounting or invocation, without
+recovering arbitrary provider panics or changing post-handoff handling.
+
+Fresh Go 1.27.0 / GOMAXPROCS=2 full briefing suite passed all 54 test/subtest
+records, including all 13 new missing-port/context records; no skips. Existing
+valid-provider, original-cause and post-handoff uncertainty controls passed.
+Missing ports return typed raw NotDispatched with no usable output, identifiers
+or retry; that observation grants no native no-effect/refund authority. The
+preserved lint/full-Go hook gates the checkpoint. Independent review and hosted
+review/merge remain pending. No provider HTTP, real key, database fixture,
+provisioning or device changes. Native/C1, database/device and full-RFC gates
+remain OPEN; retain the incomplete-RFC reminder.
