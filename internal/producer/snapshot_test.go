@@ -3,6 +3,7 @@ package producer
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"testing"
@@ -13,6 +14,32 @@ func fixture() Snapshot {
 	return Snapshot{Version: Version, Profile: Profile, ProfileRevision: ProfileRevision,
 		LabelSource: OwnerAssignedConnectionLabel, OriginalClientID: "https://agent.example/client-metadata.json", Label: "Research assistant",
 		Scope: Scope{WorkspaceID: "01900000-0000-7000-8000-000000000001", SourceItemID: "01900000-0000-7000-8000-000000000002", OriginalInvocationID: "01900000-0000-7000-8000-000000000003", WorkID: "01900000-0000-7000-8000-000000000004"}, CapturedAt: time.Date(2026, 11, 3, 1, 2, 3, 400, time.UTC)}
+}
+
+// These constants pin the version-1 format independently of the current
+// encoder. Changing them requires an explicit compatibility/version decision.
+const goldenSnapshotJSON = `{"version":1,"profile":"prosody.producer-snapshot","profileRevision":1,"labelSource":"owner-assigned-connection-label","originalClientId":"https://agent.example/client-metadata.json","label":"Research assistant","scope":{"workspaceId":"01900000-0000-7000-8000-000000000001","sourceItemId":"01900000-0000-7000-8000-000000000002","originalInvocationId":"01900000-0000-7000-8000-000000000003","workId":"01900000-0000-7000-8000-000000000004"},"capturedAt":"2026-11-03T01:02:03.0000004Z"}`
+const goldenSnapshotSHA256 = "f576a7c9d687b557234e1f1c5d26351d48fc6d53b341920e39103314bbd578b2"
+
+func TestCanonicalSnapshotGoldenCompatibility(t *testing.T) {
+	t.Parallel()
+	pinned, err := hex.DecodeString(goldenSnapshotSHA256)
+	if err != nil || len(pinned) != sha256.Size {
+		t.Fatal("invalid pinned digest fixture")
+	}
+	var expected [sha256.Size]byte
+	copy(expected[:], pinned)
+	if sha256.Sum256([]byte(goldenSnapshotJSON)) != expected {
+		t.Fatal("golden bytes no longer match pinned digest")
+	}
+	raw, digest, err := Encode(fixture())
+	if err != nil || string(raw) != goldenSnapshotJSON || digest != expected {
+		t.Fatalf("version-1 canonical bytes or digest changed: %v", err)
+	}
+	decoded, err := Decode([]byte(goldenSnapshotJSON), expected)
+	if err != nil || decoded != fixture() {
+		t.Fatalf("stored version-1 fixture no longer decodes: %v", err)
+	}
 }
 
 func TestCanonicalSnapshotRoundTrip(t *testing.T) {
