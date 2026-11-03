@@ -105,3 +105,62 @@ is still present; a successful check does not constitute release acceptance.
 Capacity: load 3.43/3.31/3.53, interval idle 35.31/41.60%, normal memory pressure,
 zero swap churn, no thermal/performance warning. No product changes, native
 installation, live provider calls, deployment or merge in this verification.
+
+
+
+
+## Current-main integration candidate — 2026-11-02
+
+Reconciled the existing PR2 branch at `2f66a3867021dcd494d9d3d618e33959c22c8780`
+with main `9b5a9224d87289e9fa074cb077271a9a97c29987`. Provider source merged
+without conflicts: the speech catalog query and exact MP3 compatibility policy
+remain alongside main's typed attempt observations, receipt preservation and
+nil-safe diagnostic handling. The narration policy revision remains 2. Both
+branches' append-only STATUS/WORK evidence was preserved when resolving conflicts.
+No mobile source changed during reconciliation; debug-only preview composition,
+feed controls, local deletion and HTTP abort behavior retain their prior bytes.
+
+GitHub's three concrete review comments are marked addressed in `dd7df26`; the
+latest review summary reports no actionable comments. Added a hermetic regression
+for the combined speech-catalog/typed-outcome path: one forbidden response must
+retain its status and receipt identifiers, expose no private body and never retry.
+The new integration regression subsequently passed; see the executed receipt below.
+The initial capacity refusal below is historical, not the final verification state.
+
+Heavy verification was refused: load 9.30/10.40/11.56 during the sample, interval
+CPU idle 0.48/0.14% (average 0.31%), normal memory pressure, zero swap churn and
+no thermal/performance warning. No lease was claimed and no automatic admission
+retry, hook bypass, commit, provider call, signing, installation or deployment was
+performed. Prior 114-test Flutter/analysis/unsigned-iPhone receipts above remain
+historical evidence for unchanged mobile bytes, not a new integrated-head result.
+
+
+Lightweight checks during the hold: four hermetic iOS preflight CLI tests passed
+(`python3 -m unittest scripts/test_ios_preflight.py`); staged whitespace clean.
+
+Source inspection also confirmed a separate production wire blocker:
+`store.ReadyBriefing` omits the `agent` string required by Flutter's
+`Briefing.fromJson`, and `store.PublishedSegment` carries private `assetId` /
+`imageIds` while Flutter requires `url` / `images` values that use HTTPS; each media request still requires current user authorization.
+A raw JSON serialization of `BriefingReadPage` therefore cannot serve the native
+items API. An explicit host presentation/delivery adapter must resolve legitimate
+attribution and current authorized media URLs; no fake attribution, guessed media
+endpoint, relaxed parser or production auth fallback was added here.
+
+
+## Executed current-main provider integration — 2026-11-02
+
+After an actual shared-workload release event, fresh admission passed: load
+5.13/4.88/4.49, interval idle 84.97/84.41%, normal pressure, zero swap churn,
+no thermal/performance warnings. The single hermetic
+`TestSpeechCatalogFailureRetainsAttemptOutcome` passed at the resolved merge
+candidate. It checks the speech catalog query, typed uncertain outcome, preserved
+status/request/generation IDs, fixed safe diagnostic and one dispatch only.
+
+The merge retains main's provider outcome and typed-nil regression bytes exactly.
+Mobile source is unchanged from the previously verified PR2 head; no new Flutter
+inputs require repetition of its 114-test/analysis/unsigned-iPhone checks. The
+required lint/full-unit hook runs on the merge commit under the owned lease.
+Four preflight CLI tests also passed on this integrated source. PostgreSQL fixture,
+provider output, native playback/gestures, production wire delivery/auth and
+TestFlight acceptance are not asserted by this receipt.
