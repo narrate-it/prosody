@@ -1095,3 +1095,24 @@ preserved lint/full-Go hook gates the checkpoint. Independent review and hosted
 review/merge remain pending. No provider HTTP, real key, database fixture,
 provisioning or device changes. Native/C1, database/device and full-RFC gates
 remain OPEN; retain the incomplete-RFC reminder.
+
+
+### 2026-11-03 — Local Files.Put pre-publication cancellation
+
+On main `faf5adb3`, a tiny owned-file regression reproduced a final reader
+returning bytes plus EOF while canceling context: Put published the 14-byte
+target and returned success. Already-canceled/expired calls created workspace
+directories. All four new test/subtest records were RED. Put now checks context
+before filesystem effects, after copying and immediately before the atomic link.
+Fresh Go 1.27.0 / GOMAXPROCS=2 full media suite passed all 31 named records,
+including the four regressions, with no skips. Existing byte-identity,
+immutability and Reconcile controls passed; the unchanged lint/full-Go hook
+gates this checkpoint. Independent review and hosted review/merge are pending.
+
+This is owned local-development/qualified-volume behavior, not Nanos production
+storage qualification. Known pre-publication cancellation returns its original
+context cause, zero Object and no target/upload files. Cancellation can race
+publication; post-Link errors remain uncertain and require reconciliation, not
+target deletion or rollback/no-effect/refund proof. No general reader-interrupt
+guarantee is added. No native/C1/database/provider/device/provisioning changes;
+full RFC and native/DB/device gates remain OPEN, retain the owned reminder.
