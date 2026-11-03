@@ -881,3 +881,19 @@ first qualification profile and intended private iOS callback/client accepted;
 canonical audience and actual closed-range player compatibility remain open.
 Production consumption and adapter migration remain disabled. Full RFC incomplete;
 keep the owned reminder.
+
+### 2026-11-02 — Typed-nil provider diagnostic regression
+
+AMOS semantic review identified a typed-nil AttemptError panic in landed PR5.
+Isolated worktree prosody-provider-nil / fix/typed-nil-provider-errors now handles
+that malformed diagnostic as MayHaveActed, retaining available result refs/usage.
+Error/Unwrap are nil-receiver safe, including wrapped/joined chain traversal;
+legitimate sentinels remain discoverable. Rejected script/audio stays unusable,
+with exactly one provider-port call and no retry. No authority/journal expansion.
+
+New tests reproduce the panic on original main2d93bf4 in direct and briefing
+paths. Corrected source63fa4b2 passes full openrouter/briefing packages and required
+Go lint/full unit gate (zero lint issues). Independent source review clear.
+Capacity admitted: load6.89/7.78/7.47, interval idle14.82/59.34%, normal pressure,
+zero swap churn, no thermal/performance warning. No live calls/native changes or
+deployment. Hosted review/merge remain separate; full RFC incomplete, keep reminder.
