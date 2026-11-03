@@ -1136,8 +1136,8 @@ performs real Close, verifies the descriptor is closed, then cancels context.
 The internal test exercises that same core, not the public wrapper directly;
 existing public Put controls retain the fixed real-close path. A compiled
 mutation removing only the final pre-Link context check published the 14-byte
-target and failed the new test. Restored source passed all 35 media named
-records, no skips. The required lint/full-Go hook gates this follow-up.
+target and failed the new test. Restored source passed all 35 named records in the media suite, with no
+skips. The required lint/full-Go hook also passed for this follow-up.
 No mutable global/instance hook, timing race or filesystem framework was added.
 Post-Link uncertainty, best-effort cleanup, prior-object reconciliation and all
 native/I/O/Nanos qualification limits remain unchanged; no new authority proof.
