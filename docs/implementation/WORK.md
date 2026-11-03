@@ -1031,6 +1031,24 @@ provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range prof
 remain acceptance gates. Required hook stays enabled; full RFC incomplete.
 
 
+### 2026-11-02 — Bytes-only private checkpoint source (PR7)
+
+New isolated prosody-checkpoints / feat/private-stage-checkpoints, basea5de1fa.
+Added separate migration, bounded artifact codec, three exact SQL constants and
+caller-held write/read functions. Native receipts/authority remain external and
+migration/adapter disabled. No external-object or ready/publication fields in
+private table. Publication final writes now require affected count1 before
+mandatory StageReady. See CHECKPOINTS.md and exact CHECKPOINT-SQL.json.
+
+Pure codec and transaction-double publication tests pass; old-source regressions
+fail for label validation and zero/multiple affected rows. Independent review
+cleared source after correcting label contract. Real PostgreSQL test source is
+present but UNRUN (no approved fixture); ordinary unit runs skip DB tests.
+Fresh admitted capacity: load2.84/2.69/2.80, idle28.15/40.16%, normal pressure,
+zero swap churn, no warnings. Required initial hook lint0/unit pass. No fixture
+created, native API enabled, paid call or deployment. Full RFC not complete;
+retain owned reminder. Hosted review and real persistence acceptance remain open.
+
 ### 2026-11-03 UTC — Current continuation checkpoint
 
 Landed source/helper checkpoints and their local-check receipts: PR3 `b93bf7f`,

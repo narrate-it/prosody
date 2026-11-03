@@ -1,0 +1,48 @@
+{
+  "status": "local-only; no native registration; semantic SQL/privilege/runtime review still required",
+  "statements": [
+    {
+      "id": "CheckpointSourceSQL",
+      "sql": "SELECT s.installation_id,s.application_id,s.environment_id,s.person_id,s.feed_id,CASE WHEN octet_length(s.source_bytes)<=65536 THEN s.source_bytes ELSE NULL END,CASE WHEN octet_length(s.settings_bytes)<=65536 THEN s.settings_bytes ELSE NULL END FROM public.app_prosody_submissions s JOIN public.app_prosody_work w ON w.item_id=s.id JOIN public.app_prosody_feeds f ON f.workspace_id=s.workspace_id AND f.id=s.feed_id WHERE s.workspace_id=$1 AND s.id=$2 AND w.work_id=$3 AND s.status='processing' AND s.deleted_at IS NULL AND f.deleted_at IS NULL FOR SHARE OF s,w,f",
+      "sha256": "a0b4bc52dd94dabf2dad0f6b92c899d587300433be55b643829d140ff40572c8",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3
+      ]
+    },
+    {
+      "id": "CheckpointInsertSQL",
+      "sql": "INSERT INTO public.app_prosody_stage_checkpoints(workspace_id,job_id,invocation_id,stage_id,item_id,feed_id,binding_bytes,artifact_bytes,artifact_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(workspace_id,job_id,invocation_id,stage_id) DO NOTHING",
+      "sha256": "f58ad4c47c8be91cf71961be3b036518aa5f9697590d92e78014bac43542ed3a",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ]
+    },
+    {
+      "id": "CheckpointReadSQL",
+      "sql": "SELECT binding_bytes,CASE WHEN octet_length(artifact_bytes)<=67108864 THEN artifact_bytes ELSE NULL END,artifact_digest FROM public.app_prosody_stage_checkpoints WHERE workspace_id=$1 AND job_id=$2 AND invocation_id=$3 AND stage_id=$4 FOR SHARE",
+      "sha256": "a5e67ed54b8d39db568679be1af89cf00202d26605775f4d96bf3466dd1815a4",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ]
+}

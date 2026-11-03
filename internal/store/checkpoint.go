@@ -33,12 +33,12 @@ type CheckpointBinding struct {
 }
 
 func (b CheckpointBinding) encode() ([]byte, error) {
-	for _, id := range []string{b.InstallationID, b.ApplicationID, b.EnvironmentID, b.PersonID, b.WorkspaceID, b.JobID, b.InvocationID, b.AttemptID, b.ItemID} {
+	for _, id := range []string{b.InstallationID, b.PersonID, b.WorkspaceID, b.JobID, b.InvocationID, b.AttemptID, b.ItemID} {
 		if !UUID(id) {
 			return nil, ErrInvalid
 		}
 	}
-	if !FeedID(b.FeedID) || b.SettingsRevision <= 0 || (b.Stage != "rewrite" && b.Stage != "speech") {
+	if !safeLabel(b.ApplicationID) || !safeLabel(b.EnvironmentID) || !FeedID(b.FeedID) || b.SettingsRevision <= 0 || (b.Stage != "rewrite" && b.Stage != "speech") {
 		return nil, ErrInvalid
 	}
 	for _, h := range [][32]byte{b.SourceDigest, b.SettingsDigest, b.RequestDigest, b.ResultDigest, b.RegistrationDigest, b.ProfileDigest, b.CodecDigest, b.ManifestDigest, b.ArtifactDigest} {

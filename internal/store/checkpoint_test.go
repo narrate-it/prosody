@@ -12,7 +12,7 @@ import (
 func checkpointBinding(t *testing.T, source, settings, payload []byte) CheckpointBinding {
 	t.Helper()
 	digest := sha256.Sum256([]byte("registered fixture digest"))
-	return CheckpointBinding{InstallationID: testID(t), ApplicationID: testID(t), EnvironmentID: testID(t), PersonID: testID(t), WorkspaceID: testID(t), JobID: testID(t), InvocationID: testID(t), AttemptID: testID(t), ItemID: testID(t), FeedID: testID(t), Stage: "rewrite", SettingsRevision: 1, SourceDigest: sha256.Sum256(source), SettingsDigest: sha256.Sum256(settings), ArtifactDigest: sha256.Sum256(payload), RequestDigest: digest, ResultDigest: digest, RegistrationDigest: digest, ProfileDigest: digest, CodecDigest: digest, ManifestDigest: digest}
+	return CheckpointBinding{InstallationID: testID(t), ApplicationID: "prosody", EnvironmentID: "test", PersonID: testID(t), WorkspaceID: testID(t), JobID: testID(t), InvocationID: testID(t), AttemptID: testID(t), ItemID: testID(t), FeedID: testID(t), Stage: "rewrite", SettingsRevision: 1, SourceDigest: sha256.Sum256(source), SettingsDigest: sha256.Sum256(settings), ArtifactDigest: sha256.Sum256(payload), RequestDigest: digest, ResultDigest: digest, RegistrationDigest: digest, ProfileDigest: digest, CodecDigest: digest, ManifestDigest: digest}
 }
 func TestCheckpointByteCodec(t *testing.T) {
 	t.Parallel()
@@ -44,7 +44,6 @@ func TestPrivateCheckpointPostgres(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := testAcceptance(t, db)
-	a.Scope.ApplicationID, a.Scope.EnvironmentID = testID(t), testID(t)
 	a.SettingsSnapshot = []byte(`{"settingsRevision":1}`)
 	t.Cleanup(func() {
 		if _, err := db.ExecContext(context.Background(), `DELETE FROM public.app_prosody_stage_checkpoints WHERE workspace_id=$1`, a.Scope.WorkspaceID); err != nil {
