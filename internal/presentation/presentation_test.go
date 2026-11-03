@@ -179,7 +179,7 @@ func TestBriefingRejectsInvalidBindingsWithoutOutput(t *testing.T) {
 		{"origin path", func(_ *presentation.Scope, _ *store.BriefingReadPage, _ *presentation.BriefingInputs, o *string) {
 			*o = origin + "/invented"
 		}},
-		{"duplicate item", func(_ *presentation.Scope, p *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
+		{"duplicate attribution", func(_ *presentation.Scope, p *store.BriefingReadPage, i *presentation.BriefingInputs, _ *string) {
 			p.Items = append(p.Items, p.Items[0])
 			i.Attributions = append(i.Attributions, i.Attributions[0])
 		}},
@@ -354,5 +354,28 @@ func TestReorderedLinksPreserveImageIdentityOrderAndCardinality(t *testing.T) {
 	urls := image["images"].([]any)
 	if len(ids) != 2 || len(urls) != 2 || ids[0] != uuid(9) || ids[1] != uuid(8) || urls[0] != origin+"/already-bound/"+uuid(9) || urls[1] != origin+"/already-bound/"+uuid(8) {
 		t.Fatal("reordered mappings lost image identity, order or cardinality")
+	}
+}
+
+func TestDuplicateItemWithDistinctRenditionRejectsBeforeOutput(t *testing.T) {
+	scope, page, inputs := fixture()
+	second := page.Items[0]
+	second.RenditionID = uuid(99)
+	page.Items = append(page.Items, second)
+	attribution := inputs.Attributions[0]
+	attribution.RenditionID = second.RenditionID
+	inputs.Attributions = append(inputs.Attributions, attribution)
+	for _, metadata := range inputs.Published {
+		metadata.RenditionID = second.RenditionID
+		inputs.Published = append(inputs.Published, metadata)
+		link, err := expectedURL(metadata.AssetIdentity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inputs.Links = append(inputs.Links, presentation.MediaLink{AssetMetadata: metadata, URL: link})
+	}
+	b, err := presentation.MarshalBriefings(scope, page, inputs, origin)
+	if !errors.Is(err, presentation.ErrInvalid) || b != nil {
+		t.Fatal("duplicate item accepted across distinct correctly bound renditions")
 	}
 }

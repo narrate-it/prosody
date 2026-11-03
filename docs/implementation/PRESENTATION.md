@@ -109,3 +109,19 @@ lint/full-unit hook runs for this checkpoint. Capacity admitted at load
 3.79/3.72/3.74, interval idle 47.42/47.63%, normal pressure, zero swap churn
 and no thermal/performance warnings. Agent attribution still requires an explicit
 legitimate label; the source-of-attribution choice remains a host decision.
+
+
+## Hosted-review duplicate-item coverage follow-up
+
+The old duplicate-item fixture duplicated attribution too, so it failed before
+the item-loop guard. Renamed that case to duplicate attribution and added a
+same-item/distinct-rendition fixture with separate correctly bound attribution,
+metadata and links. It denies the whole response at the duplicate-item guard.
+Independent test-delta source review is clear. An isolated Go overlay removing
+only that guard made the new test fail; the production source remained unchanged.
+All nine top-level presentation tests passed (51 named test/subtest pass records).
+The preserved lint/full-unit hook runs for this test-only checkpoint.
+
+Capacity: load 13.87/13.16/12.34 (warning), interval idle 32.18/41.26%, normal
+pressure, zero swap churn and no thermal/performance warning. One owned lease
+bounds verification; no provider/native/DB/deployment acceptance was added.
