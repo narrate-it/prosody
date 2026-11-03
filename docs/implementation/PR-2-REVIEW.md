@@ -107,8 +107,6 @@ zero swap churn, no thermal/performance warning. No product changes, native
 installation, live provider calls, deployment or merge in this verification.
 
 
-
-
 ## Current-main integration candidate — 2026-11-02
 
 Reconciled the existing PR2 branch at `2f66a3867021dcd494d9d3d618e33959c22c8780`
