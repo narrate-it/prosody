@@ -19,11 +19,16 @@ const cancelAsset = "01900000-0000-7000-8000-000000000002"
 type cancelAtEOF struct {
 	cancel context.CancelFunc
 	calls  int
+	data   []byte
 }
 
 func (r *cancelAtEOF) Read(p []byte) (int, error) {
 	r.calls++
-	n := copy(p, []byte("original bytes"))
+	data := r.data
+	if data == nil {
+		data = []byte("original bytes")
+	}
+	n := copy(p, data)
 	r.cancel()
 	return n, io.EOF
 }
@@ -93,6 +98,60 @@ func TestPutAlreadyCanceledHasNoFilesystemEffects(t *testing.T) {
 			}
 			if len(entries) != 0 {
 				t.Errorf("pre-canceled put changed filesystem: %v", entries)
+			}
+		})
+	}
+}
+
+func TestCanceledReplacementPreservesPriorImmutableObject(t *testing.T) {
+	t.Parallel()
+	for _, late := range []bool{false, true} {
+		t.Run(map[bool]string{false: "already canceled", true: "final read canceled"}[late], func(t *testing.T) {
+			t.Parallel()
+			root := t.TempDir()
+			files, err := media.NewFiles(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			originalBytes := []byte("prior immutable bytes")
+			original, err := files.Put(context.Background(), cancelWorkspace, cancelAsset, bytes.NewReader(originalBytes), 100)
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			var replacement io.Reader = bytes.NewReader([]byte("replacement bytes"))
+			if late {
+				replacement = &cancelAtEOF{cancel: cancel, data: []byte("replacement bytes")}
+			} else {
+				cancel()
+			}
+			object, err := files.Put(ctx, cancelWorkspace, cancelAsset, replacement, 100)
+			if !errors.Is(err, context.Canceled) || object != (media.Object{}) {
+				t.Errorf("canceled replacement returned object=%+v error=%v", object, err)
+			}
+			file, err := files.Open(cancelWorkspace, cancelAsset)
+			if err != nil {
+				t.Fatal(err)
+			}
+			saved, readErr := io.ReadAll(file)
+			closeErr := file.Close()
+			if readErr != nil || closeErr != nil {
+				t.Fatalf("read preserved object: %v %v", readErr, closeErr)
+			}
+			if !bytes.Equal(saved, originalBytes) {
+				t.Error("canceled replacement changed prior immutable bytes")
+			}
+			matches, err := files.Reconcile(context.Background(), cancelWorkspace, cancelAsset, original)
+			if err != nil || !matches {
+				t.Errorf("prior immutable size/hash changed: %v", err)
+			}
+			uploads, err := filepath.Glob(filepath.Join(root, cancelWorkspace, ".upload-*"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(uploads) != 0 {
+				t.Error("owned fixture retained replacement upload temp")
 			}
 		})
 	}

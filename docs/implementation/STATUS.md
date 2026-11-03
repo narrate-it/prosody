@@ -1287,9 +1287,20 @@ immutability and Reconcile controls passed; the unchanged lint/full-Go hook
 gates this checkpoint. Independent review and hosted review/merge are pending.
 
 This is owned local-development/qualified-volume behavior, not Nanos production
-storage qualification. Known pre-publication cancellation returns its original
-context cause, zero Object and no target/upload files. Cancellation can race
-publication; post-Link errors remain uncertain and require reconciliation, not
+storage qualification. The fresh-ID regressions observed the original context
+cause, zero Object, no target and no upload files; temporary cleanup is best
+effort. Cancellation does not prove absence of a prior immutable object.
+Cancellation can race publication; post-Link errors remain uncertain and require reconciliation, not
 target deletion or rollback/no-effect/refund proof. No general reader-interrupt
 guarantee is added. No native/C1/database/provider/device/provisioning changes;
 full RFC and native/DB/device gates remain OPEN, retain the owned reminder.
+
+
+Cancellation replacement follow-up: the tiny existing-object regression against
+an old-source overlay preserved the original bytes/hash but returned Link's
+file-exists error after final-read cancellation (1 passed / 2 failed named
+records, including the parent test). With unchanged fixed production source,
+the fresh full media suite passed all 34 records, no skips. Both already-canceled
+and late-canceled replacements return the context cause/zero Object and retain
+the original bytes, size and hash; the owned fixtures leave no upload temp.
+These observations are not rollback/no-effect proof or global cleanup promises.
