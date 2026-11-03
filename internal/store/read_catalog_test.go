@@ -48,6 +48,9 @@ func TestReadCatalogExactOriginalSQLHashes(t *testing.T) {
 			if s.Phase != "human-read" || len(s.NativeIdentitySlots) != 0 || s.NativeIdentityNote == "" {
 				t.Fatal("missing local/native distinction")
 			}
+			if s.ID == "feeds" && (len(s.Columns) != 3 || s.Columns[2].Name != "title" || s.Columns[2].SQLType != "bytea" || s.Columns[2].MaxBytes != 4096) {
+				t.Fatal("feed title SQL bytes must not be mislabeled as presentation text")
+			}
 			if s.ID == "clock" {
 				if s.WorkspaceParameter != 0 || len(s.Arguments) != 0 || s.SQL != "SELECT pg_catalog.clock_timestamp()" {
 					t.Fatal("clock exception broadened")
