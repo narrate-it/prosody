@@ -833,3 +833,36 @@ Go lint/full unit gate (zero lint issues). Independent source review clear.
 Capacity admitted: load6.89/7.78/7.47, interval idle14.82/59.34%, normal pressure,
 zero swap churn, no thermal/performance warning. No live calls/native changes or
 deployment. Hosted review/merge remain separate; full RFC incomplete, keep reminder.
+
+### 2026-11-02 — Local verified media-range preparation
+
+New isolated worktree prosody-media-ranges, branch feat/verified-media-ranges,
+base main2d93bf4. Prepared ReadVerifiedRange and hermetic tests for <=1MiB
+closed ranges, full-object size/digest binding, same-pass capture, corruption
+outside the requested interval, overflow/bounds and no-output failure handling.
+This is local port preparation only; no AMOS/HTTP registration or native grant,
+MIME/resource closure, publication or actual player compatibility is asserted.
+See MEDIA-RANGES.md. Capacity refused: load7.26/6.84/6.61, interval idle
+4.82/34.98% (average19.90%), normal pressure, zero swap churn, no warnings.
+No tests/hook/commit/lease or automatic admission retry. Source and recovery
+patch are retained privately until verification can run; no draft PR can be
+created before the required commit gate. Full RFC incomplete; retain reminder.
+
+Independent source review found two issues in initial range preparation: digest
+length must be checked before hex decoding to preserve the allocation bound,
+and arbitrary reader errors require safe rendering. Both corrected in staged
+source; tests added for oversized digest/no reader access, private read-error
+sanitization with errors.Is, mid-read cancellation and data returned with EOF.
+These regressions remain UNEXECUTED under capacity hold; source review is not
+runtime evidence. Original two findings superseded only at source level.
+
+### 2026-11-02 — Verified media-range first executed checks
+
+Staged source reconciled onto maina5de1fa without changing range source/tests;
+original recovery stash retained, both histories preserved. Fresh admission
+passed: load3.13/3.04/2.87, idle46.20/53.74%, normal pressure, zero swap churn,
+no thermal/performance warning. Five named range tests passed under owned lease.
+Independent source review already cleared exact helper/test bytes after digest
+allocation bound and safe error corrections. No DB fixture, native route, service,
+provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range profile
+remain acceptance gates. Required hook stays enabled; full RFC incomplete.
