@@ -783,3 +783,37 @@ thermal warning. No paid calls/device changes/deployment; full RFC incomplete.
 AMOS operational ownership is now reconciled in its retained ledger; its staged
 held-issuance source is not a qualified worker/mobile interface. Keep adapter
 pinned and retain the hourly reminder.
+
+### 2026-11-02 — PR5 review corrections, verification held
+
+CodeRabbit check on0de0cc8 succeeded but comments4449100666/4449100704 found
+valid gaps: finalized error-only metadata was not backfilled into legacy flat
+fields, and fresh transport/read errors discarded cancellation/deadline identity.
+Working source now synchronizes flat refs/accounting and wraps original causes
+inside the fixed safe AttemptError. Regression assertions added for rewrite and
+speech error-only fields and errors.Is cancellation/deadline/unexpected EOF.
+
+Formatting and diff checks pass. Tests, lint and commit hook NOT RUN on this delta:
+capacity refused at interval idle1.12/2.99% (load19.30/17.16/16.51), normal pressure,
+zero swap churn and no thermal warning. No lease claimed or automatic admission
+retry. PR5 remains at published0de0cc8; working changes/private patch preserve
+this unverified correction until an authorized capacity change permits checks.
+No paid calls, native changes, deployment or full acceptance; retain reminder.
+
+### 2026-11-02 — PR5 corrections verified after fresh admission
+
+Fresh capacity audit after the new availability event passed: interval idle
+25.34/36.91%, load4.53/4.64/4.83, normal pressure, zero swap churn, no thermal
+warning. Owned lease acquired for bounded verification. Both CodeRabbit fixes
+were exercised against published0de0cc8: cancellation/read/deadline identity and
+flat error-only metadata regressions fail on old source. Restored corrected
+source passes complete openrouter/briefing packages. Independent read-only
+review of this correction found no blocker. Required hook remains enforced at
+commit; no provider calls, deployment, native API qualification or sign-in change.
+
+Read AMOS public-interface-proposal-v2 as LOCAL preparation only. Its worker/
+human route names remain unimplemented, unpublished interfaces. Session-bound
+first qualification profile and intended private iOS callback/client accepted;
+canonical audience and actual closed-range player compatibility remain open.
+Production consumption and adapter migration remain disabled. Full RFC incomplete;
+keep the owned reminder.

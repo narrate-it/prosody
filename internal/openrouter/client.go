@@ -81,7 +81,7 @@ func (c *Client) request(ctx context.Context, key, method, path string, payload 
 	}
 	res, err := c.http.Do(req)
 	if err != nil {
-		_, failure := FinishAttempt(AttemptOutcome{State: MayHaveActed}, errors.New("provider transport failed"))
+		_, failure := FinishAttempt(AttemptOutcome{State: MayHaveActed}, fmt.Errorf("provider transport failed: %w", err))
 		return nil, nil, failure
 	}
 	// Body read/status determines the outcome; cleanup cannot undo a paid call.
@@ -92,7 +92,7 @@ func (c *Client) request(ctx context.Context, key, method, path string, payload 
 	}
 	b, err := io.ReadAll(io.LimitReader(res.Body, limit+1))
 	if err != nil {
-		_, failure := FinishAttempt(AttemptOutcome{State: MayHaveActed}, errors.New("provider response interrupted"))
+		_, failure := FinishAttempt(AttemptOutcome{State: MayHaveActed}, fmt.Errorf("provider response interrupted: %w", err))
 		return nil, res.Header, failure
 	}
 	if int64(len(b)) > limit {

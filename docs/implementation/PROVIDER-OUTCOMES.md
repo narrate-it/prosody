@@ -3,8 +3,11 @@
 PR5 adds `openrouter.AttemptOutcome` to rewrite/speech results and carries it
 through briefing ports. `AttemptError` supports errors.As while preserving
 errors.Is for existing local sentinels. Its rendered message contains only a
-known state label; raw transport errors/provider bodies are never included.
-Wrapped arbitrary port causes remain diagnostic values and must not be logged.
+known state label; raw transport errors/provider bodies are never included in that rendered message.
+Wrapped transport/read and arbitrary port causes remain diagnostic values and
+must not be logged. Their identity is retained for errors.Is/As. Flat compatibility
+fields are synchronized from the finalized outcome after error-only metadata
+recovery.
 
 | State | Observation | Host obligation |
 | --- | --- | --- |
