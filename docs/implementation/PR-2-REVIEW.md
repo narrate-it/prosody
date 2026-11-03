@@ -20,7 +20,7 @@ it does not change the code that was tested or authorize merge/deployment.
   signing identity/bundle, preview/production separation, RAM-only key provisioning,
   local budget/configuration fences, file cleanup and playback-control composition.
 
-Current capacity admission: interval idle50.31/53.22%, normal memory pressure,
+Current capacity admission: interval idle 50.31/53.22%, normal memory pressure,
 zero swap churn, no thermal/performance warning. Checks used the owned build lease.
 No provider calls, signing/install, device update or deployment on this wake.
 

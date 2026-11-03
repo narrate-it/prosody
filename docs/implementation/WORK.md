@@ -816,7 +816,7 @@ is still open. No paid calls/device updates or automatic purge of published reco
 
 2026-11-02 hourly: completed aggregate PR2 validation rather than adding more
 preview scope. 110 Flutter tests+analysis and 4 preflight tests pass; final independent
-review clear at83fcd53/base6c7e12f. Recorded exact evidence/limits in PR-2-REVIEW.md.
+review clear at 83fcd53 / base 6c7e12f. Recorded exact evidence/limits in PR-2-REVIEW.md.
 Next: ready PR for actual CodeRabbit review (draft had been skipped), address concrete
 findings and preserve separate native/provider/AMOS/full RFC acceptance gates.
 
@@ -839,3 +839,180 @@ summary has no actionable comments, with docstring-coverage warning retained.
 Receipt in PR-2-REVIEW.md. No phone update, paid calls or deployment. PR2 remains
 open; actual device/provider/AMOS/Nanos acceptance and full RFC remain incomplete.
 Keep the owned reminder.
+
+
+
+### 2026-11-02 — MP4 metadata protection regression
+
+Isolated continuation branch `fix/mp4-probe-protection`, code `9fa78fe`, from
+main `6c7e12f`; the preview PR2 and resume PR3 worktrees remain untouched.
+The old probe accepted protection containers in video/audio sample entries,
+duplicate AVC configuration and truncated audio children. All four regressions
+failed on the original code and passed after rejection and bounded audio-child
+inspection were added. Clear synthetic metadata and every truncated prefix are
+also checked. Media tests and required Go lint/full unit tests passed.
+
+This is metadata-only hardening, not decodable-video, sample-map/timeline,
+publication or runtime acceptance. Independent review remains pending. No paid
+calls, phone changes or deployment. Capacity: load 5.76/6.10/5.85; interval idle
+26.66/25.76%, normal pressure, no swap churn or thermal/performance warning.
+Full RFC acceptance remains incomplete; retain owned hourly reminder.
+
+### 2026-11-02 — MP4 independent review and positive child coverage
+
+Independent read-only review of PR4 at cb00966675d26d9d5d64d358f935136639fee90a
+against 6c7e12f found no blocking finding. Reviewer checked surrounding parser,
+shared atom budget and callers (no production callers use this probe). Added
+its suggested positive case: a clear audio entry with a structurally well-formed
+child box, alongside the rejection cases. All focused ProbeMP4 tests passed.
+The synthetic esds payload is not an AAC descriptor/decode validation fixture.
+
+Preparing PR4 for hosted review; the earlier CodeRabbit check was skipped because
+it was draft. No merge, provider calls, native changes or deployment. Capacity:
+load 4.38/4.11/4.02; interval idle 34.55/23.74%, normal pressure, zero swap churn,
+no thermal/performance warning. Full RFC remains incomplete; retain reminder.
+
+### 2026-11-02 — CodeRabbit audio-version correction
+
+CodeRabbit check on 23b2b03 succeeded but comment 4446593715 found a valid defect:
+the fixed 28-byte audio header offset rejected clear version-1 entries and could
+consume a following protection box as packet data. Reproduced five failing cases
+before fixing version dispatch: v0 uses 28 bytes, v1 uses 44, unsupported versions
+and truncated extensions reject. Six added cases cover clear v1, protected v1
+with zero/nonzero samples, short/truncated v1 and unknown versions. All media
+tests pass after the fix. This supersedes earlier review's no-blocker conclusion
+for this issue; a passing hosted check alone was not sufficient.
+
+Apple's sound sample description version 1 reference confirms the four extra
+32-bit fields: https://developer.apple.com/documentation/quicktime-file-format/sound_sample_description_version_1
+No codec/timeline/publication qualification is inferred from these structural
+fixtures. No provider calls, deployment or phone changes. Capacity load
+3.39/3.36/3.49; interval idle 36.19/28.52%, normal pressure, zero swap churn,
+no thermal/performance warning. Full RFC incomplete; retain reminder.
+
+### 2026-11-02 — AVC configuration ordering coverage
+
+Hosted check on e82a642 passed and CodeRabbit marked the audio-offset thread
+resolved. The final review body also suggested undersized-then-valid AVC coverage.
+Added that ordered case and a sole undersized configuration, with fixture override
+that replaces rather than appends to the default valid configuration. Confirmed
+the ordered case fails against original main 6c7e12f (incorrectly accepted), then
+restored the corrected source and passed the full media package. No production
+code changed. Merge held for review of the added coverage; no bypass or deployment.
+
+Capacity load 4.29/4.51/4.47; interval idle 46.26/36.31%, normal pressure,
+zero swap churn and no thermal/performance warning. No paid calls or device
+changes. Full RFC remains incomplete; keep the owned reminder.
+
+### 2026-11-02 — Typed paid-provider outcomes (PR5)
+
+Isolated worktree prosody-provider-outcomes / feat/provider-attempt-outcomes.
+Added typed pre-dispatch/response-received/may-have-acted observations and safe
+errors through OpenRouter and briefing ports; IDs/known usage survive rejection,
+with unusable output cleared. Hermetic dropped/truncated/canceled/HTTP-failure
+checks exercise one call and no retry; preflight rejects without HTTP. Unknown
+states normalize conservatively. No lookup/dedup or native authority introduced.
+See PROVIDER-OUTCOMES.md for semantics, review corrections and fixture limits.
+Initial focused checks and full Go lint/unit hook passed; final affected checks
+and independent review follow the corrections. Capacity admitted at load
+8.60/8.07/7.75, interval idle23.88/40.35%, normal pressure, no swap churn or
+thermal warning. No paid calls/device changes/deployment; full RFC incomplete.
+AMOS operational ownership is now reconciled in its retained ledger; its staged
+held-issuance source is not a qualified worker/mobile interface. Keep adapter
+pinned and retain the hourly reminder.
+
+### 2026-11-02 — PR5 review corrections, verification held
+
+CodeRabbit check on0de0cc8 succeeded but comments4449100666/4449100704 found
+valid gaps: finalized error-only metadata was not backfilled into legacy flat
+fields, and fresh transport/read errors discarded cancellation/deadline identity.
+Working source now synchronizes flat refs/accounting and wraps original causes
+inside the fixed safe AttemptError. Regression assertions added for rewrite and
+speech error-only fields and errors.Is cancellation/deadline/unexpected EOF.
+
+Formatting and diff checks pass. Tests, lint and commit hook NOT RUN on this delta:
+capacity refused at interval idle1.12/2.99% (load19.30/17.16/16.51), normal pressure,
+zero swap churn and no thermal warning. No lease claimed or automatic admission
+retry. PR5 remains at published0de0cc8; working changes/private patch preserve
+this unverified correction until an authorized capacity change permits checks.
+No paid calls, native changes, deployment or full acceptance; retain reminder.
+
+### 2026-11-02 — PR5 corrections verified after fresh admission
+
+Fresh capacity audit after the new availability event passed: interval idle
+25.34/36.91%, load4.53/4.64/4.83, normal pressure, zero swap churn, no thermal
+warning. Owned lease acquired for bounded verification. Both CodeRabbit fixes
+were exercised against published0de0cc8: cancellation/read/deadline identity and
+flat error-only metadata regressions fail on old source. Restored corrected
+source passes complete openrouter/briefing packages. Independent read-only
+review of this correction found no blocker. Required hook remains enforced at
+commit; no provider calls, deployment, native API qualification or sign-in change.
+
+Read AMOS public-interface-proposal-v2 as LOCAL preparation only. Its worker/
+human route names remain unimplemented, unpublished interfaces. Session-bound
+first qualification profile and intended private iOS callback/client accepted;
+canonical audience and actual closed-range player compatibility remain open.
+Production consumption and adapter migration remain disabled. Full RFC incomplete;
+keep the owned reminder.
+
+### 2026-11-02 — Typed-nil provider diagnostic regression
+
+AMOS semantic review identified a typed-nil AttemptError panic in landed PR5.
+Isolated worktree prosody-provider-nil / fix/typed-nil-provider-errors now handles
+that malformed diagnostic as MayHaveActed, retaining available result refs/usage.
+Error/Unwrap are nil-receiver safe, including wrapped/joined chain traversal;
+legitimate sentinels remain discoverable. Rejected script/audio stays unusable,
+with exactly one provider-port call and no retry. No authority/journal expansion.
+
+New tests reproduce the panic on original main2d93bf4 in direct and briefing
+paths. Corrected source63fa4b2 passes full openrouter/briefing packages and required
+Go lint/full unit gate (zero lint issues). Independent source review clear.
+Capacity admitted: load6.89/7.78/7.47, interval idle14.82/59.34%, normal pressure,
+zero swap churn, no thermal/performance warning. No live calls/native changes or
+deployment. Hosted review/merge remain separate; full RFC incomplete, keep reminder.
+
+### 2026-11-02 — Local verified media-range preparation
+
+New isolated worktree prosody-media-ranges, branch feat/verified-media-ranges,
+base main2d93bf4. Prepared ReadVerifiedRange and hermetic tests for <=1MiB
+closed ranges, full-object size/digest binding, same-pass capture, corruption
+outside the requested interval, overflow/bounds and no-output failure handling.
+This is local port preparation only; no AMOS/HTTP registration or native grant,
+MIME/resource closure, publication or actual player compatibility is asserted.
+See MEDIA-RANGES.md. Capacity refused: load7.26/6.84/6.61, interval idle
+4.82/34.98% (average19.90%), normal pressure, zero swap churn, no warnings.
+No tests/hook/commit/lease or automatic admission retry. Source and recovery
+patch are retained privately until verification can run; no draft PR can be
+created before the required commit gate. Full RFC incomplete; retain reminder.
+
+Independent source review found two issues in initial range preparation: digest
+length must be checked before hex decoding to preserve the allocation bound,
+and arbitrary reader errors require safe rendering. Both corrected in staged
+source; tests added for oversized digest/no reader access, private read-error
+sanitization with errors.Is, mid-read cancellation and data returned with EOF.
+These regressions remain UNEXECUTED under capacity hold; source review is not
+runtime evidence. Original two findings superseded only at source level.
+
+### 2026-11-02 — Verified media-range first executed checks
+
+Staged source reconciled onto maina5de1fa without changing range source/tests;
+original recovery stash retained, both histories preserved. Fresh admission
+passed: load3.13/3.04/2.87, idle46.20/53.74%, normal pressure, zero swap churn,
+no thermal/performance warning. Five named range tests passed under owned lease.
+Independent source review already cleared exact helper/test bytes after digest
+allocation bound and safe error corrections. No DB fixture, native route, service,
+provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range profile
+remain acceptance gates. Required hook stays enabled; full RFC incomplete.
+
+
+### 2026-11-03 UTC — Current continuation checkpoint
+
+Landed source/helper checkpoints and their local-check receipts: PR3 `b93bf7f`,
+PR8 `9b5a922`, PR9 `63173b7`, PR10 `c4d7762`, PR11 `1a9c716`, PR12 `cb092b4`.
+Earlier holds above remain historical. PR7 `f596a1b` is still draft, with database
+tests SKIPPED. PR2 `fb2f52d` passed seven merged resume Flutter tests plus lint/full
+ten-package Go units; hosted success did not close its concrete spacing finding.
+This documentation-only checkpoint corrects that finding pending refreshed review.
+Producer source choice is pending, neither alternative activated; native B/C,
+source bridge, provider/device, Nanos and TestFlight acceptance remain open.
+No deployment, spend or signing; full RFC incomplete, retain the owned reminder.
