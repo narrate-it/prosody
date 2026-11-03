@@ -1243,12 +1243,12 @@ deployment or signing occurred.
 ### 2026-11-03 — Publication row-count guard child
 
 Extracted the existing PR #7 publication guard/test verbatim from f596a1b into
-`fix/publication-row-counts`, based on main359c7504. PR #7 depends on this child;
+`fix/publication-row-counts`, based on main `359c7504`. PR #7 depends on this child;
 original checkpoint worktree/claims remain preserved. SQL literals/argument
 expressions are unchanged. Eight negative cases fail on original main; all nine
 pass with the guard. These are transaction-double tests, not DB/native atomicity.
 See PUBLICATION-ROW-COUNTS.md for traceability and acceptance limits. No checkpoint
 migration, service, provider call, DB fixture, signing or deployment in this child.
-Fresh capacity interval idle16.83/26.53% (average21.68%), normal pressure, zero swap
+Fresh capacity interval idle 16.83/26.53% (average 21.68%), normal pressure, zero swap
 churn, no thermal warning; verification uses the owned shared build lease. Full
 RFC remains incomplete; keep the owned reminder.
