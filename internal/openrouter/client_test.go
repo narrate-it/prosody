@@ -173,3 +173,27 @@ func TestSpeechCatalogQueryAndDefaultCatalogIsolation(t *testing.T) {
 		})
 	}
 }
+
+func TestSpeechCatalogFailureRetainsAttemptOutcome(t *testing.T) {
+	calls := 0
+	client := New()
+	client.http.Transport = receiptTransport(func(request *http.Request) (*http.Response, error) {
+		calls++
+		if request.URL.RawQuery != "output_modalities=speech" {
+			t.Fatal("speech catalog query lost")
+		}
+		return &http.Response{
+			StatusCode: http.StatusForbidden,
+			Header:     http.Header{"X-Request-Id": {"catalog-request"}, "X-Generation-Id": {"catalog-generation"}},
+			Body:       io.NopCloser(strings.NewReader("private catalog failure")),
+		}, nil
+	})
+	models, err := client.SpeechModels(context.Background(), "synthetic")
+	var attempt *AttemptError
+	if !errors.As(err, &attempt) || attempt == nil {
+		t.Fatalf("catalog lost typed outcome: %v", err)
+	}
+	if calls != 1 || len(models) != 0 || attempt.Outcome.State != MayHaveActed || attempt.Outcome.Status != http.StatusForbidden || attempt.Outcome.RequestID != "catalog-request" || attempt.Outcome.GenerationID != "catalog-generation" || strings.Contains(err.Error(), "private") {
+		t.Fatal("catalog receipt lost, private diagnostic exposed, or request retried")
+	}
+}
