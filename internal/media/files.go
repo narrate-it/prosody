@@ -47,6 +47,13 @@ type Object struct {
 // Put writes original bytes once. Existing IDs never overwrite another object.
 // The caller validates the content and commits metadata only after this succeeds.
 func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, maxBytes int64) (Object, error) {
+	return f.put(ctx, workspace, asset, r, maxBytes, (*os.File).Close)
+}
+
+// put is the shared implementation core. Public Put always supplies real Close;
+// a per-call close operation permits deterministic I/O-boundary tests without
+// mutable instance/global hooks. Deferred cleanup still closes the actual file.
+func (f *Files) put(ctx context.Context, workspace, asset string, r io.Reader, maxBytes int64, closeUpload func(*os.File) error) (Object, error) {
 	path, err := f.path(workspace, asset)
 	if err != nil || r == nil || maxBytes <= 0 || maxBytes > 1<<30 {
 		return Object{}, ErrInvalid
@@ -82,7 +89,7 @@ func (f *Files) Put(ctx context.Context, workspace, asset string, r io.Reader, m
 	if err = tmp.Sync(); err != nil {
 		return Object{}, fmt.Errorf("sync upload: %w", err)
 	}
-	if err = tmp.Close(); err != nil {
+	if err = closeUpload(tmp); err != nil {
 		return Object{}, fmt.Errorf("close upload: %w", err)
 	}
 	// Honor known cancellation before publication, including during Sync/Close.
