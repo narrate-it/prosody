@@ -60,7 +60,7 @@ func ReadActivity(ctx context.Context, tx ReadTransaction, workspace, feed, curs
 		return page, err
 	}
 	var now time.Time
-	if err := tx.QueryRowContext(ctx, `SELECT pg_catalog.clock_timestamp()`).Scan(&now); err != nil {
+	if err := tx.QueryRowContext(ctx, readClockSQL).Scan(&now); err != nil {
 		return page, fmt.Errorf("read activity cutoff: %w", err)
 	}
 	if cursor == "" {
@@ -68,13 +68,7 @@ func ReadActivity(ctx context.Context, tx ReadTransaction, workspace, feed, curs
 	} else if c.Cutoff.After(now) {
 		return page, ErrInvalid
 	}
-	rows, err := tx.QueryContext(ctx, `SELECT s.id,s.status,s.accepted_at,
- CASE WHEN octet_length(s.source_bytes)<=65536 THEN s.source_bytes ELSE NULL END
- FROM public.app_prosody_submissions s
- WHERE s.workspace_id=$1 AND s.feed_id=$2 AND s.deleted_at IS NULL
- AND s.status IN ('processing','failed','ready') AND s.accepted_at<=$3
- AND ($4::boolean=false OR (s.accepted_at,s.id)>($5::timestamptz,$6::uuid))
- ORDER BY s.accepted_at,s.id LIMIT $7 FOR SHARE OF s`, workspace, feed, c.Cutoff, cursor != "", c.AcceptedAt, c.ItemID, limit+1)
+	rows, err := tx.QueryContext(ctx, readActivitySQL, workspace, feed, c.Cutoff, cursor != "", c.AcceptedAt, c.ItemID, limit+1)
 	if err != nil {
 		return page, fmt.Errorf("read activity: %w", err)
 	}
