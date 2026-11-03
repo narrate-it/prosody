@@ -709,7 +709,7 @@ the retained-page finding is closed by the new page identity and regression.
 
 PR #1 merged at 6c7e12f with exact-tree verification; its final non-blocking
 review note requested stronger later-page unknown-resume capture coverage.
-This follow-up simulates active playback at 400ms before completion and checks
+This follow-up simulates active playback at 400 ms before completion and checks
 read/write counts. The saved-resume case is a positive control proving that the
 same stimulus reaches dispatch; unknown resume must retain one read/no writes.
 Source only: tests and analysis have not run. Capacity measurement timed out,
