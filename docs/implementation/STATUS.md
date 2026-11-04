@@ -1359,3 +1359,32 @@ physical-device or TestFlight acceptance is claimed. No new fixture, provider ca
 by this record. Producer-label policy, public origin and App Store Connect setup
 remain unselected or unverified; no defaults have been activated. The full RFC
 remains incomplete, so the owned implementation reminder stays in place.
+
+
+## 2026-11-04 — Activity access-denial cache invalidation
+
+Activity refresh and pagination previously kept loaded cards and readable
+originals after an explicit HTTP 401 or 403. The view now discards those cards
+and its pagination state on either denial. It retains loaded activity after
+ordinary transport, malformed-response or server failures. Reading originals
+is disabled during a pending refresh/page request; captured callbacks also
+refuse access after denial or replacement. Recovery requires an explicit new
+first-page request, not an automatic retry of a stale cursor.
+
+At source tree `e2c76dadad481378ee22ec225ed016e958a63d93`, Flutter analysis
+reported no issues. All 17 focused Activity tests and all 141 full-suite tests
+passed, zero failures/skips. Compiling the same tests against the original
+Activity source produced six expected failure records (denial/pending cases)
+while 11 controls passed. The fixed source was restored exactly afterward.
+Independent final source review cleared this bounded change. These Flutter results do not establish the
+required repository commit gate; consult the PR verification record for that
+separate outcome.
+
+These are hermetic widget observations and local view invalidation, not recall
+of already delivered bytes, native session/revocation or physical-device proof.
+No production sign-in, AMOS adapter, credential, provider, fixture, deployment or
+signing behavior changed. PR #21's separate test-only HTTP composition landed at
+`d93eecd58a3e532acd0a24c04d80bcd002823a0f`, with its reviewed tree verified on
+main; it also supplies no native/provider/mobile acceptance. PR #7 remains draft,
+its one SQL-fixture approval completed/consumed, and C1 remains parked. The full
+RFC and TestFlight acceptance remain incomplete; the hourly reminder stays.
