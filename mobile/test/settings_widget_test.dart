@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -14,6 +15,10 @@ class _Session implements AccessSession {
   @override
   Future<void> signOut() async {}
 }
+
+Finder get _settingsScrollable => find
+    .descendant(of: find.byType(ListView), matching: find.byType(Scrollable))
+    .first;
 
 void main() {
   Future<void> open(
@@ -117,9 +122,18 @@ void main() {
       },
     );
     await open(tester, service);
-    await tester.ensureVisible(find.text('Save choices'));
+    await tester.scrollUntilVisible(
+      find.text('Save choices'),
+      150,
+      scrollable: _settingsScrollable,
+    );
     await tester.tap(find.text('Save choices'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Choose an available briefing model.'),
+      -150,
+      scrollable: _settingsScrollable,
+    );
     expect(find.text('Choose an available briefing model.'), findsOneWidget);
     expect(writes, 0);
     expect(tester.takeException(), isNull);
@@ -138,8 +152,17 @@ void main() {
       },
     );
     await open(tester, service);
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      150,
+      scrollable: _settingsScrollable,
+    );
     await tester.enterText(find.byType(TextField), 'test-provider-key');
-    await tester.ensureVisible(find.text('Save choices'));
+    await tester.scrollUntilVisible(
+      find.text('Save choices'),
+      150,
+      scrollable: _settingsScrollable,
+    );
     await tester.tap(find.text('Save choices'));
     await tester.pump();
     expect(writes, [
@@ -156,6 +179,12 @@ void main() {
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
       isNull,
     );
+    await tester.scrollUntilVisible(
+      find.text('Briefing model'),
+      -150,
+      scrollable: _settingsScrollable,
+    );
+    expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(3));
     expect(
       tester
           .widgetList<DropdownButtonFormField<String>>(

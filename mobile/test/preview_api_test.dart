@@ -252,6 +252,68 @@ void main() {
     },
   );
 
+  test(
+    'notification preference is local per feed and resets at sign-out',
+    () async {
+      final api = PreviewApi(durationsMs: _durations);
+      final other = PreviewApi(durationsMs: _durations);
+      addTearDown(api.close);
+      addTearDown(other.close);
+      expect(api.notificationPreferencesAreLocal, isTrue);
+      expect((await api.settings('personal')).notifications, isFalse);
+      expect((await api.settings('studio')).notifications, isFalse);
+      await api.notifications('personal', true);
+      expect((await api.settings('personal')).notifications, isTrue);
+      expect((await api.settings('studio')).notifications, isFalse);
+      expect((await other.settings('personal')).notifications, isFalse);
+      await api.notifications('studio', true);
+      await api.session.signOut();
+      expect((await api.settings('personal')).notifications, isFalse);
+      expect((await api.settings('studio')).notifications, isFalse);
+    },
+  );
+
+  test(
+    'malformed notification writes do not alter local preferences',
+    () async {
+      final api = PreviewApi(durationsMs: _durations);
+      addTearDown(api.close);
+      for (final body in [
+        null,
+        {'enabled': 'true'},
+        {'enabled': true, 'other': true},
+      ]) {
+        await expectLater(
+          api.request(
+            'PUT',
+            '/prosody/v1/feeds/personal/notifications',
+            body: body,
+          ),
+          throwsA(_status(400)),
+        );
+      }
+      await expectLater(
+        api.notifications('unknown', true),
+        throwsA(_status(404)),
+      );
+      await expectLater(
+        api.request(
+          'PUT',
+          '/prosody/v1/feeds/personal/notifications',
+          query: {'other': 'value'},
+          body: {'enabled': true},
+        ),
+        throwsA(_status(400)),
+      );
+      expect((await api.settings('personal')).notifications, isFalse);
+      api.close();
+      await expectLater(
+        api.notifications('personal', true),
+        throwsA(_status(410)),
+      );
+    },
+  );
+
   test('credential and unsupported writes never enter preview state', () async {
     final api = PreviewApi(durationsMs: _durations);
     addTearDown(api.close);
