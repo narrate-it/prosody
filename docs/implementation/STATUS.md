@@ -1414,3 +1414,29 @@ containers are not decodable-media evidence. Complete codec/presentation timing,
 physical/immutable object identity, actual player/Nanos behavior and publication
 remain unqualified. The full RFC/TestFlight gates and owned hourly reminder stay
 open; no provider, database fixture, signing, deployment or AMOS pin change occurred.
+
+
+## 2026-11-04 — Replacement-key editor cleanup after save denial
+
+A current settings save returning HTTP 401 or 403 now clears the typed
+replacement OpenRouter key from its editor. Other failures retain the unsaved
+draft. The existing request-generation guard keeps a late denial from an old
+feed from clearing a new feed's draft; error messages, busy state, preferences,
+model catalogs and authentication interfaces are unchanged.
+
+At source tree `5779200e67e8a07aac2e82b581a22819f1110477`, compiling the new
+widget tests with the original Settings source produced the two intended denial
+failures while eight controls passed. With the fix, analysis found no issues;
+all 10 focused settings tests and all 148 full Flutter tests passed, with zero
+failures/skips and successful final runner completion. The fixed source was
+restored exactly after the old-source check. Independent source review cleared
+the change. Consult PR verification for the separate required repository gate.
+
+This is local editor cleanup, not memory zeroization, removal of request copies,
+stored-key deletion, credential revocation or proof of native session authority.
+Only synthetic keys and hermetic HTTP doubles were used; no live provider,
+database fixture, device, signing, deployment or AMOS pin change is included.
+MP4 structural checks separately landed in PR #23 at
+`92b22827dec7fd24f4d6d0450db8f1ddb9b997f1`; their decoding/publication limits
+remain open. Full RFC/TestFlight acceptance is incomplete, so the owned hourly
+reminder remains enabled.

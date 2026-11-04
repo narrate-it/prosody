@@ -224,6 +224,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await _load();
     } catch (e) {
       if (_current(revision)) {
+        if (e is ApiFailure && (e.status == 401 || e.status == 403)) {
+          _key.clear();
+        }
         setState(
           () =>
               _error = e is ApiFailure ? e.message : 'Could not save settings.',

@@ -25,6 +25,7 @@ void main() {
     WidgetTester tester,
     ProsodyApi api, {
     bool canManage = true,
+    String feedId = 'feed',
   }) async {
     await tester.runAsync(() async {
       await tester.pumpWidget(
@@ -32,7 +33,7 @@ void main() {
           home: SettingsScreen(
             api: api,
             feed: Feed(
-              id: 'feed',
+              id: feedId,
               name: 'Team',
               kind: 'team',
               canManage: canManage,
@@ -200,4 +201,174 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(writes.length, 1);
   });
+
+  Future<void> roomy(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+  }
+
+  Future<void> enterDraft(WidgetTester tester, String draft) async {
+    await tester.scrollUntilVisible(
+      find.byType(TextField),
+      150,
+      scrollable: _settingsScrollable,
+    );
+    await tester.enterText(find.byType(TextField), draft);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      draft,
+    );
+  }
+
+  Future<void> sendSave(WidgetTester tester, {bool settle = true}) async {
+    await tester.scrollUntilVisible(
+      find.text('Save choices'),
+      150,
+      scrollable: _settingsScrollable,
+    );
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Save choices'));
+      await Future<void>.delayed(Duration.zero);
+    });
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+    }
+  }
+
+  for (final status in [401, 403]) {
+    testWidgets('denied settings save clears replacement key status=$status', (
+      tester,
+    ) async {
+      await roomy(tester);
+      final writes = <http.Request>[];
+      final service = api(
+        save: (request) async {
+          writes.add(request);
+          return http.Response('private denial diagnostic', status);
+        },
+      );
+      await open(tester, service);
+      await enterDraft(tester, 'synthetic-denied-draft');
+      await sendSave(tester);
+      expect(writes.length, 1);
+      expect(writes.single.url.path, '/prosody/v1/feeds/feed/settings');
+      expect(jsonDecode(writes.single.body), {
+        'revision': 7,
+        'textModel': 'text',
+        'speechModel': 'speech',
+        'voice': 'voice',
+        'openRouterKey': 'synthetic-denied-draft',
+      });
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller!.text, isEmpty);
+      expect(field.enabled, isTrue);
+      expect(
+        find.text(
+          status == 401
+              ? 'Your session has expired. Sign in again.'
+              : 'You no longer have access to this space.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining('private denial'), findsNothing);
+      expect(find.text('Saved for future briefings.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+      'late old-feed denial cannot clear new-feed replacement key status=$status',
+      (tester) async {
+        await roomy(tester);
+        late Completer<http.Response> denied;
+        await tester.runAsync(() async {
+          denied = Completer<http.Response>();
+        });
+        final writes = <http.Request>[];
+        final service = api(
+          save: (request) {
+            writes.add(request);
+            return denied.future;
+          },
+        );
+        await open(tester, service);
+        await enterDraft(tester, 'synthetic-old-feed-draft');
+        await sendSave(tester, settle: false);
+        expect(writes.length, 1);
+        expect(writes.single.url.path, '/prosody/v1/feeds/feed/settings');
+        // The same API and SettingsScreen state move to a different feed. The
+        // existing revision guard must reject the late error from the old scope.
+        await open(tester, service, feedId: 'new-feed');
+        await enterDraft(tester, 'synthetic-new-feed-draft');
+        await tester.runAsync(() async {
+          denied.complete(http.Response('private old-feed denial', status));
+          await Future<void>.delayed(Duration.zero);
+        });
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'synthetic-new-feed-draft',
+        );
+        expect(writes.length, 1);
+        expect(
+          find.text('Your session has expired. Sign in again.'),
+          findsNothing,
+        );
+        expect(
+          find.text('You no longer have access to this space.'),
+          findsNothing,
+        );
+        expect(find.textContaining('private old-feed'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final failure in ['409', '500', 'network']) {
+    testWidgets(
+      'other settings failure retains unsaved replacement key failure=$failure',
+      (tester) async {
+        await roomy(tester);
+        final writes = <http.Request>[];
+        final service = api(
+          save: (request) async {
+            writes.add(request);
+            if (failure == 'network') {
+              throw http.ClientException('private transport diagnostic');
+            }
+            return http.Response(
+              'private upstream diagnostic',
+              int.parse(failure),
+            );
+          },
+        );
+        await open(tester, service);
+        await enterDraft(tester, 'synthetic-retained-draft');
+        await sendSave(tester);
+        expect(writes.length, 1);
+        expect(writes.single.url.path, '/prosody/v1/feeds/feed/settings');
+        expect(
+          (jsonDecode(writes.single.body)
+              as Map<String, dynamic>)['openRouterKey'],
+          'synthetic-retained-draft',
+        );
+        final field = tester.widget<TextField>(find.byType(TextField));
+        expect(field.controller!.text, 'synthetic-retained-draft');
+        expect(field.enabled, isTrue);
+        expect(
+          find.text(switch (failure) {
+            '409' => 'This changed on another device. Refresh and try again.',
+            '500' => 'Could not complete this request. Please try again.',
+            _ => 'Could not save settings.',
+          }),
+          findsOneWidget,
+        );
+        expect(find.textContaining('private upstream'), findsNothing);
+        expect(find.textContaining('private transport'), findsNothing);
+        expect(find.text('Saved for future briefings.'), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
