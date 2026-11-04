@@ -1141,3 +1141,44 @@ skips. The required lint/full-Go hook also passed for this follow-up.
 No mutable global/instance hook, timing race or filesystem framework was added.
 Post-Link uncertainty, best-effort cleanup, prior-object reconciliation and all
 native/I/O/Nanos qualification limits remain unchanged; no new authority proof.
+
+
+## Current checkpoint — 2026-11-04
+
+This checkpoint supersedes older READY, local-staged and CPU-hold labels for
+the work listed below. Earlier entries remain historical evidence, not current
+pending-source status.
+
+- PR #17 landed at `6ec335655cf3676fec04b2f2de3a9401ed420566`. Flutter analysis
+  reported zero issues; 27 focused and 129 full-suite named tests passed with
+  zero failures or skips. These are hermetic results, not device/APNs acceptance.
+- PR #18 landed at `ccdd549f8f9d44e20429fe4c1a4ac8d58b8ca99e`, matching reviewed
+  tree `5217b17a2c7d8c54e260c983470d16dfe819485b`. The preference suite passed
+  33 named records across seven top-level tests, zero failures/skips. Compiled
+  old-source cancellation regressions produced seven failure records while the
+  positive control passed. Latest lint reported zero issues and all 12 Go
+  packages passed the required unit gate; this does not qualify real preference
+  SQL locking or native authority.
+- PR #7 remains DRAFT at `1b55d2baffebf764a240d07775cf09348f644044`; its domain
+  PostgreSQL evidence is published. Checkpoint source inputs remain identical
+  to tested `28ce03d2`: 132 named store test/subtest records with the database
+  fixture available, across 32 top-level tests, passed with zero failures/skips.
+  `TestPrivateCheckpointPostgres` executed and passed. The one fixture approval is COMPLETED and
+  CONSUMED, not renewed. Migration 002 remains unregistered/disabled in the
+  application; native atomic receipts and current authority remain open.
+
+Deletion preparation is documented in DELETION-CLEANUP.md. The missing asset
+ownership/provenance, complete reference index, backfill and shared-reference
+locking protocol still prevent safe cleanup eligibility; no supported cleanup
+consumer is composed. The deletion source anchors assessed at `b629600f` remain
+byte-identical on the current `ccdd549f` base. No deletion API or physical cleanup
+has been added.
+
+No owned heavy job or build lease is active for this checkpoint; that observation
+does not admit future work without a fresh capacity check. C1 remains parked and
+the AMOS pin is unchanged. No qualified AMOS application-worker/publication or
+human feed/media interface handoff, production InteractiveSession, APNs delivery,
+physical-device or TestFlight acceptance is claimed. No new fixture, provider call, spend, deployment or signing is authorized
+by this record. Producer-label policy, public origin and App Store Connect setup
+remain unselected or unverified; no defaults have been activated. The full RFC
+remains incomplete, so the owned implementation reminder stays in place.
