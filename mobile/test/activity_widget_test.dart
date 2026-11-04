@@ -206,4 +206,191 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Briefing late'), findsNothing);
   });
+
+  Future<void> roomy(WidgetTester tester) async {
+    await tester.binding.setSurfaceSize(const Size(430, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+  }
+
+  TextButton readButton(WidgetTester tester) => tester.widget<TextButton>(
+    find
+        .ancestor(
+          of: find.text('Read original').first,
+          matching: find.byWidgetPredicate((widget) => widget is TextButton),
+        )
+        .first,
+  );
+
+  for (final operation in ['refresh', 'load more']) {
+    for (final status in [401, 403]) {
+      testWidgets(
+        '$operation $status clears cached originals and pagination with explicit recovery',
+        (tester) async {
+          await roomy(tester);
+          var calls = 0;
+          final cursors = <String?>[];
+          final service = api((request) async {
+            calls++;
+            cursors.add(request.url.queryParameters['cursor']);
+            return switch (calls) {
+              1 => page([item('cached', 'processing')], cursor: 'next-page'),
+              2 => http.Response('private denial body', status),
+              3 => page([item('recovered', 'processing')], cursor: 'next-page'),
+              _ => page([item('last', 'failed')]),
+            };
+          });
+          await open(tester, service);
+          expect(find.byKey(const ValueKey('activity-cached')), findsOneWidget);
+          expect(readButton(tester).onPressed, isNotNull);
+          final oldRead = readButton(tester).onPressed!;
+          await tapAndLoad(
+            tester,
+            operation == 'refresh'
+                ? find.byTooltip('Refresh activity')
+                : find.text('Load more activity'),
+          );
+          expect(cursors, [null, operation == 'refresh' ? null : 'next-page']);
+          expect(find.byKey(const ValueKey('activity-cached')), findsNothing);
+          expect(find.text('Read original'), findsNothing);
+          expect(find.text('Load more activity'), findsNothing);
+          expect(
+            find.text('Showing the activity already loaded.'),
+            findsNothing,
+          );
+          expect(find.text('No briefings here yet.'), findsNothing);
+          expect(
+            find.text(
+              status == 401
+                  ? 'Your session has expired. Sign in again.'
+                  : 'You no longer have access to this space.',
+            ),
+            findsOneWidget,
+          );
+          expect(find.textContaining('private denial body'), findsNothing);
+          oldRead();
+          await tester.pumpAndSettle();
+          expect(find.byType(SelectableText), findsNothing);
+          // Recovery is an explicit new first-page request, not a stale cursor retry.
+          await tapAndLoad(tester, find.byTooltip('Refresh activity'));
+          expect(
+            find.byKey(const ValueKey('activity-recovered')),
+            findsOneWidget,
+          );
+          expect(readButton(tester).onPressed, isNotNull);
+          await tapAndLoad(tester, find.text('Load more activity'));
+          expect(cursors, [
+            null,
+            operation == 'refresh' ? null : 'next-page',
+            null,
+            'next-page',
+          ]);
+          expect(find.byKey(const ValueKey('activity-last')), findsOneWidget);
+          expect(
+            find.text('Showing the activity already loaded.'),
+            findsNothing,
+          );
+          expect(find.byKey(const ValueKey('activity-cached')), findsNothing);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
+    for (final failure in ['500', 'format', 'network']) {
+      testWidgets('$operation $failure retains cached readable originals', (
+        tester,
+      ) async {
+        await roomy(tester);
+        var calls = 0;
+        final cursors = <String?>[];
+        final service = api((request) async {
+          calls++;
+          cursors.add(request.url.queryParameters['cursor']);
+          if (calls == 1) {
+            return page([item('cached', 'processing')], cursor: 'next-page');
+          }
+          if (failure == '500') {
+            return http.Response('private upstream body', 500);
+          }
+          if (failure == 'format') {
+            return http.Response('private malformed JSON', 200);
+          }
+          throw http.ClientException('private transport detail');
+        });
+        await open(tester, service);
+        await tapAndLoad(
+          tester,
+          operation == 'refresh'
+              ? find.byTooltip('Refresh activity')
+              : find.text('Load more activity'),
+        );
+        expect(cursors, [null, operation == 'refresh' ? null : 'next-page']);
+        expect(find.byKey(const ValueKey('activity-cached')), findsOneWidget);
+        expect(
+          find.text('Showing the activity already loaded.'),
+          findsOneWidget,
+        );
+        expect(find.text('Load more activity'), findsOneWidget);
+        expect(readButton(tester).onPressed, isNotNull);
+        expect(find.textContaining('private upstream'), findsNothing);
+        expect(find.textContaining('private malformed'), findsNothing);
+        expect(find.textContaining('private transport'), findsNothing);
+        await tapAndLoad(tester, find.text('Read original'));
+        expect(
+          find.text('Original text for cached.\nA second paragraph.'),
+          findsOneWidget,
+        );
+        expect(calls, 2);
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets(
+      '$operation disables original while pending and restores it after transient completion',
+      (tester) async {
+        await roomy(tester);
+        late Completer<http.Response> response;
+        await tester.runAsync(() async {
+          response = Completer<http.Response>();
+        });
+        var calls = 0;
+        final service = api((_) async {
+          calls++;
+          return calls == 1
+              ? page([item('cached', 'processing')], cursor: 'next-page')
+              : response.future;
+        });
+        await open(tester, service);
+        final previousRead = readButton(tester).onPressed!;
+        final target = operation == 'refresh'
+            ? find.byTooltip('Refresh activity')
+            : find.text('Load more activity');
+        await tester.ensureVisible(target);
+        await tester.runAsync(() async {
+          await tester.tap(target);
+          await Future<void>.delayed(Duration.zero);
+        });
+        await tester.pump();
+        expect(calls, 2);
+        expect(find.byKey(const ValueKey('activity-cached')), findsOneWidget);
+        expect(readButton(tester).onPressed, isNull);
+        // A callback captured before the pending state must also be inert.
+        previousRead();
+        await tester.pump();
+        expect(find.byType(SelectableText), findsNothing);
+        await tester.runAsync(() async {
+          response.complete(http.Response('private transient body', 500));
+          await Future<void>.delayed(Duration.zero);
+        });
+        await tester.pumpAndSettle();
+        expect(readButton(tester).onPressed, isNotNull);
+        await tapAndLoad(tester, find.text('Read original'));
+        expect(
+          find.text('Original text for cached.\nA second paragraph.'),
+          findsOneWidget,
+        );
+        expect(calls, 2);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }

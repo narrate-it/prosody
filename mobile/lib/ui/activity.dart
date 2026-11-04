@@ -61,9 +61,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
     } catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
-          _error = error is ApiFailure
-              ? error.message
-              : 'Activity could not be loaded. Please try again.';
+          _recordFailure(
+            error,
+            'Activity could not be loaded. Please try again.',
+          );
         });
       }
     } finally {
@@ -98,9 +99,10 @@ class _ActivityScreenState extends State<ActivityScreen> {
     } catch (error) {
       if (mounted && generation == _generation) {
         setState(() {
-          _error = error is ApiFailure
-              ? error.message
-              : 'More activity could not be loaded. Please try again.';
+          _recordFailure(
+            error,
+            'More activity could not be loaded. Please try again.',
+          );
         });
       }
     } finally {
@@ -108,6 +110,24 @@ class _ActivityScreenState extends State<ActivityScreen> {
         setState(() => _more = false);
       }
     }
+  }
+
+  void _recordFailure(Object error, String fallback) {
+    if (error is ApiFailure && (error.status == 401 || error.status == 403)) {
+      // Drop this view's cached access after explicit denial. This cannot recall
+      // originals delivered earlier or establish native revocation semantics.
+      _items = [];
+      _pagination = FeedPagination();
+      _cursor = null;
+      _pageCount = 0;
+      _limited = false;
+    }
+    _error = switch (error) {
+      ApiFailure(status: 401) => 'Your session has expired. Sign in again.',
+      ApiFailure(status: 403) => 'You no longer have access to this space.',
+      ApiFailure(:final message) => message,
+      _ => fallback,
+    };
   }
 
   // Repeated item IDs update their status/source in place rather than creating
@@ -124,6 +144,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
   }
 
   void _readOriginal(ActivitySummary item) {
+    if (!mounted || _loading || _more || !_items.contains(item)) return;
     unawaited(
       Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
@@ -235,7 +256,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
               _ActivityCard(
                 key: ValueKey('activity-${item.id}'),
                 item: item,
-                onRead: () => _readOriginal(item),
+                onRead: _loading || _more ? null : () => _readOriginal(item),
               ),
             if (_limited) ...[
               const SizedBox(height: 16),
@@ -264,7 +285,7 @@ class _ActivityScreenState extends State<ActivityScreen> {
 
 class _ActivityCard extends StatelessWidget {
   final ActivitySummary item;
-  final VoidCallback onRead;
+  final VoidCallback? onRead;
 
   const _ActivityCard({super.key, required this.item, required this.onRead});
 
