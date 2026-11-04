@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import 'models.dart';
 import 'activity.dart';
 import 'bounded_body.dart';
@@ -143,6 +145,9 @@ class ProsodyApi {
       body: body,
     );
   }
+
+  // Presentation hint only; it does not imply OS permission or delivery readiness.
+  bool get notificationPreferencesAreLocal => false;
 
   Future<void> notifications(String feed, bool enabled) async {
     await request(

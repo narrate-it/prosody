@@ -13,11 +13,14 @@ const previewNarrationScripts = <String, String>{
 };
 
 class _PreviewSession implements AccessSession {
+  void Function()? onSignOut;
   @override
   Future<String> accessToken() async =>
       throw StateError('Preview has no access token');
   @override
-  Future<void> signOut() async {}
+  Future<void> signOut() async {
+    onSignOut?.call();
+  }
 }
 
 class _NoNetworkClient extends http.BaseClient {
@@ -47,6 +50,10 @@ class PreviewApi extends ProsodyApi {
   final Map<String, Map<String, dynamic>> _items = {};
   final Map<String, Map<String, dynamic>> _progress = {};
   bool _closed = false;
+  final _notificationPreferences = <String, bool>{};
+
+  @override
+  bool get notificationPreferencesAreLocal => true;
   final Future<void> Function(String id)? _onDelete;
   final Map<String, Future<void>> _deletions = {};
 
@@ -76,6 +83,7 @@ class PreviewApi extends ProsodyApi {
          _PreviewSession(),
          client: _NoNetworkClient(),
        ) {
+    (session as _PreviewSession).onSignOut = _notificationPreferences.clear;
     if (durationsMs.length != previewNarrationScripts.length ||
         previewNarrationScripts.keys.any(
           (id) =>
@@ -228,6 +236,23 @@ class PreviewApi extends ProsodyApi {
         ],
       };
     }
+    final notificationRoute = RegExp(
+      r'^/prosody/v1/feeds/(personal|studio)/notifications$',
+    ).firstMatch(path);
+    if (notificationRoute != null) {
+      _query(query);
+      if (method != 'PUT' ||
+          body is! Map<String, dynamic> ||
+          body.length != 1 ||
+          body['enabled'] is! bool) {
+        throw const ApiFailure(
+          400,
+          'This preview preference request is not supported.',
+        );
+      }
+      _notificationPreferences[notificationRoute[1]!] = body['enabled'] as bool;
+      return {};
+    }
     final feedRoute = RegExp(
       r'^/prosody/v1/feeds/(personal|studio)/(items|activity|settings)$',
     ).firstMatch(path);
@@ -247,7 +272,7 @@ class PreviewApi extends ProsodyApi {
           'speechModel': 'preview-voice',
           'voice': 'bundled',
           'hasKey': false,
-          'notifications': false,
+          'notifications': _notificationPreferences[feed] ?? false,
         };
       }
       final entries = _feedItems[feed]!.where(_items.containsKey).map((id) {
@@ -380,6 +405,7 @@ class PreviewApi extends ProsodyApi {
     _closed = true;
     _items.clear();
     _progress.clear();
+    _notificationPreferences.clear();
     super.close();
   }
 }
