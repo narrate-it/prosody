@@ -1748,3 +1748,26 @@ remain unsupported. Unit/double evidence is not DB rollback/receipt qualificatio
 Capacity interval idle 40.11/47.00%, normal pressure, zero swap churn and no thermal
 warning; required commit hooks stay enabled. No provider/device/deployment effect.
 Full RFC remains incomplete; keep the owned reminder.
+
+
+### 2026-11-03 — Checkpoint domain PostgreSQL acceptance
+
+David approved one disposable domain fixture invocation, now completed and
+consumed. At exact PR #7 head `28ce03d2`, installed PostgreSQL 14.21 over a private
+Unix socket (no TCP) passed all 132 named store checks (32 top-level), with zero
+failures or skips, including `TestPrivateCheckpointPostgres`. This supplies real
+domain SQL/replay/rollback evidence; earlier unconfigured skips remain historical.
+Migration 002 was applied only in the disposable test database. The application
+migration registry and adapter remain UNREGISTERED/UNENABLED for checkpoints.
+
+The exact owned server stopped successfully, its data was removed, socket files
+were absent, logs retained, and the build lease released. The one-time approval
+does not authorize another fixture invocation. All six checkpoint source/test,
+migration and SQL catalog blobs remain byte-identical to `28ce03d2` and `f596a1b`;
+backup `backup/checkpoints-before-pg14-record` preserves the tested head. This
+record-only continuation keeps the tested base; no rebase or source change.
+
+PR #7 remains DRAFT. Native PostgreSQL 16/TLS/roles, same-transaction opaque
+checkpoint receipts, current authority/grants and runtime-profile acceptance
+remain open; ordinary PostgreSQL 14 tests do not qualify them. No provider,
+HTTP, iOS or deployment acceptance follows. The full RFC remains incomplete.

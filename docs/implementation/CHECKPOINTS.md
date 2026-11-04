@@ -36,7 +36,8 @@ Publication additionally checks each final write affected exactly one row before
 calling mandatory StageReady. Any error requires caller rollback; readiness and
 native notification staging must commit together. These callbacks never commit.
 
-Evidence: pure codec test passes. Publication transaction-double regressions
+Historical source-checkpoint evidence (superseded for domain PostgreSQL only by
+the 2026-11-03 receipt below): pure codec test passes. Publication transaction-double regressions
 reject zero/multiple affected rows before notification; they fail against old
 publication source and pass after the guards. Independent source review caught
 and closed the initial UUID-only application/environment mismatch (RED then GREEN
@@ -119,3 +120,31 @@ Fresh scoped checkpoint/catalog/port tests passed. The real PostgreSQL checkpoin
 test explicitly skipped with the DB environment removed. Migration remains
 UNENABLED, this PR stays DRAFT, and native atomic checkpoint receipts are still
 unsupported. Neither a rebase nor unit evidence opens DB/native acceptance gates.
+
+
+### 2026-11-03 — Checkpoint domain PostgreSQL acceptance
+
+David approved one disposable domain fixture invocation, now completed and
+consumed. At exact PR #7 head `28ce03d2`, installed PostgreSQL 14.21 over a private
+Unix socket (no TCP) passed all 132 named store checks (32 top-level), with zero
+failures or skips, including `TestPrivateCheckpointPostgres`. This supplies real
+domain SQL/replay/rollback evidence; earlier unconfigured skips remain historical.
+Migration 002 was applied only in the disposable test database. The application
+migration registry and adapter remain UNREGISTERED/UNENABLED for checkpoints.
+
+The exact owned server stopped successfully, its data was removed, socket files
+were absent, logs retained, and the build lease released. The one-time approval
+does not authorize another fixture invocation. All six checkpoint source/test,
+migration and SQL catalog blobs remain byte-identical to `28ce03d2` and `f596a1b`;
+backup `backup/checkpoints-before-pg14-record` preserves the tested head. This
+record-only continuation keeps the tested base; no rebase or source change.
+
+PR #7 remains DRAFT. Native PostgreSQL 16/TLS/roles, same-transaction opaque
+checkpoint receipts, current authority/grants and runtime-profile acceptance
+remain open; ordinary PostgreSQL 14 tests do not qualify them. No provider,
+HTTP, iOS or deployment acceptance follows. The full RFC remains incomplete.
+
+The retained receipt records runner SHA-256
+`6d4dcab579a5fa2ae2e582568a829eb1aa38cf04341164efb19c2195fa200960`.
+Its source head is `28ce03d2eb8bc566b625ab5ce58a5433188d3eb3`; proof is scoped
+to those exact unchanged domain inputs, not a newly qualified native integration.
