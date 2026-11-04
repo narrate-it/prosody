@@ -19,15 +19,19 @@ type atom struct {
 
 // ProbeMP4 reads metadata from a bounded non-fragmented MP4 container profile.
 // It reads only small metadata atoms, never mdat into memory. This is structural
-// inspection only: sample maps, timelines and codec configuration are not yet
-// qualified. Never use this result as publication admission or a measured duration.
+// inspection only: sample maps are checked for internal consistency, while
+// presentation timelines, codec configuration and decoded media remain unqualified. Never use this result as publication admission or a measured duration.
 // Dimensions are header claims, not a bound on decoded codec dimensions.
-// Original bytes remain unchanged. Fragmented/encrypted/other codecs fail closed.
+// Original bytes remain unchanged. Fragmented containers, protected sample
+// entries and unsupported entry tags are refused.
 func ProbeMP4(r io.ReaderAt, size, maxBytes int64, maxPixels int64) (UnverifiedVideoMetadata, error) {
 	if r == nil || size < 16 || maxBytes <= 0 || size > maxBytes || maxPixels <= 0 {
 		return UnverifiedVideoMetadata{}, ErrInvalid
 	}
+	r = &mp4MetadataReader{source: r, remaining: maxMP4MetadataBytes}
 	budget := 4096
+	maps := &mp4SampleBudget{}
+	var dataRanges []mp4ByteRange
 	top, err := atoms(r, 0, size, &budget)
 	if err != nil {
 		return UnverifiedVideoMetadata{}, err
@@ -43,6 +47,9 @@ func ProbeMP4(r io.ReaderAt, size, maxBytes int64, maxPixels int64) (UnverifiedV
 			hasType = true
 		case "mdat":
 			hasData = hasData || a.end > a.body
+			if a.end > a.body {
+				dataRanges = append(dataRanges, mp4ByteRange{uint64(a.body), uint64(a.end)})
+			}
 		case "moov":
 			if movie != nil {
 				return UnverifiedVideoMetadata{}, ErrInvalid
@@ -79,7 +86,7 @@ func ProbeMP4(r io.ReaderAt, size, maxBytes int64, maxPixels int64) (UnverifiedV
 			if tracks > 8 {
 				return UnverifiedVideoMetadata{}, ErrInvalid
 			}
-			kind, width, height, err := inspectTrack(r, a, &budget, maxPixels)
+			kind, width, height, err := inspectTrack(r, a, &budget, maxPixels, maps, dataRanges)
 			if err != nil {
 				return UnverifiedVideoMetadata{}, err
 			}
@@ -89,11 +96,13 @@ func ProbeMP4(r io.ReaderAt, size, maxBytes int64, maxPixels int64) (UnverifiedV
 			}
 		}
 	}
-	if videos != 1 || info.Duration <= 0 {
+	if videos != 1 || info.Duration <= 0 || !mp4RangesDisjoint(maps.ranges) {
 		return UnverifiedVideoMetadata{}, ErrInvalid
 	}
 	return info, nil
 }
+
+// atoms checks child boundaries and charges the shared finite atom count.
 func atoms(r io.ReaderAt, start, end int64, budget *int) ([]atom, error) {
 	result := []atom{}
 	for start < end {
@@ -128,8 +137,10 @@ func atoms(r io.ReaderAt, start, end int64, budget *int) ([]atom, error) {
 	}
 	return result, nil
 }
+
+// readAtom checks individual/remaining metadata limits before allocating a body.
 func readAtom(r io.ReaderAt, a atom, limit int64) ([]byte, error) {
-	if a.end-a.body < 0 || a.end-a.body > limit {
+	if a.end-a.body < 0 || a.end-a.body > limit || !mp4MetadataFits(r, a.end-a.body) {
 		return nil, ErrInvalid
 	}
 	b := make([]byte, a.end-a.body)
@@ -138,19 +149,33 @@ func readAtom(r io.ReaderAt, a atom, limit int64) ([]byte, error) {
 	}
 	return b, nil
 }
+
+// atomDuration preserves the bounded conversion of a claimed movie duration.
 func atomDuration(r io.ReaderAt, a atom) (time.Duration, error) {
+	value, err := atomTiming(r, a)
+	return value.duration, err
+}
+
+// atomTiming retains raw media ticks without weakening duration overflow checks.
+func atomTiming(r io.ReaderAt, a atom) (mp4MediaTime, error) {
 	// Header atoms contain additional fixed fields after the time values. Read a
 	// bounded prefix rather than trusting an attacker-controlled metadata size.
 	n := a.end - a.body
 	if n < 20 {
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
 	}
 	if n > 32 {
 		n = 32
 	}
+	if !mp4MetadataFits(r, n) {
+		return mp4MediaTime{}, ErrInvalid
+	}
 	b := make([]byte, n)
 	if _, err := r.ReadAt(b, a.body); err != nil {
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
+	}
+	if b[1] != 0 || b[2] != 0 || b[3] != 0 {
+		return mp4MediaTime{}, ErrInvalid
 	}
 	var scale uint32
 	var duration uint64
@@ -160,28 +185,31 @@ func atomDuration(r io.ReaderAt, a atom) (time.Duration, error) {
 		duration = uint64(binary.BigEndian.Uint32(b[16:20]))
 	case 1:
 		if len(b) < 32 {
-			return 0, ErrInvalid
+			return mp4MediaTime{}, ErrInvalid
 		}
 		scale = binary.BigEndian.Uint32(b[20:24])
 		duration = binary.BigEndian.Uint64(b[24:32])
 	default:
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
 	}
 	if scale == 0 || duration == 0 {
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
 	}
 	seconds, remainder := duration/uint64(scale), duration%uint64(scale)
 	if seconds > math.MaxInt64/uint64(time.Second) {
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
 	}
 	nanos := seconds * uint64(time.Second)
 	fraction := remainder * uint64(time.Second) / uint64(scale)
 	if fraction > math.MaxInt64-nanos {
-		return 0, ErrInvalid
+		return mp4MediaTime{}, ErrInvalid
 	}
-	return time.Duration(nanos + fraction), nil
+	return mp4MediaTime{ticks: duration, duration: time.Duration(nanos + fraction)}, nil
 }
-func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (string, int, int, error) {
+
+// inspectTrack checks one supported track header, self-reference and sample map;
+// these structural claims do not establish decoded codec or timeline validity.
+func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64, maps *mp4SampleBudget, dataRanges []mp4ByteRange) (string, int, int, error) {
 	children, err := atoms(r, track.body, track.end, budget)
 	if err != nil {
 		return "", 0, 0, err
@@ -204,7 +232,8 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 		return "", 0, 0, err
 	}
 	kind := ""
-	var descriptions []atom
+	var minf *atom
+	var mediaTime mp4MediaTime
 	hasDuration := false
 	for _, a := range children {
 		switch a.kind {
@@ -218,34 +247,27 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 			if hasDuration {
 				return "", 0, 0, ErrInvalid
 			}
-			if _, err := atomDuration(r, a); err != nil {
+			mediaTime, err = atomTiming(r, a)
+			if err != nil {
 				return "", 0, 0, err
 			}
 			hasDuration = true
 		case "minf":
-			minf, err := atoms(r, a.body, a.end, budget)
-			if err != nil {
-				return "", 0, 0, err
+			if minf != nil {
+				return "", 0, 0, ErrInvalid
 			}
-			for _, m := range minf {
-				if m.kind == "stbl" {
-					stbl, err := atoms(r, m.body, m.end, budget)
-					if err != nil {
-						return "", 0, 0, err
-					}
-					for _, s := range stbl {
-						if s.kind == "stsd" {
-							descriptions = append(descriptions, s)
-						}
-					}
-				}
-			}
+			copy := a
+			minf = &copy
 		}
 	}
-	if !hasDuration || len(descriptions) != 1 || kind != "vide" && kind != "soun" {
+	if !hasDuration || minf == nil || kind != "vide" && kind != "soun" {
 		return "", 0, 0, ErrInvalid
 	}
-	stsd := descriptions[0]
+	tables, err := mp4TrackTables(r, *minf, budget)
+	if err != nil {
+		return "", 0, 0, err
+	}
+	stsd := tables.stsd
 	if stsd.end-stsd.body < 8 {
 		return "", 0, 0, ErrInvalid
 	}
@@ -253,7 +275,7 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 	if _, err := r.ReadAt(h[:], stsd.body); err != nil {
 		return "", 0, 0, ErrInvalid
 	}
-	if h[0] != 0 || binary.BigEndian.Uint32(h[4:]) != 1 {
+	if binary.BigEndian.Uint32(h[:4]) != 0 || binary.BigEndian.Uint32(h[4:]) != 1 {
 		return "", 0, 0, ErrInvalid
 	}
 	entries, err := atoms(r, stsd.body+8, stsd.end, budget)
@@ -261,6 +283,13 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 		return "", 0, 0, ErrInvalid
 	}
 	entry := entries[0]
+	if entry.end-entry.body < 8 {
+		return "", 0, 0, ErrInvalid
+	}
+	var reference [2]byte
+	if _, err := r.ReadAt(reference[:], entry.body+6); err != nil || binary.BigEndian.Uint16(reference[:]) != 1 {
+		return "", 0, 0, ErrInvalid
+	}
 	if kind == "soun" {
 		if entry.kind != "mp4a" || entry.end-entry.body < 28 {
 			return "", 0, 0, ErrInvalid
@@ -289,6 +318,9 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 			if a.kind == "sinf" {
 				return "", 0, 0, ErrInvalid
 			}
+		}
+		if err := inspectMP4Samples(r, tables, mediaTime.ticks, maps, dataRanges); err != nil {
+			return "", 0, 0, err
 		}
 		return kind, 0, 0, nil
 	}
@@ -321,6 +353,9 @@ func inspectTrack(r io.ReaderAt, track atom, budget *int, maxPixels int64) (stri
 	}
 	if !avc {
 		return "", 0, 0, ErrInvalid
+	}
+	if err := inspectMP4Samples(r, tables, mediaTime.ticks, maps, dataRanges); err != nil {
+		return "", 0, 0, err
 	}
 	return kind, width, height, nil
 }

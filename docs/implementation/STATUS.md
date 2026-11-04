@@ -1388,3 +1388,29 @@ signing behavior changed. PR #21's separate test-only HTTP composition landed at
 main; it also supplies no native/provider/mobile acceptance. PR #7 remains draft,
 its one SQL-fixture approval completed/consumed, and C1 remains parked. The full
 RFC and TestFlight acceptance remain incomplete; the hourly reminder stays.
+
+
+## 2026-11-04 — Bounded MP4 sample-map consistency
+
+The existing `ProbeMP4` now checks required size/chunk/time tables, raw track
+tick totals, self-contained data references and declared mdat containment, with
+shared sample/chunk/metadata-read bounds. It still returns unverified movie
+header duration and dimensions. No sample bodies are read or rewritten, and no
+production caller, media/publication admission or native route was added.
+
+At tree `fbb983833fe270557afb6c74a35b1c46cec2763c`, 129 named focused MP4
+records across 15 top-level tests passed with zero failures/skips. Compiled old
+source accepted the missing-size-table and wrong-time-total negatives; the
+containment-only omission accepted both header-range negatives. Each overlay
+produced three failure records (two cases plus parent), while the valid child
+and parent passed. The scoped supervisor stopped on an incorrect expected-count
+assertion after the containment command selected an additional suffix-matching
+case. Independent log audit confirmed the actual executed cases; its planned
+full-media step was not reached and is not claimed as passed. Consult the PR
+verification record for the separate required repository hook outcome.
+
+See MP4-SAMPLE-MAPS.md for profile limits and verification scope. Synthetic
+containers are not decodable-media evidence. Complete codec/presentation timing,
+physical/immutable object identity, actual player/Nanos behavior and publication
+remain unqualified. The full RFC/TestFlight gates and owned hourly reminder stay
+open; no provider, database fixture, signing, deployment or AMOS pin change occurred.
