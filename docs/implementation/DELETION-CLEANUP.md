@@ -78,10 +78,15 @@ construct native receipts, or call `media.Files.Delete`.
 
 No standalone inventory API is added: the existing ready parser and presentation
 resource closure already cover observation. Duplicating them would not supply
-missing ownership or reference-completeness proof. No
-migration, cleanup SQL, physical deletion, fixture run or service acceptance is
-claimed. Existing one-time database test approval is consumed. Current capacity
-admission is held, so no Go tests, lint or commit hook have run for this lane.
+missing ownership or reference-completeness proof. No cleanup implementation,
+migration or physical deletion is added. No deletion-specific Go tests, SQL
+fixture or native acceptance ran; the one-time database approval remains consumed.
+PR #18 lint, hook and 12-package Go results cover its preference work. Separately,
+PR #19's required repository hook passed at `2fe874d2`: zero lint issues and all
+12 Go packages passed with the database URL absent. That documentation commit
+followed fresh capacity admission and its lease was released; the earlier hold
+is historical. Its hook results do not validate cleanup ownership or deletion
+behavior.
 
 
 ## Source anchors and required negative tests
