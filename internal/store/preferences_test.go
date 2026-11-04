@@ -24,6 +24,7 @@ const (
 
 type preferenceRow func(...any) error
 
+// Scan runs the synthetic row callback, including injected scan-time failures.
 func (r preferenceRow) Scan(args ...any) error { return r(args...) }
 
 type preferenceResult struct {
@@ -31,7 +32,9 @@ type preferenceResult struct {
 	err      error
 }
 
+// RowsAffected returns the fixture count or count-inspection failure.
 func (r preferenceResult) RowsAffected() (int64, error) { return r.affected, r.err }
+// LastInsertId rejects an operation the preference store must never request.
 func (r preferenceResult) LastInsertId() (int64, error) { return 0, errors.New("not used") }
 
 // This ephemeral port double checks exact SQL/argument contracts, not database
@@ -47,12 +50,17 @@ type preferenceFixture struct {
 	duringFeedScan, duringPreferenceScan, duringExec func()
 }
 
+// newPreferenceFixture creates isolated ephemeral state with a live feed and
+// a successful one-row write result; it establishes no database/native proof.
 func newPreferenceFixture(t *testing.T) *preferenceFixture {
 	return &preferenceFixture{t: t, values: map[store.NotificationPreferenceKey]bool{}, lockedFeed: prefFeed, result: preferenceResult{affected: 1}}
 }
+// preferenceKey supplies one synthetic person/feed binding for port assertions.
 func preferenceKey() store.NotificationPreferenceKey {
 	return store.NotificationPreferenceKey{WorkspaceID: prefWorkspace, FeedID: prefFeed, PersonID: prefPerson}
 }
+// query checks exact read SQL and supplies synthetic feed/preference rows,
+// with deterministic cancellation and error injection at Scan boundaries.
 func (f *preferenceFixture) query(_ context.Context, q string, args ...any) store.Row {
 	f.queryCount++
 	if q == prefReadFeedSQL || q == prefWriteFeedSQL {
@@ -92,6 +100,8 @@ func (f *preferenceFixture) query(_ context.Context, q string, args ...any) stor
 		return nil
 	})
 }
+// exec checks exact UPSERT arguments and records an ephemeral write, which may
+// already be observable when the callback cancels; it does not model rollback.
 func (f *preferenceFixture) exec(_ context.Context, q string, args ...any) (sql.Result, error) {
 	f.writeCount++
 	f.writeArgs = append([]any(nil), args...)
@@ -108,6 +118,7 @@ func (f *preferenceFixture) exec(_ context.Context, q string, args ...any) (sql.
 	f.values[k] = args[3].(bool)
 	return f.result, nil
 }
+// readTx exposes only the expected read queries and share-lock statements.
 func (f *preferenceFixture) readTx() store.ReadTransaction {
 	return store.ReadTransaction{QueryRowContext: func(ctx context.Context, q string, args ...any) store.Row {
 		if q != prefReadFeedSQL && q != prefReadSQL {
@@ -119,6 +130,7 @@ func (f *preferenceFixture) readTx() store.ReadTransaction {
 		return nil, store.ErrInvalid
 	}}
 }
+// writeTx exposes only the expected write-side feed-lock and UPSERT callbacks.
 func (f *preferenceFixture) writeTx() store.Transaction {
 	return store.Transaction{QueryRowContext: func(ctx context.Context, q string, args ...any) store.Row {
 		if q != prefWriteFeedSQL {
@@ -128,6 +140,8 @@ func (f *preferenceFixture) writeTx() store.Transaction {
 	}, ExecContext: f.exec}
 }
 
+// TestNotificationPreferenceDefaultOnOffAndPersonIsolation verifies default
+// false without insertion, explicit on/off persistence and separate person keys.
 func TestNotificationPreferenceDefaultOnOffAndPersonIsolation(t *testing.T) {
 	t.Parallel()
 	f := newPreferenceFixture(t)
@@ -158,6 +172,8 @@ func TestNotificationPreferenceDefaultOnOffAndPersonIsolation(t *testing.T) {
 	}
 }
 
+// TestNotificationPreferenceRejectsMalformedInputsBeforeSQL verifies malformed
+// identities and incomplete transaction ports fail before any SQL callback.
 func TestNotificationPreferenceRejectsMalformedInputsBeforeSQL(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -195,6 +211,8 @@ func TestNotificationPreferenceRejectsMalformedInputsBeforeSQL(t *testing.T) {
 	}
 }
 
+// TestNotificationPreferenceUnavailableFeedNeverDefaultsOrWrites verifies
+// foreign, missing and tombstoned feed results cannot become default success.
 func TestNotificationPreferenceUnavailableFeedNeverDefaultsOrWrites(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -224,6 +242,8 @@ func TestNotificationPreferenceUnavailableFeedNeverDefaultsOrWrites(t *testing.T
 	}
 }
 
+// TestNotificationPreferencePropagatesErrorsAndExactAffectedCount verifies SQL
+// causes survive and only one affected row is acknowledged without retry.
 func TestNotificationPreferencePropagatesErrorsAndExactAffectedCount(t *testing.T) {
 	t.Parallel()
 	sentinel := errors.New("fixture SQL failure")
@@ -268,6 +288,8 @@ func TestNotificationPreferencePropagatesErrorsAndExactAffectedCount(t *testing.
 	}
 }
 
+// TestNotificationPreferenceCanceledContextDoesNotQuery verifies cancellation
+// and expired deadlines prevent read and write callbacks entirely.
 func TestNotificationPreferenceCanceledContextDoesNotQuery(t *testing.T) {
 	t.Parallel()
 	for _, deadline := range []bool{false, true} {
@@ -304,6 +326,7 @@ type preferenceCountCallback struct {
 	err    error
 }
 
+// RowsAffected counts inspection calls and injects cancellation/count errors.
 func (r preferenceCountCallback) RowsAffected() (int64, error) {
 	*r.calls++
 	if r.during != nil {
@@ -311,8 +334,12 @@ func (r preferenceCountCallback) RowsAffected() (int64, error) {
 	}
 	return 1, r.err
 }
+// LastInsertId rejects an operation unrelated to affected-row verification.
 func (r preferenceCountCallback) LastInsertId() (int64, error) { return 0, errors.New("not used") }
 
+// TestNotificationPreferenceCancellationDuringCallbacks verifies cancellation
+// at each successful callback boundary blocks advancement or success, while an
+// executed fixture write remains visible rather than implying rollback.
 func TestNotificationPreferenceCancellationDuringCallbacks(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -368,6 +395,8 @@ func TestNotificationPreferenceCancellationDuringCallbacks(t *testing.T) {
 	}
 }
 
+// TestNotificationPreferenceSQLErrorCauseSurvivesConcurrentCancellation checks
+// callback SQL/count errors retain their causes even when context also cancels.
 func TestNotificationPreferenceSQLErrorCauseSurvivesConcurrentCancellation(t *testing.T) {
 	t.Parallel()
 	sentinel := errors.New("synthetic SQL cause")

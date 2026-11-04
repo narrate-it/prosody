@@ -18,6 +18,7 @@ const (
 // operation. IDs are descriptive bindings, not authority or membership proof.
 type NotificationPreferenceKey struct{ WorkspaceID, FeedID, PersonID string }
 
+// valid checks UUID syntax and feed version, not current authority or membership.
 func (k NotificationPreferenceKey) valid() bool {
 	return UUID(k.WorkspaceID) && FeedID(k.FeedID) && UUID(k.PersonID)
 }
@@ -96,6 +97,8 @@ func SetNotificationPreference(ctx context.Context, tx Transaction, k Notificati
 	return nil
 }
 
+// lockPreferenceFeed requests the selected live-feed lock and rejects missing
+// or mismatched feed projections before any preference access.
 func lockPreferenceFeed(ctx context.Context, query func(context.Context, string, ...any) Row, statement string, k NotificationPreferenceKey) error {
 	var feed string
 	err := query(ctx, statement, k.WorkspaceID, k.FeedID).Scan(&feed)
