@@ -5,6 +5,8 @@ import (
 	"testing"
 )
 
+// TestCredentialScopeAndTamperProtection preserves roundtrip, fresh-nonce,
+// cross-scope and tamper protections for valid existing credentials.
 func TestCredentialScopeAndTamperProtection(t *testing.T) {
 	v, err := New(bytes.Repeat([]byte{7}, 32))
 	if err != nil {
@@ -15,7 +17,10 @@ func TestCredentialScopeAndTamperProtection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := v.Seal(s, []byte("synthetic-test-key"))
+	b, err := v.Seal(s, []byte("synthetic-test-key"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if bytes.Equal(a, b) {
 		t.Fatal("nonce reused")
 	}
