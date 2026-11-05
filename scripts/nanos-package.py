@@ -16,10 +16,12 @@ READ_CHUNK_BYTES = 1024 * 1024
 
 
 def digest(data):
+    """Return the SHA-256 hex digest of the supplied bytes."""
     return hashlib.sha256(data).hexdigest()
 
 
 def inspect_binary(path):
+    """Hash a bounded regular file and return its header, rejecting observed changes."""
     # O_NONBLOCK prevents a FIFO open from waiting for a writer. Reject all
     # nonregular inputs using this same descriptor before attempting a read.
     fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
@@ -53,6 +55,7 @@ def inspect_binary(path):
 
 
 def main():
+    """Validate package inputs and print a static check or unqualified manifest."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--self-check', action='store_true')
     parser.add_argument('--binary', type=Path)
