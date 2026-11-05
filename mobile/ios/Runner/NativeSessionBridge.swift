@@ -10,7 +10,9 @@ final class NativeSessionBridge: NSObject {
   // anchor alive for the browser operation, even if the scene later resigns.
   private final class PresentationContext: NSObject, ASWebAuthenticationPresentationContextProviding {
     let window: UIWindow
+    /// Retains the real presentation window for one browser operation.
     init(window: UIWindow) { self.window = window }
+    /// Returns the window selected when this browser operation started.
     func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor { window }
   }
   private var channel: FlutterMethodChannel
@@ -21,6 +23,7 @@ final class NativeSessionBridge: NSObject {
   private var presentationContext: PresentationContext?
 
   // Resolve after the Flutter scene is connected, never at engine registration.
+  /// Selects one visible key window from the currently active scenes.
   static func foregroundWindow() -> UIWindow? {
     let windows = UIApplication.shared.connectedScenes
       .compactMap { $0 as? UIWindowScene }
@@ -31,6 +34,7 @@ final class NativeSessionBridge: NSObject {
     return windows.count == 1 ? windows.first : nil
   }
 
+  /// Registers the platform channel and defers window selection until sign-in.
   init(messenger: FlutterBinaryMessenger, windowProvider: @escaping () -> UIWindow? = NativeSessionBridge.foregroundWindow) {
     channel = FlutterMethodChannel(name: "run.prosody/native_session", binaryMessenger: messenger)
     self.windowProvider = windowProvider
@@ -40,13 +44,16 @@ final class NativeSessionBridge: NSObject {
       self.handle(call, result)
     }
   }
+  /// Reports a stable failure code without exposing authentication material.
   private func fail(_ result: FlutterResult, _ code: String) {
     result(FlutterError(code: code, message: "Native session operation failed", details: nil))
   }
+  /// Encodes bytes as unpadded base64url for PKCE and Keychain binding keys.
   private func encoded(_ bytes: Data) -> String {
     bytes.base64EncodedString().replacingOccurrences(of: "+", with: "-")
       .replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
   }
+  /// Creates a cryptographically random 32-byte base64url value.
   private func random() throws -> String {
     var bytes = [UInt8](repeating: 0, count: 32)
     guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
@@ -54,6 +61,7 @@ final class NativeSessionBridge: NSObject {
     }
     return encoded(Data(bytes))
   }
+  /// Dispatches browser, PKCE and binding-scoped synchronous Keychain operations.
   private func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     let args = call.arguments as? [String: Any] ?? [:]
     switch call.method {
