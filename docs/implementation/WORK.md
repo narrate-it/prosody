@@ -1288,3 +1288,15 @@ history, explicit cancelled/expired-authority state and retention decisions rema
 open. No source/backend behavior changes or new database/provider/device tests
 are claimed by this documentation. AMOS implementation remains cloud-owned;
 production sign-in, full RFC and TestFlight acceptance remain incomplete.
+
+## Current readiness reconciliation after PR #30
+
+PRs #26, #27, #28, #30 and #31 are landed. The current source and remaining
+acceptance predicates are listed in [READINESS.md](READINESS.md). Native mobile
+authentication and application-work integration remain AMOS cloud-owned; local
+AMOS writers remain stopped. The client source and unsigned iOS compilation
+do not qualify real authenticated playback. Signing attempts stopped after
+`errSecInternalComponent`; no install or TestFlight upload succeeded.
+PR #7 remains draft with its one ordinary SQL approval completed/consumed;
+native receipt/grant/fence gates remain open. Full RFC and TestFlight acceptance
+are incomplete, so the owned hourly reminder remains enabled.
