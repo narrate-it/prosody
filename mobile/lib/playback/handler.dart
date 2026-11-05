@@ -1,9 +1,15 @@
 import 'dart:async';
+import 'dart:io';
+
+import '../data/authorized_media.dart';
+import 'authorized_media_buffer.dart';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart' as audio;
 import 'package:video_player/video_player.dart';
+
 import '../data/models.dart';
 import 'queue.dart';
 import 'timeline.dart';
@@ -16,8 +22,112 @@ class PlaybackLocation {
 // One handler owns both the visible player and OS/background controls.
 class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   final audio.AudioPlayer _audio;
-  ProsodyPlayback({audio.AudioPlayer? audioPlayer})
-    : _audio = audioPlayer ?? audio.AudioPlayer();
+  final AuthorizedMediaBuffer? authorizedMedia;
+  File? _authorizedFile;
+  VideoPlayerController? _initializingVideo;
+
+  final Map<VideoPlayerController, Future<void>> _videoDisposals = {};
+
+  Future<void> _disposeVideo(VideoPlayerController? controller) {
+    if (controller == null) {
+      return Future.value();
+    }
+    final existing = _videoDisposals[controller];
+    if (existing != null) {
+      return existing;
+    }
+    final completion = Completer<void>();
+    _videoDisposals[controller] = completion.future;
+    unawaited(() async {
+      try {
+        await controller.dispose();
+        // This is our own completion future; awaiting it would deadlock.
+        unawaited(_videoDisposals.remove(controller));
+        completion.complete();
+      } catch (error, stack) {
+        // Retain failed disposal as a barrier against unsafe file deletion.
+        completion.completeError(error, stack);
+      }
+    }());
+    return completion.future;
+  }
+
+  Future<void>? _initializingDisposal;
+  final VideoPlayerController Function(Uri, File?, VideoPlayerOptions)
+  _videoFactory;
+
+  Future<void> _disposeInitializing(VideoPlayerController? controller) {
+    if (controller == null || _initializingVideo != controller) {
+      return Future.value();
+    }
+    final existing = _initializingDisposal;
+    if (existing != null) {
+      return existing;
+    }
+    final completion = Completer<void>();
+    // Publish the barrier before calling dispose, including synchronous effects.
+    // Keep the matching controller/file visible until disposal actually ends.
+    _initializingDisposal = completion.future;
+    unawaited(() async {
+      try {
+        await _disposeVideo(controller);
+        if (_initializingVideo == controller) {
+          _initializingVideo = null;
+        }
+        _initializingDisposal = null;
+        completion.complete();
+      } catch (error, stack) {
+        // Retain the failed barrier: another transition cannot treat a failed
+        // disposal as evidence that deleting the decoder's file is safe.
+        completion.completeError(error, stack);
+      }
+    }());
+    return completion.future;
+  }
+
+  static VideoPlayerController _createVideo(
+    Uri uri,
+    File? file,
+    VideoPlayerOptions options,
+  ) => file == null
+      ? VideoPlayerController.networkUrl(uri, videoPlayerOptions: options)
+      : VideoPlayerController.file(file, videoPlayerOptions: options);
+
+  ProsodyPlayback({
+    audio.AudioPlayer? audioPlayer,
+    this.authorizedMedia,
+    VideoPlayerController Function(Uri, File?, VideoPlayerOptions)?
+    videoFactory,
+  }) : _audio = audioPlayer ?? audio.AudioPlayer(),
+       _videoFactory = videoFactory ?? _createVideo;
+
+  factory ProsodyPlayback.authorized({
+    required AuthorizedMediaTransport transport,
+    required int maxBufferedBytes,
+    audio.AudioPlayer? audioPlayer,
+  }) {
+    late final ProsodyPlayback playback;
+    final buffer = AuthorizedMediaBuffer(
+      transport: transport,
+      maxAssetBytes: maxBufferedBytes,
+      onAccessEnded: () async {
+        await playback.stop();
+        playback.failure.value = 'Media access ended. Sign in again.';
+        playback._broadcast();
+      },
+    );
+    playback = ProsodyPlayback(
+      audioPlayer: audioPlayer,
+      authorizedMedia: buffer,
+    );
+    return playback;
+  }
+
+  /// Session owner must await this on logout/workspace removal/revocation.
+  Future<void> revokeMediaAccess() async {
+    await authorizedMedia?.close();
+  }
+
   final ValueNotifier<PlaybackLocation> location = ValueNotifier(
     const PlaybackLocation(0, 0),
   );
@@ -213,6 +323,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       return;
     }
     final generation = ++_generation;
+    authorizedMedia?.cancelPending();
     _transitioning = true;
     _visualTimer?.cancel();
     _visualTimer = null;
@@ -220,9 +331,15 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     _playing = false;
     await _audio.stop();
     if (generation != _generation) return;
+    await _disposeInitializing(_initializingVideo);
+    await Future.wait(_videoDisposals.values.toList());
+    if (generation != _generation) return;
     final previous = video.value;
     video.value = null;
-    await previous?.dispose();
+    final previousFile = _authorizedFile;
+    _authorizedFile = null;
+    await _disposeVideo(previous);
+    if (previousFile != null) await authorizedMedia?.release(previousFile);
     if (generation != _generation) return;
     _completed = false;
     location.value = PlaybackLocation(index, segment);
@@ -243,23 +360,36 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       if (selected.media == null) {
         throw const FormatException('Missing playable asset');
       }
+      final buffer = authorizedMedia;
+      final local = buffer == null
+          ? null
+          : await buffer.prepare(selected.media!);
+      if (generation != _generation) {
+        if (local != null) await buffer!.release(local);
+        return;
+      }
+      _authorizedFile = local;
       if (selected.kind == 'video') {
-        final controller = VideoPlayerController.networkUrl(
-          selected.media!,
-          videoPlayerOptions: VideoPlayerOptions(allowBackgroundPlayback: true),
-        );
+        final options = VideoPlayerOptions(allowBackgroundPlayback: true);
+        final controller = _videoFactory(selected.media!, local, options);
         initializing = controller;
+        _initializingVideo = controller;
         await controller.initialize();
         if (generation != _generation) {
-          await controller.dispose();
+          await _disposeInitializing(controller);
           initializing = null;
           return;
         }
         video.value = controller;
+        _initializingVideo = null;
         initializing = null;
         controller.addListener(() => _videoChanged(controller));
       } else {
-        await _audio.setUrl(selected.media.toString());
+        if (local == null) {
+          await _audio.setUrl(selected.media.toString());
+        } else {
+          await _audio.setFilePath(local.path);
+        }
         if (generation != _generation) return;
       }
       _transitioning = false;
@@ -269,7 +399,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
         _broadcast();
       }
     } catch (_) {
-      await initializing?.dispose();
+      await _disposeInitializing(initializing);
       if (generation == _generation) {
         _transitioning = false;
         _fail();
@@ -433,15 +563,22 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> stop() async {
     final generation = ++_generation;
+    authorizedMedia?.cancelPending();
     _transitioning = true;
     _visualTimer?.cancel();
     _visualTimer = null;
     _waitingForMore = false;
     await _audio.stop();
     if (generation != _generation) return;
+    await _disposeInitializing(_initializingVideo);
+    await Future.wait(_videoDisposals.values.toList());
+    if (generation != _generation) return;
     final previous = video.value;
     video.value = null;
-    await previous?.dispose();
+    final previousFile = _authorizedFile;
+    _authorizedFile = null;
+    await _disposeVideo(previous);
+    if (previousFile != null) await authorizedMedia?.release(previousFile);
     if (generation != _generation) return;
     _playing = false;
     _items = [];
@@ -455,6 +592,7 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> dispose() async {
+    await revokeMediaAccess();
     await stop();
     for (final subscription in _subscriptions) {
       await subscription.cancel();
