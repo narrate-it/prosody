@@ -3,8 +3,22 @@ import 'dart:io';
 
 import '../data/authorized_media.dart';
 
+/// Conservative source-only profile pending a qualified AMOS session adapter.
+/// Fresh request credentials do not establish a new grant or extend this scope.
+/// Earliest observed bearer expiry ends the entire buffer, even after releasing
+/// its original file. A newly admitted grant needs a NEW transport and buffer.
+/// This profile does not satisfy long locked-screen playback qualification.
+enum MediaBufferLifetime { earliestBearerWholeScope }
+
+class MediaBufferCleanupFailed implements Exception {
+  final int failures;
+  const MediaBufferCleanupFailed(this.failures);
+}
+
 /// Ephemeral decoder handoff, not offline access or an authority source.
-/// The owner must stop/dispose decoders on [onAccessEnded] before deletion.
+/// Decoder owners must call [protect] before handoff and [unprotect] only after
+/// confirmed disposal. [onAccessEnded] joins shutdown; a failure never prevents
+/// attempts to delete unrelated, unprotected directories.
 class AuthorizedMediaBuffer {
   final AuthorizedMediaTransport transport;
   final int maxAssetBytes;
@@ -12,6 +26,22 @@ class AuthorizedMediaBuffer {
   Timer? _expiry;
   bool _closed = false;
   final MediaBufferStorage storage;
+  final MediaBufferLifetime lifetime;
+  final Timer Function(Duration, void Function()) scheduleExpiry;
+  final Set<String> _protected = {};
+  bool _cleanupComplete = false;
+
+  void protect(File file) {
+    if (!_sizes.containsKey(file.parent.path)) {
+      throw ArgumentError('Only owned files can be protected');
+    }
+    _protected.add(file.parent.path);
+  }
+
+  void unprotect(File file) {
+    _protected.remove(file.parent.path);
+  }
+
   int _serial = 0;
   int _generation = 0;
 
@@ -43,7 +73,9 @@ class AuthorizedMediaBuffer {
     required this.maxAssetBytes,
     required this.onAccessEnded,
     this.storage = const MediaBufferStorage(),
-  }) {
+    this.lifetime = MediaBufferLifetime.earliestBearerWholeScope,
+    Timer Function(Duration, void Function())? scheduleExpiry,
+  }) : scheduleExpiry = scheduleExpiry ?? Timer.new {
     // Deliberately finite. Larger assets need a separately qualified streaming
     // transport; do not silently download an entire long supplied recording.
     if (maxAssetBytes <= 0 || maxAssetBytes > 64 * 1024 * 1024) {
@@ -170,6 +202,9 @@ class AuthorizedMediaBuffer {
     if (owned == null) {
       return;
     }
+    if (_protected.contains(path)) {
+      throw const MediaBufferCleanupFailed(1);
+    }
     await storage.deleteDirectory(owned);
     _directories.remove(owned);
     _reservedBytes -= _sizes.remove(path) ?? 0;
@@ -183,22 +218,62 @@ class AuthorizedMediaBuffer {
     }
     _expiresAt = expiresAt;
     _expiry?.cancel();
-    _expiry = Timer(expiresAt.difference(transport.now()), () {
+    _expiry = scheduleExpiry(expiresAt.difference(transport.now()), () {
       _automaticClose();
     });
   }
 
-  Future<void> close() => _closing ??= _close();
-  Future<void> _close() async {
-    _closed = true;
-    _ended.add(null);
-    _expiry?.cancel();
-    await _transportEnded?.cancel();
-    transport.revoke();
-    await onAccessEnded();
+  Future<void> close() {
+    if (_cleanupComplete) {
+      return Future.value();
+    }
+    final existing = _closing;
+    if (existing != null) {
+      return existing;
+    }
+    final completion = Completer<void>();
+    _closing = completion.future;
+    unawaited(() async {
+      try {
+        await _closeAttempt();
+        automaticCleanupFailure = null;
+        _cleanupComplete = true;
+        completion.complete();
+      } catch (error, stack) {
+        completion.completeError(error, stack);
+      } finally {
+        // Failures permit an explicit caller-driven retry, never a retry loop.
+        _closing = null;
+      }
+    }());
+    return completion.future;
+  }
+
+  Future<void> _closeAttempt() async {
+    if (!_closed) {
+      _closed = true;
+      _ended.add(null);
+      _expiry?.cancel();
+      await _transportEnded?.cancel();
+      transport.revoke();
+    }
+    var failures = 0;
+    try {
+      await onAccessEnded();
+    } catch (_) {
+      failures++;
+    }
+    // Prepare owns its writer cleanup. Join it even if decoder shutdown fails.
     await Future.wait(_pending.toList());
     for (final directory in _directories.toList()) {
-      await release(File('${directory.path}/owned'));
+      try {
+        await release(File('${directory.path}/owned'));
+      } catch (_) {
+        failures++;
+      }
+    }
+    if (failures != 0) {
+      throw MediaBufferCleanupFailed(failures);
     }
     await _ended.close();
   }

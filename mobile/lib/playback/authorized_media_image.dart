@@ -34,21 +34,78 @@ class _AuthorizedMediaImageState extends State<AuthorizedMediaImage> {
     _load();
   }
 
-  void _load() {
-    final generation = ++_generation;
-    final buffer = widget.buffer;
-    _ended = buffer.accessEnded.listen((_) {
-      _generation++;
-      _clear(buffer);
+  Future<void> _work = Future.value();
+  final Map<File, AuthorizedMediaBuffer> _retired = {};
+
+  void _enqueue(Future<void> Function() operation) {
+    _work = _work.then((_) => operation()).catchError((Object error) {
       if (mounted) {
         setState(() => _failed = true);
       }
     });
-    unawaited(() async {
+  }
+
+  Future<void> _release(AuthorizedMediaBuffer buffer, File? file) async {
+    if (file == null) {
+      return;
+    }
+    _retired[file] = buffer;
+    try {
+      await FileImage(file).evict();
+    } finally {
+      await buffer.release(file);
+      _retired.remove(file); // Only after confirmed filesystem release.
+    }
+  }
+
+  Future<void> _retryRetired() async {
+    var failures = 0;
+    for (final entry in _retired.entries.toList()) {
       try {
-        final file = await buffer.prepare(widget.uri);
+        await _release(entry.value, entry.key);
+      } catch (_) {
+        failures++;
+      }
+    }
+    if (failures != 0) {
+      throw MediaBufferCleanupFailed(failures);
+    }
+  }
+
+  void _load({AuthorizedMediaBuffer? previousBuffer}) {
+    final generation = ++_generation;
+    final buffer = widget.buffer;
+    final uri = widget.uri;
+    final previousFile = _file;
+    _file = null;
+    if (previousFile != null) {
+      _retired[previousFile] = previousBuffer ?? buffer;
+    }
+    final previousCancellation = _ended?.cancel();
+    _ended = buffer.accessEnded.listen((_) {
+      _generation++;
+      final file = _file;
+      _file = null;
+      if (file != null) {
+        _retired[file] = buffer;
+      }
+      _enqueue(_retryRetired);
+      if (mounted) {
+        setState(() => _failed = true);
+      }
+    });
+    // Per-widget serial work: an obsolete download must settle and release its
+    // reservation before its replacement starts. Never cancel a shared buffer.
+    _enqueue(() async {
+      await previousCancellation;
+      await _retryRetired();
+      if (!mounted || generation != _generation || buffer.isClosed) {
+        return;
+      }
+      try {
+        final file = await buffer.prepare(uri);
         if (!mounted || generation != _generation || buffer.isClosed) {
-          await buffer.release(file);
+          await _release(buffer, file);
           return;
         }
         setState(() => _file = file);
@@ -57,29 +114,15 @@ class _AuthorizedMediaImageState extends State<AuthorizedMediaImage> {
           setState(() => _failed = true);
         }
       }
-    }());
-  }
-
-  void _clear(AuthorizedMediaBuffer buffer) {
-    final file = _file;
-    _file = null;
-    if (file != null) {
-      unawaited(() async {
-        await FileImage(file).evict();
-        await buffer.release(file);
-      }());
-    }
+    });
   }
 
   @override
   void didUpdateWidget(covariant AuthorizedMediaImage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.uri != oldWidget.uri || widget.buffer != oldWidget.buffer) {
-      _generation++;
-      unawaited(_ended?.cancel());
-      _clear(oldWidget.buffer);
       _failed = false;
-      _load();
+      _load(previousBuffer: oldWidget.buffer);
     }
   }
 
@@ -98,8 +141,17 @@ class _AuthorizedMediaImageState extends State<AuthorizedMediaImage> {
   @override
   void dispose() {
     _generation++;
-    unawaited(_ended?.cancel());
-    _clear(widget.buffer);
+    final file = _file;
+    _file = null;
+    final subscription = _ended;
+    final buffer = widget.buffer;
+    if (file != null) {
+      _retired[file] = buffer;
+    }
+    _enqueue(() async {
+      await subscription?.cancel();
+      await _retryRetired();
+    });
     super.dispose();
   }
 }
