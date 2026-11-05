@@ -44,9 +44,11 @@ artifact and prints a manifest; it does not execute the artifact or OPS. Pins
 are declarations requiring independent provenance verification. OPS and Nanos
 pins must be a three-part numeric release identifier (optional lowercase `v`
 prefix and prerelease suffix) or a full 40-character lowercase Git commit ID.
-Branch/channel names, abbreviated commits and surrounding whitespace fail closed.
-Release-shaped tags can still be moved upstream; verify their immutable source
-and artifact digests independently. ELF inspection
+Bare moving aliases such as `main` and `latest`, abbreviated commits, surrounding
+whitespace and other strings outside this grammar fail closed. Syntax cannot
+distinguish a release-shaped branch such as `1.2.3-rc.1` from a release tag.
+Tags can also move upstream; verify immutable source and artifact digests
+independently for every accepted pin. ELF inspection
 checks class, byte order, machine and executable type only; it cannot establish
 Linux ABI, static linkage, Go runtime compatibility or Nanos acceptance. The
 manifest intentionally remains unqualified. No dummy binary is supplied.
