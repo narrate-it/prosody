@@ -19,16 +19,20 @@ SPEC.loader.exec_module(PACKAGE)
 
 
 class PackageInputs(unittest.TestCase):
+    """Check offline packaging guards and manifest declarations with hermetic inputs."""
     def run_cli(self, *args):
+        """Run the packaging CLI with captured output and a ten-second timeout."""
         return subprocess.run([sys.executable, str(SCRIPT), *args], capture_output=True, text=True, timeout=10)
 
     def test_static_template_and_missing_artifact_gate(self):
+        """Require template consistency and reject missing binary input."""
         self.assertEqual(self.run_cli('--self-check').returncode, 0)
         result = self.run_cli()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('required input: --binary', result.stderr)
 
     def test_reject_bad_artifact_and_moving_pins(self):
+        """Reject invalid ELF input and a bare moving version alias."""
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / 'input'
             artifact.write_bytes(b'not an executable')
@@ -40,6 +44,7 @@ class PackageInputs(unittest.TestCase):
             self.assertIn('moving aliases prohibited', self.run_cli(*args).stderr)
 
     def test_version_pin_grammar_for_both_tools(self):
+        """Accept release or full-commit pins and reject nonmatching names for both tools."""
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / 'header-fixture'
             header = bytearray(64)
@@ -69,6 +74,7 @@ class PackageInputs(unittest.TestCase):
                         self.assertEqual(result.stdout, '')
 
     def test_special_files_and_oversize_rejected_without_hanging(self):
+        """Reject a FIFO, device symlink and oversized sparse file within CLI timeouts."""
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / 'input'
             args = ['--binary', str(artifact), '--source-revision', 'a' * 40,
@@ -90,6 +96,7 @@ class PackageInputs(unittest.TestCase):
             self.assertEqual(result.stdout, '')
 
     def test_concurrent_growth_and_same_size_change_rejected(self):
+        """Reject controlled growth and same-size mutation during artifact inspection."""
         for grow in (False, True):
             with self.subTest(grow=grow), tempfile.TemporaryDirectory() as directory:
                 artifact = Path(directory) / 'changing-input'
@@ -98,6 +105,7 @@ class PackageInputs(unittest.TestCase):
                 changed = False
 
                 def changing_read(fd, count):
+                    """Read once, then mutate the fixture to exercise change detection."""
                     nonlocal changed
                     chunk = real_read(fd, count)
                     if not changed:
@@ -116,6 +124,7 @@ class PackageInputs(unittest.TestCase):
                         PACKAGE.inspect_binary(artifact)
 
     def test_manifest_is_deterministic_and_unqualified(self):
+        """Check repeatable full-payload hashing, unqualified status and machine rejection."""
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / 'header-fixture'
             header = bytearray(64)
