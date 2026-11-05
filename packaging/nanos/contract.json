@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "status": "blocked-no-host-entrypoint",
+  "target": "linux-amd64",
+  "opsConfig": "packaging/nanos/ops-config.json",
+  "runtimeInputs": [
+    "external_database_connection_secret_reference",
+    "private_object_store_configuration_and_secret_reference",
+    "credential_encryption_key_reference_and_retained_key_versions",
+    "amos_installation_application_environment_identity",
+    "public_origin_and_tls_trust_configuration",
+    "bounded_worker_and_provider_budget_configuration"
+  ],
+  "qualificationRequired": [
+    "supported_amos_host_and_current_authority_job_consumer",
+    "host_configuration_loader_and_secret_resolution",
+    "nanos_go_runtime_tls_dns_and_storage_adapters",
+    "restart_reconciliation_without_duplicate_provider_effects",
+    "database_object_and_key_restore_with_authorization_revalidation",
+    "image_upgrade_and_schema_compatible_rollback"
+  ]
+}
