@@ -41,7 +41,12 @@ is not an immutable-file or provenance guarantee.
 The command emits deterministic sorted JSON with binary size/SHA-256, exact
 caller-supplied source/tool pins, and contract/config checksums. It reads the
 artifact and prints a manifest; it does not execute the artifact or OPS. Pins
-are declarations requiring independent provenance verification. ELF inspection
+are declarations requiring independent provenance verification. OPS and Nanos
+pins must be a three-part numeric release identifier (optional lowercase `v`
+prefix and prerelease suffix) or a full 40-character lowercase Git commit ID.
+Branch/channel names, abbreviated commits and surrounding whitespace fail closed.
+Release-shaped tags can still be moved upstream; verify their immutable source
+and artifact digests independently. ELF inspection
 checks class, byte order, machine and executable type only; it cannot establish
 Linux ABI, static linkage, Go runtime compatibility or Nanos acceptance. The
 manifest intentionally remains unqualified. No dummy binary is supplied.

@@ -91,9 +91,13 @@ def main():
     for revision in (args.source_revision, args.amos_revision):
         if not re.fullmatch(r'[0-9a-f]{40}', revision):
             raise ValueError('source revisions require full lowercase Git commit IDs')
+    # Accept release-shaped identifiers or complete Git object IDs, never arbitrary
+    # branch/channel names. This syntax check does not verify remote provenance.
+    release = r'v?(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?'
     for version in (args.ops_version, args.nanos_version):
-        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]{0,127}', version) or version.lower() in ('latest', 'nightly'):
-            raise ValueError('explicit bounded version required; moving aliases prohibited')
+        if len(version) > 128 or not (re.fullmatch(release, version)
+                                      or re.fullmatch(r'[0-9a-f]{40}', version)):
+            raise ValueError('explicit release identifier or full lowercase commit required; moving aliases prohibited')
     data, binary_manifest = inspect_binary(args.binary)
     # ELF64 little-endian x86-64 executable or PIE. This is structural inspection,
     # not evidence of Linux ABI, static linkage, provenance or Nanos compatibility.

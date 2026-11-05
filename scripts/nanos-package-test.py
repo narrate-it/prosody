@@ -39,6 +39,35 @@ class PackageInputs(unittest.TestCase):
             args[-1] = 'latest'
             self.assertIn('moving aliases prohibited', self.run_cli(*args).stderr)
 
+    def test_version_pin_grammar_for_both_tools(self):
+        with tempfile.TemporaryDirectory() as directory:
+            artifact = Path(directory) / 'header-fixture'
+            header = bytearray(64)
+            header[:6] = b'\x7fELF\x02\x01'
+            struct.pack_into('<HH', header, 16, 2, 62)
+            artifact.write_bytes(header)
+            args = ['--binary', str(artifact), '--source-revision', 'a' * 40,
+                    '--amos-revision', 'b' * 40, '--ops-version', '1.2.3',
+                    '--nanos-version', '1.2.3']
+            for index in (7, 9):
+                for pin in ('0.1.53', 'v1.2.3', '1.2.3-rc.1', 'abcdef0123' * 4):
+                    with self.subTest(index=index, accepted=pin):
+                        candidate = list(args)
+                        candidate[index] = pin
+                        result = self.run_cli(*candidate)
+                        self.assertEqual(result.returncode, 0, result.stderr)
+                        self.assertEqual(json.loads(result.stdout)[
+                            'opsVersion' if index == 7 else 'nanosVersion'], pin)
+                for pin in ('main', 'master', 'latest', 'nightly', 'stable',
+                            'MAIN', 'Latest', ' main', 'main ', '1.2.3 ',
+                            '1.2', 'v1', 'abcdef0', 'A' * 40, '01.2.3', ''):
+                    with self.subTest(index=index, rejected=pin):
+                        candidate = list(args)
+                        candidate[index] = pin
+                        result = self.run_cli(*candidate)
+                        self.assertNotEqual(result.returncode, 0)
+                        self.assertEqual(result.stdout, '')
+
     def test_special_files_and_oversize_rejected_without_hanging(self):
         with tempfile.TemporaryDirectory() as directory:
             artifact = Path(directory) / 'input'
