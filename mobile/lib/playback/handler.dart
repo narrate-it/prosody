@@ -27,6 +27,15 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   VideoPlayerController? _initializingVideo;
 
   final Map<VideoPlayerController, Future<void>> _videoDisposals = {};
+  final Map<VideoPlayerController, File> _controllerFiles = {};
+  final Set<VideoPlayerController> _failedControllers = {};
+  final Set<File> _failedAudioFiles = {};
+  final Set<File> _retiredFiles = {};
+  bool _mediaShutdown = false;
+  bool _audioDisposed = false;
+  bool _notifiersDisposed = false;
+  final VideoPlayerController Function(Uri, File?, VideoPlayerOptions)
+  _videoFactory;
 
   Future<void> _disposeVideo(VideoPlayerController? controller) {
     if (controller == null) {
@@ -41,48 +50,121 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     unawaited(() async {
       try {
         await controller.dispose();
-        // This is our own completion future; awaiting it would deadlock.
-        unawaited(_videoDisposals.remove(controller));
+        _failedControllers.remove(controller);
+        final file = _controllerFiles.remove(controller);
+        if (file != null) {
+          authorizedMedia?.unprotect(file);
+          // Decoder disposal and filesystem release are separate outcomes.
+          // Preserve ownership until release succeeds, including retry paths
+          // where _authorizedFile was detached by an earlier transition.
+          _retiredFiles.add(file);
+        }
         completion.complete();
       } catch (error, stack) {
-        // Retain failed disposal as a barrier against unsafe file deletion.
+        _failedControllers.add(controller);
         completion.completeError(error, stack);
+      } finally {
+        // Remove only the in-flight barrier. Failed controller/file ownership
+        // remains explicit and can be retried by a later cleanup attempt.
+        unawaited(_videoDisposals.remove(controller));
       }
     }());
     return completion.future;
   }
 
-  Future<void>? _initializingDisposal;
-  final VideoPlayerController Function(Uri, File?, VideoPlayerOptions)
-  _videoFactory;
-
-  Future<void> _disposeInitializing(VideoPlayerController? controller) {
+  Future<void> _disposeInitializing(VideoPlayerController? controller) async {
     if (controller == null || _initializingVideo != controller) {
-      return Future.value();
+      return;
     }
-    final existing = _initializingDisposal;
-    if (existing != null) {
-      return existing;
+    try {
+      await _disposeVideo(controller);
+    } finally {
+      if (_initializingVideo == controller) {
+        _initializingVideo = null;
+      }
     }
-    final completion = Completer<void>();
-    // Publish the barrier before calling dispose, including synchronous effects.
-    // Keep the matching controller/file visible until disposal actually ends.
-    _initializingDisposal = completion.future;
-    unawaited(() async {
+  }
+
+  Future<void> _stopDecoders() async {
+    // Detach this transition's ownership before the first await. A concurrent
+    // transition must not detach a later controller or later prepared file.
+    final controllers = <VideoPlayerController>{
+      if (_initializingVideo != null) _initializingVideo!,
+      if (!_notifiersDisposed && video.value != null) video.value!,
+      ..._failedControllers,
+      ..._videoDisposals.keys,
+    };
+    _initializingVideo = null;
+    if (!_notifiersDisposed) {
+      video.value = null;
+    }
+    final file = _authorizedFile;
+    _authorizedFile = null;
+    final fileIsVideo =
+        file != null &&
+        controllers.any(
+          (controller) => _controllerFiles[controller]?.path == file.path,
+        );
+    // Start and publish every disposal barrier before awaiting audio shutdown.
+    // A revoke that arrives while audio.stop is pending must join these too.
+    final disposalResults = controllers.map((controller) async {
       try {
         await _disposeVideo(controller);
-        if (_initializingVideo == controller) {
-          _initializingVideo = null;
-        }
-        _initializingDisposal = null;
-        completion.complete();
-      } catch (error, stack) {
-        // Retain the failed barrier: another transition cannot treat a failed
-        // disposal as evidence that deleting the decoder's file is safe.
-        completion.completeError(error, stack);
+        return true;
+      } catch (_) {
+        return false;
       }
-    }());
-    return completion.future;
+    }).toList();
+    var failures = 0;
+    try {
+      if (!_audioDisposed) {
+        await _audio.stop();
+      }
+      for (final owned in _failedAudioFiles.toList()) {
+        if (!_controllerFiles.values.any((file) => file.path == owned.path)) {
+          authorizedMedia?.unprotect(owned);
+          _retiredFiles.add(owned);
+        }
+        // Native ownership ended. Filesystem ownership moves to the common
+        // retired set, which survives a failed deletion until release succeeds.
+        _failedAudioFiles.remove(owned);
+      }
+    } catch (_) {
+      failures++;
+      if (file != null && !fileIsVideo) {
+        _failedAudioFiles.add(file);
+        authorizedMedia?.protect(file);
+      }
+    }
+    for (final result in disposalResults) {
+      if (!await result) {
+        failures++;
+      }
+    }
+    if (file != null &&
+        !_failedAudioFiles.contains(file) &&
+        !_controllerFiles.values.any((owned) => owned.path == file.path)) {
+      authorizedMedia?.unprotect(file);
+      _retiredFiles.add(file);
+    }
+    failures += await _releaseRetiredFiles();
+    if (failures != 0) {
+      throw const MediaDecoderCleanupFailed();
+    }
+  }
+
+  Future<int> _releaseRetiredFiles() async {
+    var failures = 0;
+    // Each exact file is attempted once per cleanup/selection transition.
+    for (final owned in _retiredFiles.toList()) {
+      try {
+        await authorizedMedia?.release(owned);
+        _retiredFiles.remove(owned);
+      } catch (_) {
+        failures++;
+      }
+    }
+    return failures;
   }
 
   static VideoPlayerController _createVideo(
@@ -111,8 +193,10 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       transport: transport,
       maxAssetBytes: maxBufferedBytes,
       onAccessEnded: () async {
-        await playback.stop();
-        playback.failure.value = 'Media access ended. Sign in again.';
+        await playback._shutdownMedia();
+        if (!playback._notifiersDisposed) {
+          playback.failure.value = 'Media access ended. Sign in again.';
+        }
         playback._broadcast();
       },
     );
@@ -125,7 +209,38 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
 
   /// Session owner must await this on logout/workspace removal/revocation.
   Future<void> revokeMediaAccess() async {
+    _mediaShutdown = true;
     await authorizedMedia?.close();
+  }
+
+  Future<void> _shutdownMedia() async {
+    _mediaShutdown = true; // Terminal, and set before any await.
+    ++_generation;
+    _visualTimer?.cancel();
+    _visualTimer = null;
+    _waitingForMore = false;
+    _transitioning = true;
+    try {
+      await _stopDecoders();
+      _clearQueue();
+    } catch (_) {
+      _fail();
+      rethrow;
+    } finally {
+      _transitioning = false;
+      _broadcast();
+    }
+  }
+
+  void _clearQueue() {
+    _playing = false;
+    _items = [];
+    visibleImages.clear();
+    if (!_notifiersDisposed) {
+      location.value = const PlaybackLocation(0, 0);
+    }
+    queue.add([]);
+    mediaItem.add(null);
   }
 
   final ValueNotifier<PlaybackLocation> location = ValueNotifier(
@@ -165,7 +280,8 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     await session.configure(const AudioSessionConfiguration.speech());
     _subscriptions.add(
       _audio.playerStateStream.listen((s) {
-        if (_transitioning ||
+        if (_mediaShutdown ||
+            _transitioning ||
             video.value != null ||
             _segment?.kind == 'image') {
           return;
@@ -179,12 +295,16 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     );
     _subscriptions.add(
       _audio.positionStream.listen((_) {
-        if (video.value == null) _broadcast();
+        if (video.value == null) {
+          _broadcast();
+        }
       }),
     );
     _subscriptions.add(
       _audio.errorStream.listen((_) {
-        if (!_transitioning) _fail();
+        if (!_transitioning) {
+          _fail();
+        }
       }),
     );
     _subscriptions.add(
@@ -194,12 +314,17 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     );
     _subscriptions.add(
       session.interruptionEventStream.listen((event) {
-        if (event.begin) unawaited(pause());
+        if (event.begin) {
+          unawaited(pause());
+        }
       }),
     );
   }
 
   void _broadcast() {
+    if (_notifiersDisposed) {
+      return;
+    }
     final index = _items.isEmpty ? null : location.value.item;
     playbackState.add(
       PlaybackState(
@@ -248,6 +373,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   }
 
   void _fail() {
+    if (_notifiersDisposed) {
+      return;
+    }
     failure.value = 'Playback stopped. Check your connection and try again.';
     _playing = false;
     _broadcast();
@@ -259,9 +387,16 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     int initialSegment = 0,
     Duration initialPosition = Duration.zero,
   }) async {
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return;
+    }
     final replacementGeneration = _generation + 1;
     await stop();
-    if (_generation != replacementGeneration) return;
+    if (_generation != replacementGeneration ||
+        _mediaShutdown ||
+        authorizedMedia?.isClosed == true) {
+      return;
+    }
     _items = newPlayableItems(const [], items);
     queue.add(
       _items
@@ -283,13 +418,22 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       );
       final expectedGeneration = _generation + 1;
       await select(index, segment: segment, autoplay: false);
-      if (_generation != expectedGeneration) return;
-      if (initialPosition > Duration.zero) await seekSegment(initialPosition);
-      if (_generation == expectedGeneration) await play();
+      if (_generation != expectedGeneration) {
+        return;
+      }
+      if (initialPosition > Duration.zero) {
+        await seekSegment(initialPosition);
+      }
+      if (_generation == expectedGeneration) {
+        await play();
+      }
     }
   }
 
   void appendItems(List<Briefing> items) {
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return;
+    }
     final oldCount = _items.length;
     final resume = _waitingForMore;
     _items = [..._items, ...newPlayableItems(_items, items)];
@@ -316,6 +460,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     int segment = 0,
     bool autoplay = true,
   }) async {
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return;
+    }
     if (index < 0 ||
         index >= _items.length ||
         segment < 0 ||
@@ -329,25 +476,17 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     _visualTimer = null;
     _waitingForMore = false;
     _playing = false;
-    await _audio.stop();
-    if (generation != _generation) return;
-    await _disposeInitializing(_initializingVideo);
-    await Future.wait(_videoDisposals.values.toList());
-    if (generation != _generation) return;
-    final previous = video.value;
-    video.value = null;
-    final previousFile = _authorizedFile;
-    _authorizedFile = null;
-    await _disposeVideo(previous);
-    if (previousFile != null) await authorizedMedia?.release(previousFile);
-    if (generation != _generation) return;
-    _completed = false;
-    location.value = PlaybackLocation(index, segment);
-    mediaItem.add(queue.value[index]);
-    failure.value = null;
-    final selected = _segment!;
     VideoPlayerController? initializing;
     try {
+      await _stopDecoders();
+      if (generation != _generation || _mediaShutdown) {
+        return;
+      }
+      _completed = false;
+      location.value = PlaybackLocation(index, segment);
+      mediaItem.add(queue.value[index]);
+      failure.value = null;
+      final selected = _segment!;
       if (selected.kind == 'image') {
         _transitioning = false;
         if (autoplay) {
@@ -365,13 +504,24 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
           ? null
           : await buffer.prepare(selected.media!);
       if (generation != _generation) {
-        if (local != null) await buffer!.release(local);
+        if (local != null) {
+          _retiredFiles.add(local);
+          if (await _releaseRetiredFiles() != 0) {
+            throw const MediaDecoderCleanupFailed();
+          }
+        }
         return;
       }
       _authorizedFile = local;
+      if (local != null) {
+        authorizedMedia?.protect(local);
+      }
       if (selected.kind == 'video') {
         final options = VideoPlayerOptions(allowBackgroundPlayback: true);
         final controller = _videoFactory(selected.media!, local, options);
+        if (local != null) {
+          _controllerFiles[controller] = local;
+        }
         initializing = controller;
         _initializingVideo = controller;
         await controller.initialize();
@@ -390,7 +540,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
         } else {
           await _audio.setFilePath(local.path);
         }
-        if (generation != _generation) return;
+        if (generation != _generation) {
+          return;
+        }
       }
       _transitioning = false;
       if (autoplay) {
@@ -399,7 +551,11 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
         _broadcast();
       }
     } catch (_) {
-      await _disposeInitializing(initializing);
+      try {
+        await _disposeInitializing(initializing);
+      } catch (_) {
+        // Failed controller ownership stays protected for explicit retry.
+      }
       if (generation == _generation) {
         _transitioning = false;
         _fail();
@@ -408,25 +564,33 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   }
 
   void _videoChanged(VideoPlayerController controller) {
-    if (video.value != controller) return;
+    if (video.value != controller) {
+      return;
+    }
     if (controller.value.hasError) {
       _fail();
       return;
     }
     _playing = controller.value.isPlaying;
     _broadcast();
-    if (controller.value.isCompleted) _decoderCompleted();
+    if (controller.value.isCompleted) {
+      _decoderCompleted();
+    }
   }
 
   void _decoderCompleted() {
-    if (_transitioning || _completed || _advancing || _segment == null) return;
+    if (_transitioning || _completed || _advancing || _segment == null) {
+      return;
+    }
     _completed = true;
     completed.value++;
     unawaited(_advanceSegment());
   }
 
   Future<void> _advanceSegment() async {
-    if (_advancing || _items.isEmpty) return;
+    if (_advancing || _items.isEmpty) {
+      return;
+    }
     final advancingGeneration = _generation;
     _advancingGeneration = advancingGeneration;
     try {
@@ -438,7 +602,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       } else {
         final generation = _generation;
         await pause();
-        if (generation == _generation) _waitingForMore = true;
+        if (generation == _generation) {
+          _waitingForMore = true;
+        }
       }
     } finally {
       if (_advancingGeneration == advancingGeneration) {
@@ -450,13 +616,20 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   Future<void> advanceVisual() => _advanceSegment();
   @override
   Future<void> play() async {
-    if (_segment == null) return;
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return;
+    }
+    if (_segment == null) {
+      return;
+    }
     final generation = _generation;
     if (_segment!.kind == 'image') {
       // A visual-only segment has no audio duration. Give it a default dwell
       // so locked-screen queues continue; elapsed time never credits a view.
       // Resuming a paused visual gives the person a fresh five-second dwell.
-      if (_visualTimer?.isActive == true) return;
+      if (_visualTimer?.isActive == true) {
+        return;
+      }
       _playing = true;
       _visualTimer = Timer(const Duration(seconds: 5), () {
         _visualTimer = null;
@@ -467,8 +640,12 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       _broadcast();
       return;
     }
-    if (_completed && position >= duration) await seekSegment(Duration.zero);
-    if (generation != _generation) return;
+    if (_completed && position >= duration) {
+      await seekSegment(Duration.zero);
+    }
+    if (generation != _generation) {
+      return;
+    }
     final session = await AudioSession.instance;
     if (!await session.setActive(true) ||
         generation != _generation ||
@@ -480,11 +657,15 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     } else {
       unawaited(
         _audio.play().catchError((Object _) {
-          if (generation == _generation) _fail();
+          if (generation == _generation) {
+            _fail();
+          }
         }),
       );
     }
-    if (generation != _generation) return;
+    if (generation != _generation) {
+      return;
+    }
     _playing = true;
     _broadcast();
   }
@@ -496,9 +677,13 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
     _visualTimer = null;
     _waitingForMore = false;
     await _audio.pause();
-    if (generation != _generation) return;
+    if (generation != _generation) {
+      return;
+    }
     await video.value?.pause();
-    if (generation != _generation) return;
+    if (generation != _generation) {
+      return;
+    }
     _playing = false;
     _broadcast();
   }
@@ -506,7 +691,9 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> seek(Duration position) async {
     final item = current;
-    if (item == null) return;
+    if (item == null) {
+      return;
+    }
     final target = seekInTimeline(
       item.segments.map((segment) => segment.duration).toList(),
       position,
@@ -526,10 +713,15 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
       return;
     }
     await seekSegment(target.position);
-    if (_generation == expectedGeneration && resume) await play();
+    if (_generation == expectedGeneration && resume) {
+      await play();
+    }
   }
 
   Future<void> seekSegment(Duration position) async {
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return;
+    }
     if (_segment == null || _segment!.kind == 'image') {
       return;
     }
@@ -555,53 +747,80 @@ class ProsodyPlayback extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> skipToPrevious() async {
-    if (location.value.item > 0) await select(location.value.item - 1);
+    if (location.value.item > 0) {
+      await select(location.value.item - 1);
+    }
   }
 
   @override
   Future<void> skipToQueueItem(int index) => select(index);
   @override
   Future<void> stop() async {
+    if (_mediaShutdown || authorizedMedia?.isClosed == true) {
+      return _shutdownMedia();
+    }
     final generation = ++_generation;
     authorizedMedia?.cancelPending();
     _transitioning = true;
     _visualTimer?.cancel();
     _visualTimer = null;
     _waitingForMore = false;
-    await _audio.stop();
-    if (generation != _generation) return;
-    await _disposeInitializing(_initializingVideo);
-    await Future.wait(_videoDisposals.values.toList());
-    if (generation != _generation) return;
-    final previous = video.value;
-    video.value = null;
-    final previousFile = _authorizedFile;
-    _authorizedFile = null;
-    await _disposeVideo(previous);
-    if (previousFile != null) await authorizedMedia?.release(previousFile);
-    if (generation != _generation) return;
-    _playing = false;
-    _items = [];
-    visibleImages.clear();
-    location.value = const PlaybackLocation(0, 0);
-    queue.add([]);
-    mediaItem.add(null);
-    _transitioning = false;
-    _broadcast();
-    await super.stop();
+    try {
+      await _stopDecoders();
+      if (generation != _generation) {
+        return;
+      }
+      _clearQueue();
+      await super.stop();
+    } catch (_) {
+      if (generation == _generation) {
+        _fail();
+      }
+    } finally {
+      if (generation == _generation) {
+        _transitioning = false;
+        _broadcast();
+      }
+    }
   }
 
   Future<void> dispose() async {
-    await revokeMediaAccess();
-    await stop();
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
+    Object? failure;
+    try {
+      await revokeMediaAccess();
+      await stop();
+    } catch (error) {
+      failure = error;
     }
-    await _audio.dispose();
-    location.dispose();
-    video.dispose();
-    failure.dispose();
-    discontinuity.dispose();
-    completed.dispose();
+    for (final subscription in _subscriptions) {
+      try {
+        await subscription.cancel();
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (!_audioDisposed) {
+      try {
+        await _audio.dispose();
+        _audioDisposed = true;
+      } catch (error) {
+        failure ??= error;
+      }
+    }
+    if (!_notifiersDisposed) {
+      location.dispose();
+      video.dispose();
+      this.failure.dispose();
+      discontinuity.dispose();
+      completed.dispose();
+      _notifiersDisposed = true;
+    }
+    if (failure != null) {
+      throw failure;
+    }
   }
+}
+
+class MediaDecoderCleanupFailed implements Exception {
+  const MediaDecoderCleanupFailed();
 }
