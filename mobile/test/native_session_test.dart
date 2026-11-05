@@ -7,10 +7,12 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:prosody/data/native_session.dart';
 
+/// Defines isolated native-session contract and concurrency regression tests.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const bridge = MethodChannel('native-session-test');
   final now = DateTime.utc(2026, 11, 4);
+  /// Supplies an explicitly nonproduction issuer and audience for test fixtures.
   NativeSessionConfiguration config() => NativeSessionConfiguration(
     issuer: Uri.parse('https://identity.example.invalid'),
     audience: 'test-prosody',
@@ -336,5 +338,195 @@ void main() {
         (staleCurrent || pendingCancel ? 'b' : 'a') * 43,
       );
     });
+  }
+  for (final phase in [
+    'before restore',
+    'restore read',
+    'restore current',
+    'signIn current',
+    'signIn write',
+  ]) {
+    test('accessToken preserves session during $phase', () async {
+      final held = Completer<void>();
+      final started = Completer<void>();
+      var deletes = 0;
+      Map<String, dynamic>? saved = {
+        'token': 'a' * 43,
+        'expires': now.add(const Duration(minutes: 10)).toIso8601String(),
+      };
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(bridge, (call) async {
+            if ((phase == 'restore read' && call.method == 'read') ||
+                (phase == 'signIn write' && call.method == 'write')) {
+              started.complete();
+              await held.future;
+            }
+            if (call.method == 'read') {
+              return saved;
+            }
+            if (call.method == 'delete') {
+              deletes++;
+              saved = null;
+            }
+            if (call.method == 'write') {
+              saved = Map<String, dynamic>.from(call.arguments as Map);
+            }
+            if (call.method == 'proof') {
+              return {
+                'verifier': 'v' * 43,
+                'state': 's' * 43,
+                'challenge': 'c' * 43,
+              };
+            }
+            if (call.method == 'authenticate') {
+              return '${NativeSessionConfiguration.redirect}?code=code&state=${'s' * 43}';
+            }
+            return null;
+          });
+      final session = NativeSession(
+        config(),
+        bridge: bridge,
+        now: () => now,
+        client: MockClient((request) async {
+          if (request.url.path == '/oauth/token') {
+            return http.Response(
+              jsonEncode({
+                'access_token': 'a' * 43,
+                'token_type': 'Bearer',
+                'scope': 'personal',
+                'expires_in': 600,
+              }),
+              200,
+            );
+          }
+          if (phase.endsWith('current') && !held.isCompleted) {
+            started.complete();
+            await held.future;
+          }
+          return http.Response(
+            jsonEncode({
+              'active': true,
+              'version': 'identity.issuer.v1',
+              'issuer': config().issuer.toString(),
+              'audience': config().audience,
+              'client_id': 'prosody-ios',
+              'expires_at': now
+                  .add(const Duration(minutes: 9))
+                  .toIso8601String(),
+            }),
+            200,
+          );
+        }),
+      );
+      Future<void>? signingIn;
+      Future<bool>? restoring;
+      if (phase != 'before restore') {
+        if (phase.startsWith('restore')) {
+          restoring = session.restore();
+        } else {
+          signingIn = session.signIn();
+        }
+        await started.future;
+      }
+      final deletesBeforeRequest = deletes;
+      final savedBeforeRequest = saved;
+      await expectLater(
+        session.accessToken(),
+        throwsA(isA<NativeSessionFailure>()),
+      );
+      expect(deletes, deletesBeforeRequest);
+      expect(saved, savedBeforeRequest);
+      if (phase == 'before restore') {
+        expect(await session.restore(), isTrue);
+      } else {
+        held.complete();
+        if (restoring != null) {
+          expect(await restoring, isTrue);
+        }
+        if (signingIn != null) {
+          await signingIn;
+        }
+      }
+      expect(saved?['token'], 'a' * 43);
+      expect(await session.accessToken(), 'a' * 43);
+    });
+  }
+
+  for (final response in [
+    (200, ''),
+    (200, 'not JSON'),
+    (204, ''),
+    (401, ''),
+    (503, 'unavailable'),
+  ]) {
+    test(
+      'revoke handles status ${response.$1} body ${response.$2} after local clear',
+      () async {
+        var deleted = false;
+        var clock = now;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(bridge, (call) async {
+              if (call.method == 'read') {
+                return {
+                  'token': 'a' * 43,
+                  'expires': now
+                      .add(const Duration(minutes: 10))
+                      .toIso8601String(),
+                };
+              }
+              if (call.method == 'delete') {
+                deleted = true;
+              }
+              return null;
+            });
+        final session = NativeSession(
+          config(),
+          bridge: bridge,
+          now: () => clock,
+          client: MockClient((request) async {
+            if (request.url.path == '/oauth/revoke') {
+              expect(deleted, isTrue);
+              return http.Response(response.$2, response.$1);
+            }
+            return http.Response(
+              jsonEncode({
+                'active': true,
+                'version': 'identity.issuer.v1',
+                'issuer': config().issuer.toString(),
+                'audience': config().audience,
+                'client_id': 'prosody-ios',
+                'expires_at': now
+                    .add(const Duration(minutes: 9))
+                    .toIso8601String(),
+              }),
+              200,
+            );
+          }),
+        );
+        expect(await session.restore(), isTrue);
+        if (response.$1 == 200 || response.$1 == 204) {
+          await session.signOut();
+        } else {
+          await expectLater(
+            session.signOut(),
+            throwsA(isA<NativeSessionFailure>()),
+          );
+        }
+        expect(deleted, isTrue);
+        await expectLater(
+          session.accessToken(),
+          throwsA(isA<NativeSessionFailure>()),
+        );
+        // Restore again, then advancing the clock exercises legitimate expiry cleanup.
+        deleted = false;
+        expect(await session.restore(), isTrue);
+        clock = now.add(const Duration(minutes: 10));
+        await expectLater(
+          session.accessToken(),
+          throwsA(isA<NativeSessionFailure>()),
+        );
+        expect(deleted, isTrue);
+      },
+    );
   }
 }

@@ -12,6 +12,7 @@ class NativeSessionConfiguration {
   final String audience;
   static const clientId = 'prosody-ios';
   static const redirect = 'run.prosody.prosody:/oauth/callback';
+  /// Requires an explicit HTTPS origin and a nonempty audience.
   NativeSessionConfiguration({required this.issuer, required this.audience}) {
     if (issuer.scheme != 'https' ||
         issuer.host.isEmpty ||
@@ -25,14 +26,17 @@ class NativeSessionConfiguration {
       );
     }
   }
+  /// Names the Keychain record by the complete configured client binding.
   String get binding =>
       jsonEncode([issuer.toString(), audience, clientId, redirect]);
 }
 
 class NativeSessionFailure implements Exception {
   final String reason;
+  /// Stores a diagnostic reason without including grant or callback contents.
   const NativeSessionFailure(this.reason);
   @override
+  /// Returns the session failure reason.
   String toString() => 'Native session: $reason';
 }
 
@@ -46,6 +50,7 @@ class NativeSession implements InteractiveSession {
   DateTime? _expires;
   int _generation = 0;
   bool _busy = false;
+  /// Creates a candidate client with injectable platform, transport and clock.
   NativeSession(
     this.configuration, {
     MethodChannel? bridge,
@@ -55,6 +60,7 @@ class NativeSession implements InteractiveSession {
        client = client ?? http.Client(),
        now = now ?? DateTime.now;
 
+  /// Sends a bounded form request without redirects; ignores successful revoke bodies.
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, String> body,
@@ -74,7 +80,10 @@ class NativeSession implements InteractiveSession {
       maxBytes: 16384,
       deadline: const Duration(seconds: 15),
     );
-    if (response.statusCode == 204 && path == '/oauth/revoke') return {};
+    if (path == '/oauth/revoke' &&
+        (response.statusCode == 200 || response.statusCode == 204)) {
+      return {};
+    }
     if (response.statusCode != 200) {
       throw const NativeSessionFailure('Issuer request denied');
     }
@@ -85,12 +94,14 @@ class NativeSession implements InteractiveSession {
     return decoded;
   }
 
+  /// Rejects results belonging to a superseded session operation.
   void _checkGeneration(int generation) {
     if (generation != _generation) {
       throw const NativeSessionFailure('Session changed');
     }
   }
 
+  /// Clears memory immediately, then deletes this binding from Keychain.
   Future<void> _clear() async {
     _token = null;
     _expires = null;
@@ -99,6 +110,7 @@ class NativeSession implements InteractiveSession {
     });
   }
 
+  /// Checks current personal authority and tightens the local expiry.
   Future<bool> _current(String token, int generation) async {
     final value = await _post('/oauth/current', {'token': token});
     _checkGeneration(generation);
@@ -126,6 +138,7 @@ class NativeSession implements InteractiveSession {
   }
 
   @override
+  /// Restores a persisted unexpired grant only after issuer validation.
   Future<bool> restore() async {
     if (_busy) {
       throw const NativeSessionFailure('Session operation in progress');
@@ -170,6 +183,7 @@ class NativeSession implements InteractiveSession {
   }
 
   @override
+  /// Runs private browser return with PKCE and persists a validated personal grant.
   Future<void> signIn() async {
     if (_busy) throw const NativeSessionFailure('Sign-in already in progress');
     _busy = true;
@@ -257,16 +271,25 @@ class NativeSession implements InteractiveSession {
   }
 
   @override
+  /// Returns a currently validated grant; rejects pending initialization unchanged.
   Future<String> accessToken() async {
     final token = _token;
     final generation = _generation;
-    if (token == null || _expires == null || !_expires!.isAfter(now())) {
-      await _clear();
+    if (_busy || token == null) {
+      throw const NativeSessionFailure('Sign-in required');
+    }
+    if (_expires == null || !_expires!.isAfter(now())) {
+      _checkGeneration(generation);
+      if (_token == token) {
+        await _clear();
+      }
       throw const NativeSessionFailure('Sign-in required');
     }
     if (!await _current(token, generation)) {
       _checkGeneration(generation);
-      await _clear();
+      if (_token == token) {
+        await _clear();
+      }
       throw const NativeSessionFailure('Sign-in required');
     }
     if (generation != _generation ||
@@ -278,6 +301,7 @@ class NativeSession implements InteractiveSession {
   }
 
   @override
+  /// Cancels browser login, clears local authority and revokes the previous grant.
   Future<void> signOut() async {
     final generation = ++_generation;
     final token = _token;
