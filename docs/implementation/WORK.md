@@ -1341,3 +1341,18 @@ assertions while positive controls passed. One-part synthesis uses the helper,
 but complete native publication must still validate every generated part from
 its admitted manifest. No paid retry, shortening loop, native receipt or
 production activation was added. Full RFC/TestFlight acceptance remains open.
+
+## Cloudflare Go/Pulumi DNS preparation
+
+`infra/cloudflare` prepares protected adoption of the existing prosody.chat DNS
+records. The zone/account are verified before existing-ID resource registration;
+zone lifecycle, billing and backend activation remain outside this slice. The
+private read-only snapshot contains 14 records and is ignored, mode 0600.
+
+The nested module passed 18 named unit/mock records, vet and lint with zero issues. Separate parser/
+private-snapshot evidence is scoped in its README; initial compilation timeouts
+executed zero tests and are retained as historical failures. Live preview/import/
+apply have not run. Cloudflare MCP OAuth token-permission discovery returned
+403; creation was not attempted and no token was created. Pulumi provider
+authentication remains a gate. No DNS or Linode
+resources changed, and no TestFlight upload/full RFC acceptance is claimed.
