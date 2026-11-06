@@ -1356,3 +1356,21 @@ apply have not run. Cloudflare MCP OAuth token-permission discovery returned
 403; creation was not attempted and no token was created. Pulumi provider
 authentication remains a gate. No DNS or Linode
 resources changed, and no TestFlight upload/full RFC acceptance is claimed.
+
+## Strict Nanos template JSON inputs
+
+The offline Nanos checker rejects duplicate decoded JSON keys instead of silently
+keeping the last value. It requires UTF-8 objects, finite values, valid Unicode
+strings and bounded decoder input/nesting, plus exact integer schema-version and
+boolean reboot types. Valid escaped keys remain accepted. No executable host,
+image build, boot, runtime provenance or deployment is supplied by this guard.
+
+The nine Python test roots passed with zero failures/errors/skips, including
+66 successful subcases (overlapping the root suite, not an additive total). The
+new regression table executed against original source produced seven assertion
+failures and one wrong-exception error; six controls passed, comprising two valid
+inputs and four invalid inputs already rejected. Independent review identified an initially unbounded file read and exponent
+overflow in the decoder; both were corrected with direct guard tests. Corrected
+self-check passed while explicitly retaining runtime/image qualification BLOCKED. Repository-hook
+and independent-review receipts remain separate. No fixture/provider/signing or
+infrastructure effects occurred; full RFC acceptance and the reminder remain open.

@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -13,6 +14,60 @@ import sys
 ROOT = Path(__file__).resolve().parent.parent
 MAX_BINARY_BYTES = 256 * 1024 * 1024
 READ_CHUNK_BYTES = 1024 * 1024
+MAX_TEMPLATE_BYTES = 64 * 1024
+
+
+def read_template(path):
+    """Read at most the template limit plus one overflow-detection byte."""
+    with path.open('rb') as stream:
+        data = stream.read(MAX_TEMPLATE_BYTES + 1)
+    if len(data) > MAX_TEMPLATE_BYTES:
+        raise ValueError('package template exceeds 64 KiB limit')
+    return data
+
+
+def template_json(data):
+    """Decode bounded UTF-8 JSON objects without duplicate keys or invalid scalars."""
+    def pairs(values):
+        """Reject duplicate decoded keys instead of silently keeping the last one."""
+        result = {}
+        for key, value in values:
+            if key in result:
+                raise ValueError('duplicate package template key')
+            result[key] = value
+        return result
+
+    def constant(_value):
+        """Reject Python JSON extensions without rendering supplied content."""
+        raise ValueError('nonfinite package template value')
+
+    def validate(value, depth=0):
+        """Bound nesting and reject lone surrogates in every decoded string."""
+        if depth > 32:
+            raise ValueError('package template nesting exceeds limit')
+        if isinstance(value, str):
+            value.encode('utf-8', errors='strict')
+        elif isinstance(value, float) and not math.isfinite(value):
+            raise ValueError('nonfinite package template value')
+        elif isinstance(value, dict):
+            for key, child in value.items():
+                validate(key, depth + 1)
+                validate(child, depth + 1)
+        elif isinstance(value, list):
+            for child in value:
+                validate(child, depth + 1)
+
+    if len(data) > MAX_TEMPLATE_BYTES:
+        raise ValueError('package template exceeds 64 KiB limit')
+    try:
+        value = json.loads(data.decode('utf-8', errors='strict'),
+                           object_pairs_hook=pairs, parse_constant=constant)
+        validate(value)
+    except (UnicodeError, json.JSONDecodeError, RecursionError) as error:
+        raise ValueError('invalid package template JSON') from error
+    if not isinstance(value, dict):
+        raise ValueError('package template must be an object')
+    return value
 
 
 def digest(data):
@@ -64,15 +119,16 @@ def main():
     parser.add_argument('--ops-version')
     parser.add_argument('--nanos-version')
     args = parser.parse_args()
-    contract_bytes = (ROOT / 'packaging/nanos/contract.json').read_bytes()
-    config_bytes = (ROOT / 'packaging/nanos/ops-config.json').read_bytes()
-    contract, config = json.loads(contract_bytes), json.loads(config_bytes)
+    contract_bytes = read_template(ROOT / 'packaging/nanos/contract.json')
+    config_bytes = read_template(ROOT / 'packaging/nanos/ops-config.json')
+    contract, config = template_json(contract_bytes), template_json(config_bytes)
     if contract['status'] != 'blocked-no-host-entrypoint' or config != {
         'Args': [], 'Env': {}, 'Files': [], 'RebootOnExit': False
-    }:
+    } or type(config.get('RebootOnExit')) is not bool:
         raise ValueError('template contract changed: review checker and runtime qualification')
     if (set(contract) != {'schemaVersion', 'status', 'target', 'opsConfig',
                          'runtimeInputs', 'qualificationRequired'}
+            or type(contract['schemaVersion']) is not int
             or contract['schemaVersion'] != 1 or contract['target'] != 'linux-amd64'
             or contract['opsConfig'] != 'packaging/nanos/ops-config.json'):
         raise ValueError('unsupported package contract')
