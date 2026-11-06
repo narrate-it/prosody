@@ -1,0 +1,3 @@
+name: prosody-runner
+runtime: go
+description: Reconcile the existing approved MacBook Prosody runner registration
