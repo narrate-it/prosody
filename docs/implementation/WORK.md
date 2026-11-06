@@ -1330,3 +1330,14 @@ Flutter suite then passed all 209 named tests, with zero errors/skips and succes
 runner completion. Required repository-hook evidence is recorded separately.
 No provider, native build, signing, device, upload or deployment acceptance is
 claimed. Full RFC acceptance remains incomplete and the hourly reminder remains.
+
+## Decoded aggregate narration measurement
+
+[NARRATION-BUDGET.md](NARRATION-BUDGET.md) records the new local validator:
+actual generated MP3 parts share one duration/byte budget, with exact sample-time
+comparison before rounding. All 17 focused records passed with zero skips;
+compiled per-part-budget and per-part-rounding omissions failed their intended
+assertions while positive controls passed. One-part synthesis uses the helper,
+but complete native publication must still validate every generated part from
+its admitted manifest. No paid retry, shortening loop, native receipt or
+production activation was added. Full RFC/TestFlight acceptance remains open.

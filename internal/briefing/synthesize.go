@@ -53,12 +53,12 @@ func Synthesize(ctx context.Context, p SpeechProvider, key, model, voice, script
 		return result, err
 	}
 	state = openrouter.ResponseReceived
-	duration, err := media.MeasureMP3(ctx, out.Audio, maxBytes, remaining)
+	measurement, err := media.MeasureNarration(ctx, [][]byte{out.Audio}, maxBytes, remaining)
 	if err != nil {
 		return result, err
 	}
 	result.Audio = append([]byte(nil), out.Audio...)
-	result.Duration = duration
+	result.Duration = measurement.Duration
 	result.SHA256 = sha256.Sum256(result.Audio)
 	return result, nil
 }
