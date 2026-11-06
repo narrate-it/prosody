@@ -92,7 +92,8 @@ def registration_token(path):
     """Require a nonempty token string without rendering the API response."""
     response = mapping(github(path, 'POST'), 'invalid GitHub token response')
     token = response.get('token')
-    if not isinstance(token, str) or not token or any(char.isspace() for char in token):
+    if (not isinstance(token, str) or not 1 <= len(token) <= 4096
+            or any(not '!' <= char <= '~' for char in token)):
         raise Refused('invalid GitHub token response')
     return token
 
@@ -211,7 +212,8 @@ def loaded(label):
 
 def register_command(root, args, token):
     """Pass one-use registration credentials through the supported runner environment."""
-    if not isinstance(token, str) or not token or any(char.isspace() for char in token):
+    if (not isinstance(token, str) or not 1 <= len(token) <= 4096
+            or any(not '!' <= char <= '~' for char in token)):
         raise Refused('invalid registration token')
     env = os.environ.copy()
     env['ACTIONS_RUNNER_INPUT_TOKEN'] = token
