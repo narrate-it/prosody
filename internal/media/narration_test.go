@@ -121,7 +121,10 @@ func TestMeasureNarrationFiniteParts(t *testing.T) {
 	if err != nil || len(got.Parts) != 100 || got.Duration != 2400*time.Millisecond {
 		t.Fatal("valid bounded part list refused")
 	}
-	got, err = media.MeasureNarration(context.Background(), append(parts, part), 101*len(part), 3*time.Second)
+	tooMany := make([][]byte, 0, len(parts)+1)
+	tooMany = append(tooMany, parts...)
+	tooMany = append(tooMany, part)
+	got, err = media.MeasureNarration(context.Background(), tooMany, 101*len(part), 3*time.Second)
 	if !errors.Is(err, media.ErrInvalid) || len(got.Parts) != 0 || got.Duration != 0 {
 		t.Fatal("unbounded part list accepted")
 	}
