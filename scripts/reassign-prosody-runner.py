@@ -10,6 +10,7 @@ import socket
 import subprocess
 import sys
 import time
+from xml.parsers.expat import ExpatError
 
 OLD = 'sirerun/prosody-legacy'
 TARGET = 'narrate-it/prosody'
@@ -80,11 +81,29 @@ def github(path, method='GET'):
         raise Refused('invalid GitHub response') from error
 
 
+def mapping(value, message):
+    """Reject malformed JSON/plist objects with a fixed safe refusal."""
+    if not isinstance(value, dict):
+        raise Refused(message)
+    return value
+
+
+def registration_token(path):
+    """Require a nonempty token string without rendering the API response."""
+    response = mapping(github(path, 'POST'), 'invalid GitHub token response')
+    token = response.get('token')
+    if not isinstance(token, str) or not token or any(char.isspace() for char in token):
+        raise Refused('invalid GitHub token response')
+    return token
+
+
 def repository_runners(repo):
     """Require a successful complete bounded inventory; errors never mean absence."""
-    result = github('repos/' + repo + '/actions/runners?per_page=100')
+    result = mapping(github('repos/' + repo + '/actions/runners?per_page=100'),
+                     'runner inventory is not a JSON object')
     rows, count = result.get('runners'), result.get('total_count')
-    if not isinstance(rows, list) or type(count) is not int or not 0 <= count <= 100 or len(rows) != count:
+    if (not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows)
+            or type(count) is not int or not 0 <= count <= 100 or len(rows) != count):
         raise Refused('runner inventory is incomplete or exceeds bounded inspection')
     return rows
 
@@ -95,18 +114,23 @@ def binding(root):
     if not path.is_file() or path.is_symlink():
         raise Refused('expected existing runner metadata is absent or linked')
     try:
-        value = json.loads(path.read_text(encoding='utf-8-sig'))
+        value = mapping(json.loads(path.read_text(encoding='utf-8-sig')),
+                        'runner metadata is not a JSON object')
     except (OSError, ValueError) as error:
         raise Refused('runner metadata unreadable') from error
-    if value.get('agentName') != NAME or type(value.get('agentId')) is not int or value['agentId'] <= 0:
+    if (value.get('agentName') != NAME or type(value.get('agentId')) is not int
+            or value['agentId'] <= 0 or not isinstance(value.get('gitHubUrl'), str)):
         raise Refused('local runner identity does not match the approved runner')
     return value
 
 
 def remote_match(rows, local):
     """Bind the GitHub runner ID and name, rejecting duplicates and missing IDs."""
+    if not isinstance(rows, list) or any(not isinstance(row, dict) for row in rows):
+        raise Refused('runner inventory contains a non-object row')
     matches = [r for r in rows if r.get('name') == NAME]
-    if len(matches) != 1 or matches[0].get('id') != local['agentId']:
+    if (len(matches) != 1 or type(matches[0].get('id')) is not int
+            or matches[0]['id'] != local['agentId']):
         raise Refused('remote runner identity does not match local registration')
     return matches[0]
 
@@ -114,7 +138,12 @@ def remote_match(rows, local):
 def target_match(rows, local):
     """Require the actual self-hosted macOS/X64/project labels on the target."""
     row = remote_match(rows, local)
-    labels = {v.get('name') for v in row.get('labels', [])}
+    labels = row.get('labels')
+    if (not isinstance(labels, list)
+            or any(not isinstance(value, dict) or not isinstance(value.get('name'), str)
+                   for value in labels)):
+        raise Refused('target runner labels are malformed')
+    labels = {value['name'] for value in labels}
     if not {'self-hosted', 'macOS', 'X64', 'prosody'}.issubset(labels):
         raise Refused('target runner labels do not match the admitted platform')
     return row
@@ -163,11 +192,14 @@ def service(root):
         raise Refused('service path is outside the owning LaunchAgents directory')
     if path.stat().st_uid != os.getuid():
         raise Refused('service has different ownership')
-    data = plistlib.loads(path.read_bytes())
+    try:
+        data = mapping(plistlib.loads(path.read_bytes()), 'service metadata is not a plist dictionary')
+    except (ValueError, ExpatError, plistlib.InvalidFileException) as error:
+        raise Refused('service metadata is malformed') from error
     if data.get('WorkingDirectory') != str(root) or data.get('ProgramArguments') != [str(root / 'runsvc.sh')]:
         raise Refused('service does not point exclusively at this runner')
     label = data.get('Label', '')
-    if not label.startswith('actions.runner.') or not label.endswith('.' + NAME):
+    if not isinstance(label, str) or not label.startswith('actions.runner.') or not label.endswith('.' + NAME):
         raise Refused('service label does not match approved runner')
     return path, label
 
@@ -179,6 +211,8 @@ def loaded(label):
 
 def register_command(root, args, token):
     """Pass one-use registration credentials through the supported runner environment."""
+    if not isinstance(token, str) or not token or any(char.isspace() for char in token):
+        raise Refused('invalid registration token')
     env = os.environ.copy()
     env['ACTIONS_RUNNER_INPUT_TOKEN'] = token
     command([str(root / 'config.sh'), *args], cwd=root, env=env)
@@ -230,11 +264,16 @@ def reconcile(root, custody, apply=False):
     prepare_custody(custody)
     record = custody / 'reassignment.json'
     original_id = local['agentId']
-    if record.exists():
+    if record.exists() or record.is_symlink():
         if record.is_symlink() or record.stat().st_uid != os.getuid():
             raise Refused('checkpoint ownership mismatch')
-        previous = json.loads(record.read_text())
-        if previous.get('name') != NAME or previous.get('target') != TARGET or type(previous.get('originalID')) is not int:
+        try:
+            previous = mapping(json.loads(record.read_text()), 'checkpoint is not a JSON object')
+        except (OSError, ValueError) as error:
+            raise Refused('checkpoint unreadable or malformed') from error
+        if (previous.get('name') != NAME or previous.get('target') != TARGET
+                or type(previous.get('originalID')) is not int or previous['originalID'] <= 0
+                or type(previous.get('sourceServerAbsent', False)) is not bool):
             raise Refused('checkpoint belongs to a different handoff')
         original_id = previous['originalID']
         stale_server = previous.get('sourceServerAbsent', stale_server) if current_url == TARGET_URL else stale_server
@@ -258,8 +297,8 @@ def reconcile(root, custody, apply=False):
         if existing_service and loaded(existing_service[1]):
             raise Refused('legacy service is loaded; refuse live service mutation')
         # Prove both API permissions before changing the old local installation.
-        remove = None if stale_server else github('repos/' + OLD + '/actions/runners/remove-token', 'POST')['token']
-        token = github('repos/' + TARGET + '/actions/runners/registration-token', 'POST')['token']
+        remove = None if stale_server else registration_token('repos/' + OLD + '/actions/runners/remove-token')
+        token = registration_token('repos/' + TARGET + '/actions/runners/registration-token')
         no_local_runner()
         checkpoint('remove-old-started')
         if existing_service:

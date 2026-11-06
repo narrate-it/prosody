@@ -1605,3 +1605,22 @@ official metadata's UTF-8 BOM; correcting that read-only parser confirmed the
 same state without any reconfiguration. No iOS job, signing retry, Apple API call
 or TestFlight upload occurred. Signing/backend/native acceptance remain separate
 gates. Full RFC acceptance and the hourly reminder remain open.
+
+## Runner hosted-review corrections
+
+Hosted review found malformed inventory/metadata/token shapes could escape the
+fixed refusal path, and the synthetic ownership fixture depended on the invoking
+UID. The helper now validates JSON/plist objects, runner rows and IDs, label/token
+strings and checkpoint fields before use. Linked or malformed checkpoints refuse
+recovery. The test fixture models only its own tree as user-owned, preserving an
+explicit root-refusal control.
+
+Twenty-one hermetic test roots PASS with zero failures/skips. Added controls cover
+partial removal/registration failure, registered-but-offline reconciliation,
+missing/invalid/linked custody, and process/service changes at the second guard.
+New rejection tests over the previous production source fail with five assertion
+failures and eighteen errors across five selected roots; the read-only plan
+control passes. These are source regressions, not live recovery exercises. No
+reassignment/apply, runner restart, credential rotation or signing occurred. The
+source digest changes a future IaC preview; the already-online installation was
+not reconfigured. Full RFC and TestFlight acceptance remain open.
