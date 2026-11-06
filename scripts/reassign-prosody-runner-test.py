@@ -300,6 +300,25 @@ class Reassignment(unittest.TestCase):
                 self.assertEqual(self.effects, [])
                 self.assertTrue(self.service_file.exists())
 
+    def test_malformed_target_token_preserves_old_registration(self):
+        """Reject environment-incompatible target tokens before old removal."""
+        original = self.github
+        for token in ('new\x00token', 'new\ud800token', 'newé', 'x' * 4097):
+            def malformed_target(path, method='GET'):
+                """Keep the removal token valid and corrupt only target registration."""
+                if method == 'POST' and path.endswith('registration-token'):
+                    return {'token': token}
+                return original(path, method)
+            with self.subTest(token_kind=repr(token[:12])), mock.patch.object(RUNNER, 'github', side_effect=malformed_target):
+                with self.assertRaisesRegex(RUNNER.Refused, 'invalid GitHub token response'):
+                    RUNNER.reconcile(self.root, self.custody, True)
+                self.assertEqual(self.effects, [])
+                self.assertTrue(self.service_file.exists())
+                self.assertEqual(RUNNER.binding(self.root)['agentId'], 2)
+            with self.assertRaisesRegex(RUNNER.Refused, 'invalid registration token'):
+                RUNNER.register_command(self.root, ['remove', '--unattended'], token)
+            self.assertEqual(self.effects, [])
+
     def test_partial_removal_failure_preserves_recovery_checkpoint(self):
         """A failed registration after removal never fabricates rollback or success."""
         original = self.command
