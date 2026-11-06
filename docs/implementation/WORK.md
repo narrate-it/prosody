@@ -1536,3 +1536,23 @@ These are hermetic boundary checks, not native signed-archive or Apple evidence.
 No actual artifact was created/inspected, no credentials were read, and no signing,
 upload, provider, state or deployment effect occurred. Required-hook and final
 independent-review evidence stay separate; full RFC and the reminder remain open.
+
+## Read-only ASC preflight source
+
+A new manual-only workflow is restricted to trusted main and the approved
+self-hosted macOS Prosody runner. It uses the existing four repository secrets
+to read exactly one matching `run.sire.prosody` app through a fixed-origin TLS GET.
+The short-lived JWT has read-only app-list scope. It does not configure signing,
+change Keychain state, reserve a build number, upload or enable production auth.
+Team association, build history and actual Apple API access remain unverified.
+
+Eleven hermetic Python roots PASS with no failures/skips, including real system
+signing/verification using an ephemeral synthetic key, malformed/ambiguous app
+refusal, redirect/error redaction, isolated-Python shadow refusal and SIGTERM
+private-key cleanup. Initial tests exposed a platform-specific curve-text parser
+and a fixture newline expectation; both were corrected before this result. No
+Apple credential or live request was used. Independent review found module-shadow
+and termination-cleanup gaps; source now uses fixed system Python isolated mode
+and controlled SIGTERM unwinding. Required-hook/final review results are recorded
+separately; source tests do not establish account/signing/TestFlight acceptance.
+Full RFC acceptance remains incomplete and the hourly reminder remains enabled.

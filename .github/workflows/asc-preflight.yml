@@ -1,0 +1,27 @@
+name: ASC read-only preflight
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: prosody-asc-preflight
+  cancel-in-progress: false
+jobs:
+  read-existing-app:
+    if: github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, prosody]
+    timeout-minutes: 3
+    steps:
+      - name: Check out trusted dispatched main revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          clean: false
+      - name: Read the existing app only
+        env:
+          ASC_API_KEY: ${{ secrets.ASC_API_KEY }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_TEAM_ID: ${{ secrets.ASC_TEAM_ID }}
+        run: /usr/bin/python3 -I scripts/asc-preflight.py
