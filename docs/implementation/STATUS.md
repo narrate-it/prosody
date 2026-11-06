@@ -1624,3 +1624,24 @@ control passes. These are source regressions, not live recovery exercises. No
 reassignment/apply, runner restart, credential rotation or signing occurred. The
 source digest changes a future IaC preview; the already-online installation was
 not reconfigured. Full RFC and TestFlight acceptance remain open.
+
+## Runner token preflight finality correction
+
+Final independent review identified that a NUL-bearing target token could pass
+string/whitespace validation and fail later during environment construction,
+after old registration cleanup. Both token entry points now require bounded
+printable ASCII before any removal. The target-only malformed-token control
+keeps the removal token valid and proves zero local/configuration effects with
+the old service and registration retained. NUL, invalid Unicode, non-ASCII and
+excessive-length variants are covered. Twenty-two hermetic roots PASS with zero
+failures/skips; independent final source review clears this delta.
+
+The prior-validator overlay produced two assertion-failure records (the NUL
+subtest and parent), with the read-only plan control passing. Later malformed
+variants were not reached in that old-source run. Its supervisor incorrectly
+expected four failures and also failed; a read-only audit retains that failure
+and the actual named results without rerunning or promoting unexecuted controls.
+No live tokens, runner reconfiguration, API mutation, signing or upload occurred.
+Prior 21-root evidence remains scoped to its earlier checkpoint. Required hooks
+passed lint zero/all twelve cached Go packages; no database fixture was configured.
+Hosted review of the new revision and full RFC acceptance remain open.
