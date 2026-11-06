@@ -9,14 +9,24 @@ press `r` for hot reload, `R` for hot restart, and `q` to quit. This command may
 resolve dependencies and build the app; Flutter and the target platform toolchain
 must be installed. This command selects the debug-only `lib/preview_main.dart`
 entry point: bundled spoken briefings, personal/team sample feeds, and
-session-local progress. Without explicit provisioning it stays an OFFLINE DEMO.
-The feed dropdown also opens Create live briefing. The bounded live preview uses
-GPT-4.1 mini to condense entered text, then elevenlabs/eleven-v4-turbo with Laura.
+session-local progress. It stays an OFFLINE DEMO while paid preview is disabled.
+The feed dropdown also opens Create live briefing, which reports the disabled
+state. The earlier bounded live preview used GPT-4.1 mini to condense entered
+text, then elevenlabs/eleven-v4-turbo with Laura.
 It does not test AMOS sign-in, agent submissions, notifications or cross-device
 persistence. Production authentication remains separate.
 
-For the owner-authorized $1 test session, provision the running debug app through
-its authenticated localhost VM service tunnel (the URL printed by Flutter):
+Paid debug preview is disabled under the reused Agent Prosody identity
+`run.sire.prosody`. Its app sandbox does not establish continuity with the original
+$1 test ledger. The preview keeps sample/local feeds available, but rejects key
+configuration and generation before ledger creation, reservation or provider
+handoff. Restarts and debug provisioning cannot enable this capability. An
+approved migration of the original ledger is required before re-enabling paid
+preview; this change does not inspect or move another app's data or renew the
+allowance.
+
+The following provisioning command documents the earlier test workflow and is
+currently rejected by this preview's runtime gate:
 
 ```sh
 dart scripts/configure-live-preview.dart <localhost-vm-service-url> /path/to/.env
