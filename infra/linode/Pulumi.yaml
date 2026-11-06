@@ -1,0 +1,3 @@
+name: prosody-linode
+runtime: go
+description: Powered-off Nanos staging graph; not a qualified backend deployment
