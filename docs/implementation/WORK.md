@@ -1556,3 +1556,16 @@ and termination-cleanup gaps; source now uses fixed system Python isolated mode
 and controlled SIGTERM unwinding. Required-hook/final review results are recorded
 separately; source tests do not establish account/signing/TestFlight acceptance.
 Full RFC acceptance remains incomplete and the hourly reminder remains enabled.
+
+## ASC hosted-review corrections
+
+The manual workflow now uses JSON-form YAML so hermetic tests parse and inspect
+the actual job/step structure rather than matching text. Tests require trusted
+main, exact self-hosted labels, read-only permissions, immutable checkout without
+persisted credentials, and secrets only on the read step. Five intentionally
+misplaced guard/credential/permission/secret variants are rejected. All twelve
+hermetic roots PASS with zero failures/skips. Every named Python function now has
+a docstring; this addresses the hosted 50-percent coverage warning without
+changing production preflight code. Independent review clears the final delta.
+No Apple request, signing, upload or account change occurred. Hosted review of the
+new revision remains a separate gate; full RFC acceptance remains incomplete.

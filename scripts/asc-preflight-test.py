@@ -2,6 +2,7 @@
 """Hermetic ASC preflight controls; no Apple request or real credential use."""
 import base64
 import contextlib
+import copy
 import importlib.util
 import io
 import json
@@ -25,15 +26,19 @@ class Response:
     status = 200
 
     def __init__(self, body):
+        """Retain the synthetic response bytes."""
         self.body = body
 
     def __enter__(self):
+        """Expose this fake as a context-managed response."""
         return self
 
     def __exit__(self, *_):
+        """Preserve test exceptions from the fake context."""
         return False
 
     def read(self, maximum):
+        """Return at most the requested response bytes."""
         return self.body[:maximum]
 
 
@@ -41,6 +46,7 @@ class Tests(unittest.TestCase):
     """Exercise refusal, transport, signature and safe-output boundaries."""
 
     def test_credentials_consumed_raw_and_base64(self):
+        """Consume only configured secret entries in both supported encodings."""
         key = b'-----BEGIN PRIVATE KEY-----\nSYNTHETIC\n-----END PRIVATE KEY-----\n'
         for value in (key.decode(), base64.b64encode(key).decode()):
             env = {'ASC_API_KEY': value, 'ASC_KEY_ID': 'ABCDEFGHIJ', 'ASC_TEAM_ID': 'KLMNOPQRST',
@@ -49,6 +55,7 @@ class Tests(unittest.TestCase):
             self.assertEqual(env, {'KEEP': 'yes'})
 
     def test_bad_preflight_never_transports_or_renders_secret(self):
+        """Reject missing credentials before transport without echoing them."""
         with patch.dict(os.environ, {'ASC_API_KEY': 'SECRET_MARKER'}, clear=True), \
              patch.object(asc, 'read_app') as read, contextlib.redirect_stdout(io.StringIO()) as output:
             self.assertEqual(asc.main(), 1)
@@ -56,6 +63,7 @@ class Tests(unittest.TestCase):
         self.assertNotIn('SECRET_MARKER', output.getvalue())
 
     def test_der_bounds(self):
+        """Accept canonical P-256 scalars and reject malformed DER."""
         valid = b'\x30\x06\x02\x01\x01\x02\x01\x02'
         self.assertEqual(asc.raw_signature(valid), (b'\0' * 31 + b'\1') + (b'\0' * 31 + b'\2'))
         for value in (valid + b'x', valid[:-1], b'\x30\x06\x02\x01\x80\x02\x01\x02',
@@ -66,6 +74,7 @@ class Tests(unittest.TestCase):
 
     def test_real_synthetic_signature_and_cleanup(self):
         # Real system signer; ephemeral synthetic P-256 key, never Apple credentials.
+        """Verify a synthetic ES256 token using the real installed signer."""
         key = subprocess.run(['/usr/bin/openssl', 'genpkey', '-algorithm', 'EC', '-pkeyopt',
                               'ec_paramgen_curve:prime256v1', '-pkeyopt', 'ec_param_enc:named_curve'], capture_output=True, check=True, timeout=10).stdout
         with patch.object(asc.time, 'time', return_value=1000):
@@ -99,10 +108,12 @@ class Tests(unittest.TestCase):
             self.assertEqual(verified.returncode, 0)
 
     def test_redirect_refused(self):
+        """Never follow a redirect with the bearer credential."""
         with self.assertRaises(asc.Refused):
             asc.NoRedirect().redirect_request(None, None, 302, '', {}, 'https://evil.invalid/')
 
     def inspect(self, value):
+        """Run one fake response and verify the exact GET identity and timeout."""
         opener = unittest.mock.Mock()
         opener.open.return_value = Response(value if isinstance(value, bytes) else json.dumps(value).encode())
         with patch.object(asc.urllib.request, 'build_opener', return_value=opener):
@@ -115,10 +126,12 @@ class Tests(unittest.TestCase):
         self.assertEqual(opener.open.call_args.kwargs['timeout'], 15)
 
     def test_exact_existing_app(self):
+        """Accept one exact existing bundle match."""
         self.inspect({'data': [{'type': 'apps', 'id': '123456', 'attributes': {'bundleId': asc.BUNDLE}}],
                       'links': {'next': None}})
 
     def test_missing_ambiguous_foreign_and_oversized_refused(self):
+        """Refuse incomplete, foreign, malformed and oversized API results."""
         app = {'type': 'apps', 'id': '123', 'attributes': {'bundleId': asc.BUNDLE}}
         foreign = {'type': 'apps', 'id': '123', 'attributes': {'bundleId': 'other.app'}}
         for value in ({'data': []}, {'data': [app, app]}, {'data': [foreign]},
@@ -127,6 +140,7 @@ class Tests(unittest.TestCase):
                 self.inspect(value)
 
     def test_remote_error_not_rendered(self):
+        """Expose a fixed refusal without remote or token material."""
         opener = unittest.mock.Mock()
         opener.open.side_effect = urllib.error.HTTPError(asc.ORIGIN, 403, 'SECRET_REMOTE_BODY', {}, io.BytesIO(b'PRIVATE'))
         with patch.object(asc.urllib.request, 'build_opener', return_value=opener), \
@@ -137,17 +151,54 @@ class Tests(unittest.TestCase):
         self.assertNotIn('SECRET', output.getvalue())
         self.assertNotIn('PRIVATE', output.getvalue())
 
+    def assert_workflow(self, document):
+        """Check actual job/step boundaries, never text that could be a comment."""
+        self.assertEqual(document['on'], {'workflow_dispatch': None})
+        self.assertEqual(document['permissions'], {'contents': 'read'})
+        self.assertNotIn('env', document)
+        self.assertEqual(set(document['jobs']), {'read-existing-app'})
+        job = document['jobs']['read-existing-app']
+        self.assertEqual(job['if'], "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'")
+        self.assertEqual(job['runs-on'], ['self-hosted', 'macOS', 'prosody'])
+        self.assertEqual(job['timeout-minutes'], 3)
+        self.assertNotIn('env', job)
+        self.assertNotIn('permissions', job)
+        checkout, read = job['steps']
+        self.assertEqual(checkout['uses'], 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262')
+        self.assertEqual(checkout['with'], {'ref': '${{ github.sha }}', 'persist-credentials': False, 'clean': False})
+        self.assertNotIn('env', checkout)
+        self.assertEqual(read['run'], '/usr/bin/python3 -I scripts/asc-preflight.py')
+        self.assertEqual(read['env'], {key: '${{ secrets.' + key + ' }}' for key in
+                                     ['ASC_API_KEY', 'ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_TEAM_ID']})
+
     def test_workflow_manual_trusted_main_and_selfhosted(self):
-        text = (Path(__file__).parent.parent / '.github/workflows/asc-preflight.yml').read_text()
-        self.assertIn('workflow_dispatch:', text)
-        self.assertNotIn('pull_request', text)
-        self.assertNotIn('macos-latest', text)
-        self.assertIn('runs-on: [self-hosted, macOS, prosody]', text)
-        self.assertIn("github.ref == 'refs/heads/main'", text)
-        self.assertIn('persist-credentials: false', text)
-        self.assertIn('run: /usr/bin/python3 -I scripts/asc-preflight.py', text)
+        """Parse the JSON-form YAML and verify trusted, read-only secret scope."""
+        workflow = Path(__file__).parent.parent / '.github/workflows/asc-preflight.yml'
+        self.assert_workflow(json.loads(workflow.read_text()))
+
+    def test_workflow_misplaced_guards_and_secrets_fail(self):
+        """Valid-looking text in another field cannot replace security structure."""
+        workflow = Path(__file__).parent.parent / '.github/workflows/asc-preflight.yml'
+        original = json.loads(workflow.read_text())
+        for kind in ('guard', 'credentials', 'permission', 'global-secret', 'checkout-secret'):
+            with self.subTest(kind=kind):
+                value = copy.deepcopy(original)
+                job = value['jobs']['read-existing-app']
+                if kind == 'guard':
+                    value['name'] = job.pop('if')
+                elif kind == 'credentials':
+                    job['steps'][1]['name'] = str(job['steps'][0]['with'].pop('persist-credentials'))
+                elif kind == 'permission':
+                    value['permissions']['contents'] = 'write'
+                elif kind == 'global-secret':
+                    value['env'] = job['steps'][1].pop('env')
+                else:
+                    job['steps'][0]['env'] = job['steps'][1].pop('env')
+                with self.assertRaises((AssertionError, KeyError)):
+                    self.assert_workflow(value)
 
     def test_isolation_refuses_retained_module_and_pythonpath(self):
+        """Prevent retained startup modules from executing in the isolated interpreter."""
         script = Path(__file__).with_name('asc-preflight.py').resolve()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -161,6 +212,7 @@ class Tests(unittest.TestCase):
             self.assertIn(b'BLOCKED:', result.stdout)
 
     def test_sigterm_unwinds_private_key(self):
+        """Confirm normal termination removes the synthetic temporary key."""
         script = Path(__file__).with_name('asc-preflight.py').resolve()
         code = """import importlib.util, sys, time
 spec = importlib.util.spec_from_file_location('asc', sys.argv[1])
