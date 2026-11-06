@@ -1,0 +1,6 @@
+name: prosody-dns
+runtime: go
+description: Protected adoption of the existing prosody.chat Cloudflare DNS records.
+config:
+  prosody-dns:inventoryFile:
+    description: Path to the private, reviewed Cloudflare inventory JSON.

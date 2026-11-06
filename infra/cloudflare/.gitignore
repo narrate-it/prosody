@@ -1,0 +1,3 @@
+.private/
+Pulumi.*.yaml
+pulumi.*.json
