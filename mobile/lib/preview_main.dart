@@ -62,7 +62,9 @@ Future<void> main() async {
   final support = await getApplicationSupportDirectory();
   final clips = Directory('${support.path}/prosody-preview-clips');
   await clips.create(recursive: true);
+  // The reused app identity has a different sandbox. Never mint a new allowance.
   final live = LiveSession(
+    paidPreviewEnabled: false,
     ledger: File('${support.path}/prosody-live-budget.json'),
   );
   await live.initialize();
@@ -263,7 +265,7 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
                     const ProsodyMark(size: 80),
                     const SizedBox(height: 24),
                     const Text(
-                      'Sample briefings stay local. Live generation requires an explicitly configured test session. Progress is local to this preview.',
+                      'Sample briefings stay local. Paid generation is disabled pending approval of the original budget ledger migration. Progress is local to this preview.',
                     ),
                     const SizedBox(height: 24),
                     FilledButton(

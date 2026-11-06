@@ -1311,3 +1311,22 @@ changed; four hermetic preflight checks pass. No native build/signing/upload
 was performed. AGENTS.md requires approved self-hosted macOS runners; the new
 repository currently lists zero available repository runners. Four ASC secret
 names exist, but Apple API validity and actual build history remain unverified.
+
+## Reused-identity paid-preview guard
+
+PR #33 review identified that a new app sandbox could reset the original $1
+preview allowance. Paid preview now defaults disabled and is explicitly disabled
+at startup. Initialization does not create/read a ledger; configuration and
+generation refuse before key retention, reservation or provider dispatch. Sample
+briefings remain available. No ledger migration, allowance renewal or access to
+another app sandbox is performed. Synthetic tests explicitly opt in where needed.
+
+The first analyzer run failed because this isolated worktree lacked its generated
+package configuration; tests were not reached. Offline dependency resolution
+restored that prerequisite. Corrected analysis passed and all 19 focused tests
+passed with zero errors/skips and successful runner completion. Independent source
+review cleared the six-file runtime/test/documentation followup. The complete
+Flutter suite then passed all 209 named tests, with zero errors/skips and successful
+runner completion. Required repository-hook evidence is recorded separately.
+No provider, native build, signing, device, upload or deployment acceptance is
+claimed. Full RFC acceptance remains incomplete and the hourly reminder remains.

@@ -20,6 +20,9 @@ class LiveSession extends ChangeNotifier {
   static const maxAttempts = 4;
   static const reservedDollarsPerAttempt = 0.25;
   static final Map<String, Future<void>> _ledgerWork = {};
+  static const paidPreviewDisabledReason =
+      'Paid preview is disabled until the original preview budget ledger is migrated and approved. Sample briefings remain available.';
+  final bool paidPreviewEnabled;
   final File _ledger;
   final LiveBriefingProvider _client;
   Future<void>? _initialization;
@@ -34,19 +37,27 @@ class LiveSession extends ChangeNotifier {
       configured && revision == _configurationRevision;
   bool _ready = false, _blocked = false, _busy = false, _disposed = false;
 
+  // Paid preview defaults closed. Enabling it requires approved continuity of
+  // the original allowance; a fresh sandbox or provisioned key grants none.
+  // Tests opt in only with synthetic providers/isolated ledgers.
   // Keep the public named argument while the ledger remains private.
-  LiveSession({required File ledger, LiveBriefingProvider? client})
+  LiveSession({
+    required File ledger,
+    LiveBriefingProvider? client,
+    this.paidPreviewEnabled = false,
+  })
     // ignore: prefer_initializing_formals
     : _ledger = ledger,
-      _client = client ?? LiveProvider();
+       _client = client ?? LiveProvider();
 
-  bool get configured => _key != null && _ready && !_blocked && !_disposed;
+  bool get configured =>
+      paidPreviewEnabled && _key != null && _ready && !_blocked && !_disposed;
   bool get busy => _busy;
   int get remainingAttempts =>
-      _ready && !_blocked ? maxAttempts - _attempts : 0;
+      paidPreviewEnabled && _ready && !_blocked ? maxAttempts - _attempts : 0;
   double get remainingBudgetDollars =>
       remainingAttempts * reservedDollarsPerAttempt;
-  String? get error => _error;
+  String? get error => paidPreviewEnabled ? _error : paidPreviewDisabledReason;
 
   void _notify() {
     if (!_disposed) {
@@ -57,6 +68,10 @@ class LiveSession extends ChangeNotifier {
   Future<void> initialize() => _initialization ??= _initialize();
 
   Future<void> _initialize() async {
+    if (!paidPreviewEnabled) {
+      _notify();
+      return;
+    }
     try {
       _attempts = await _ledgerOperation(reserve: false);
       _ready = true;
@@ -68,6 +83,7 @@ class LiveSession extends ChangeNotifier {
   }
 
   void configure(String key) {
+    _requirePaidPreview();
     if (_disposed) {
       throw const LiveSessionFailure('This live session has ended.');
     }
@@ -86,6 +102,12 @@ class LiveSession extends ChangeNotifier {
     _configurationRevision++;
     _key = null;
     _notify();
+  }
+
+  void _requirePaidPreview() {
+    if (!paidPreviewEnabled) {
+      throw const LiveSessionFailure(paidPreviewDisabledReason);
+    }
   }
 
   Future<T> _serialized<T>(Future<T> Function() action) {
@@ -110,6 +132,7 @@ class LiveSession extends ChangeNotifier {
   Future<int> _ledgerOperation({
     required bool reserve,
   }) => _serialized(() async {
+    _requirePaidPreview();
     await _ledger.parent.create(recursive: true);
     final existed = await _ledger.exists();
     if (reserve && !existed) {
@@ -172,6 +195,7 @@ class LiveSession extends ChangeNotifier {
   });
 
   Future<LiveBriefing> generate(String text) async {
+    _requirePaidPreview();
     if (_busy || _disposed) {
       throw const LiveSessionFailure(
         'Live generation is unavailable right now.',
@@ -199,6 +223,7 @@ class LiveSession extends ChangeNotifier {
           'The authorized preview budget has been fully reserved.',
         );
       }
+      _requirePaidPreview();
       final result = await _client.generate(
         key: key,
         source: text,

@@ -75,7 +75,10 @@ void main() {
         );
         final clip = File('${directory.path}/live-123.mp3')
           ..writeAsBytesSync([1, 2, 3]);
-        final ledger = File('${directory.path}/budget');
+        // Deleting local clips must preserve a retained budget even while paid
+        // preview is disabled; initialization must not create or reset it.
+        final ledger = File('${directory.path}/budget')
+          ..writeAsStringSync('retained preview budget fixture');
         final player = _Player();
         final files = {'https://preview.invalid/live-123.mp3': clip.path};
         final live = LiveSession(ledger: ledger);

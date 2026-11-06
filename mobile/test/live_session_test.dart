@@ -56,9 +56,48 @@ void main() {
   tearDown(() async => directory.delete(recursive: true));
 
   LiveSession session(_Provider client) {
-    final value = LiveSession(ledger: ledger, client: client);
+    final value = LiveSession(
+      ledger: ledger,
+      client: client,
+      paidPreviewEnabled: true,
+    );
     addTearDown(value.dispose);
     return value;
+  }
+
+  for (final preexisting in [false, true]) {
+    test(
+      'disabled paid preview preserves ledger and never dispatches (existing: $preexisting)',
+      () async {
+        const original = 'original ledger bytes must remain unchanged';
+        if (preexisting) {
+          await ledger.writeAsString(original);
+        }
+        final client = _Provider();
+        final value = LiveSession(ledger: ledger, client: client);
+        addTearDown(value.dispose);
+        await value.initialize();
+        expect(value.configured, isFalse);
+        expect(value.remainingAttempts, 0);
+        expect(value.remainingBudgetDollars, 0);
+        expect(value.error, LiveSession.paidPreviewDisabledReason);
+        expect(
+          () => value.configure('synthetic-key'),
+          throwsA(isA<LiveSessionFailure>()),
+        );
+        await expectLater(
+          value.generate('Message'),
+          throwsA(isA<LiveSessionFailure>()),
+        );
+        expect(client.calls, 0);
+        expect(client.dispatched, 0);
+        expect(value.configured, isFalse);
+        expect(await ledger.exists(), preexisting);
+        if (preexisting) {
+          expect(await ledger.readAsString(), original);
+        }
+      },
+    );
   }
 
   test(

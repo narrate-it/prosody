@@ -40,6 +40,7 @@ void main() {
           () async => _DelayedProvider(),
         ))!;
         final session = LiveSession(
+          paidPreviewEnabled: true,
           ledger: File('${directory.path}/budget'),
           client: provider,
         );
