@@ -1569,3 +1569,22 @@ its parent while the valid graph control passed. These are synthetic registratio
 checks, not provider, runtime or billing acceptance. Root-hook and final source
 review evidence remain separate. No DNS, signing, provider work or AMOS pin change
 is included; full RFC/TestFlight acceptance and the reminder remain incomplete.
+
+## Approved MacBook runner reassignment source
+
+The owner approved reassignment of the existing Prosody MacBook runner to this
+repository. `infra/runner` owns the operation through Go/Pulumi; the host-local
+helper preserves the installed package and legacy workspace, requires an exact
+host/local/server identity profile, and never puts one-hour tokens in argv or
+IaC inputs. Local processes, busy registrations and foreign services are refused.
+Checkpoints/backups and custody parent entries are synced before configuration
+changes; interrupted owned subprocess groups have bounded cleanup. Hard termination
+still requires actual-state reconciliation, never blind re-registration.
+
+Thirteen hermetic Python roots pass. A real read-only plan passes with no effects:
+the old server registration is now absent, while local metadata remains. Only a
+successful complete source inventory permits supported local-only cleanup; denied
+reads never authorize that branch. The nested Go glue compiles and passes vet/lint; it has no Go test cases.
+Independent source review is clear. Actual IaC preview/apply/online evidence
+remains separate. No signing or TestFlight build is
+claimed by this source checkpoint. Full RFC acceptance and the reminder remain open.
