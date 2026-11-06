@@ -1477,3 +1477,14 @@ do not qualify real authenticated playback. Signing attempts stopped after
 PR #7 remains draft with its one ordinary SQL approval completed/consumed;
 native receipt/grant/fence gates remain open. Full RFC and TestFlight acceptance
 are incomplete, so the owned hourly reminder remains enabled.
+
+## Existing Agent Prosody identity
+
+The owner chose reuse of the existing Agent Prosody app/account. Runner and
+RunnerTests identifiers now use `run.sire.prosody` and its test suffix; display
+name is Agent Prosody. The intended OAuth callback is unchanged and remains
+separately gated. Six project fields and only the plist display-name value
+changed; four hermetic preflight checks pass. No native build/signing/upload
+was performed. AGENTS.md requires approved self-hosted macOS runners; the new
+repository currently lists zero available repository runners. Four ASC secret
+names exist, but Apple API validity and actual build history remain unverified.

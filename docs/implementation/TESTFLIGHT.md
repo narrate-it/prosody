@@ -35,7 +35,7 @@ resolved. Never use a passing preview preflight as a release gate.
 
 | Area | Observed state | What remains |
 | --- | --- | --- |
-| App identity | Runner Release uses `run.prosody.prosody`. | Confirm intended registered identifier and matching App Store Connect record before first upload. Their existence was not inspected. |
+| App identity | Owner explicitly chose to reuse Agent Prosody. Runner Debug/Profile/Release now use `run.sire.prosody`, matching the legacy release Appfile; the device display name is Agent Prosody. | Query the actual App Store Connect record and build history before upload; owner-reported existence and source identity are not a live API receipt. |
 | Version | `mobile/pubspec.yaml` contains `0.1.0+1`; Info.plist uses Flutter build-name/build-number variables. | Pick the beta version and an unused build number after checking App Store Connect history. Local source cannot establish uniqueness. |
 | Signing | No `DEVELOPMENT_TEAM` in the checked-in Runner Release settings. | Configure the approved existing team/signing route. An existing development identity has signed physical debug builds; release account/profile acceptance is still separate. |
 | Native project | Xcode, CocoaPods and Flutter executables found; background audio is declared. | Qualify release builds, plugin privacy requirements and actual physical-device behavior. |
@@ -189,3 +189,25 @@ not mistake local tools/source for TestFlight readiness. Preview mode checked th
 existing binary only. No build, account inspection, signing or upload was performed.
 Current Apple/Flutter links above were checked while preparing this record; they
 are guidance, not evidence that Prosody satisfies the requirements.
+
+## Reused Agent Prosody account and runners
+
+The owner explicitly chose to reuse the existing Agent Prosody App Store record
+and Apple account. `sirerun/prosody` redirects to `sirerun/prosody-legacy`, whose
+release Appfile uses `run.sire.prosody`. The new app uses that same bundle ID;
+its separate intended OAuth callback remains
+`run.prosody.prosody:/oauth/callback`. Changing a bundle ID does not register a
+client, authorize a token or qualify production sign-in.
+
+The four secret names `ASC_API_KEY`, `ASC_ISSUER_ID`, `ASC_KEY_ID` and
+`ASC_TEAM_ID` are present in `narrate-it/prosody`. Their values were not read or
+printed, and their Apple API validity has not been tested. Browser access was
+unavailable; no live app record or unused build number has been confirmed.
+
+Follow [AGENTS.md](../../AGENTS.md): iOS builds, archives, signing and uploads use
+existing approved self-hosted macOS runners, never GitHub-hosted capacity. The
+legacy workflow already selects `[self-hosted, macOS]`, but its tool installation
+and Keychain-reset steps are not adopted by copying that workflow. Runner
+registration, toolchain, stable signing identity and protected upload authority
+still need verification. No iOS build, signing retry, archive or upload is
+authorized solely by the presence of secret names or this source configuration.
