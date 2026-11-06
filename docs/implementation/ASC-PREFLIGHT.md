@@ -43,4 +43,11 @@ GitHub cannot reveal those old stored values for copying. The owner must enter
 the original values into the environment. Verify all existing consumers before
 removing old repository copies; until removal is verified, those copies remain
 available to workflow writers and the security/operational gate is still OPEN.
-No environment apply, secret migration or account preflight is claimed by source.
+The reviewed environment-only plan has since applied and its exact main-branch
+policy and zero-change preview were verified. Secret migration and the account
+preflight are still NOT RUN. Add original values through the environment secrets
+UI at https://github.com/narrate-it/prosody/settings/environments, selecting
+`prosody-asc`; never paste credentials into chat. The exact new names are
+`PROSODY_ASC_API_KEY`, `PROSODY_ASC_ISSUER_ID`, `PROSODY_ASC_KEY_ID`,
+`PROSODY_ASC_TEAM_ID`. Existing broader copies remain unchanged until the move
+and authorized consumers are verified.

@@ -1593,3 +1593,19 @@ protected environment and verified removal of old copies after consumer checks
 remain required. No secret was read, copied or deleted; no Apple call, signing or
 upload occurred. The security thread/merge and operational activation remain OPEN
 until required configuration/migration evidence exists; full RFC remains incomplete.
+
+## Main-only ASC environment operational checkpoint
+
+The independently reviewed saved Go/Pulumi plan applied successfully. GitHub
+confirms `prosody-asc` has custom deployment policies and exactly one branch-only
+`main` rule. The protected command is retained in private IaC state; the subsequent
+preview reports two same resources and zero changes. This is an observed policy
+checkpoint, not permanent protection against a repository administrator.
+
+Secret metadata confirms the environment is empty, the four old `ASC_*`
+repository copies remain, and no new `PROSODY_ASC_*` names exist at repository
+or accessible organization scope. No secret value was read, copied or deleted.
+The owner must supply the original values in the new environment; broader copies
+must be retired after consumer verification. Until then, the security finding,
+source merge and live preflight remain gated. No Apple request, signing, upload,
+backend deployment or native qualification occurred; full RFC/reminder stay open.
