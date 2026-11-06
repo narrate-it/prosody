@@ -2,8 +2,8 @@
 
 The manual `ASC read-only preflight` workflow runs only from this repository's
 main branch on the approved `self-hosted`, `macOS`, `prosody` runner. It reads the
-existing `run.sire.prosody` app using the four configured ASC secrets. Checkout is
-pinned; the fixed system Python runs in isolated mode to refuse retained module/PYTHONPATH shadowing. Git credentials are not persisted. No PR/push event executes this job.
+existing `run.sire.prosody` app using the four configured ASC secrets. The workflow uses JSON-form YAML so its job/step security structure is parsed
+with the standard JSON decoder in hermetic checks. Checkout is pinned; the fixed system Python runs in isolated mode to refuse retained module/PYTHONPATH shadowing. Git credentials are not persisted. No PR/push event executes this job.
 
 `ASC_API_KEY` accepts the original PKCS#8 PEM or strict single-line base64 of that
 PEM. The key must be P-256. Its temporary file is mode 0600 in a private temporary
