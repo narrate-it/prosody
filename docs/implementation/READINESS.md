@@ -89,7 +89,7 @@ product decision; it is not substituted for team acceptance here.
 | Area | Existing evidence | Remaining predicate |
 | --- | --- | --- |
 | Private stage checkpoints | Draft PR #7; one approved ordinary SQL invocation completed: 132 mixed named records/32 roots, including `TestPrivateCheckpointPostgres` | Native atomic receipt, runtime grants/migration registration, current fence/authority and unknown-commit reconciliation; review/merge |
-| Narration/provider processing | Domain pipeline, typed observations, measured MP3 duration and real owned TLS fault fixtures | Explicitly budgeted real provider acceptance; aggregate narration-budget and bounded shortening/re-synthesis; output durability/accounting separate from response receipt |
+| Narration/provider processing | Domain pipeline, typed observations, [decoded aggregate MP3 validation](NARRATION-BUDGET.md) and real owned TLS fault fixtures | Explicitly budgeted real provider acceptance; complete-manifest native use of the aggregate budget and bounded shortening/re-synthesis; output durability/accounting separate from response receipt |
 | Supplied media | Local storage, verified range helper and MP4 structural checks | Actual codec/timeline/physical-object admission; MP4 probe remains unverified metadata |
 | Attribution/settings | Presentation, inactive provenance codec and settings checks | Selected legitimate producer snapshot; real BYOK/model/voice/team-policy journey |
 | Progress/notifications | Local mobile/domain preferences and state coverage | Current-authority per-person progress persistence, actual delivery/device permission and deduplication |
