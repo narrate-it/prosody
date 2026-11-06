@@ -1454,3 +1454,14 @@ four valid controls passed. Corrected source passed all eight named envelope
 records and all 62 briefing records, with zero failures/skips. These are hermetic
 provider-double checks, not live provider, native settlement, database or device
 acceptance. Full RFC/TestFlight acceptance and the owned hourly reminder remain.
+
+## Worker acceptance-profile preparation
+
+[WORK-ACCEPTANCE-PROFILE.md](WORK-ACCEPTANCE-PROFILE.md) maps the actual
+submission/settings bytes, replay identity and draft checkpoint chain to the
+remaining AMOS durable-binding requirements. It is a review proposal, not a
+native schema, constructor, grant or enabled worker. Resource incarnation/version
+history, explicit cancelled/expired-authority state and retention decisions remain
+open. No source/backend behavior changes or new database/provider/device tests
+are claimed by this documentation. AMOS implementation remains cloud-owned;
+production sign-in, full RFC and TestFlight acceptance remain incomplete.
