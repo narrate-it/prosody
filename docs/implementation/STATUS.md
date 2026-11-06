@@ -1588,3 +1588,20 @@ reads never authorize that branch. The nested Go glue compiles and passes vet/li
 Independent source review is clear. Actual IaC preview/apply/online evidence
 remains separate. No signing or TestFlight build is
 claimed by this source checkpoint. Full RFC acceptance and the reminder remain open.
+
+## MacBook runner operational verification
+
+The owner-approved saved IaC plan applied successfully. GitHub now reports one
+online `prosody-laptop-runner` in `narrate-it/prosody`, with `self-hosted`, `macOS`,
+`X64` and `prosody` labels. The local repository/ID/work-folder binding matches
+the server, the validated target LaunchAgent is loaded, and new jobs use the
+isolated workspace. A follow-up Pulumi preview reports two same resources and
+zero changes. This closes runner registration/availability at observation time,
+not permanent uptime; the Mac must remain awake and connected.
+
+The actual transition used the verified stale-server branch; it did not delete
+another server registration. An initial operator verification read failed on the
+official metadata's UTF-8 BOM; correcting that read-only parser confirmed the
+same state without any reconfiguration. No iOS job, signing retry, Apple API call
+or TestFlight upload occurred. Signing/backend/native acceptance remain separate
+gates. Full RFC acceptance and the hourly reminder remain open.
