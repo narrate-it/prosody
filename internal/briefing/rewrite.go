@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/narrate-it/narrate/narration"
 	"github.com/narrate-it/prosody/internal/content"
@@ -119,7 +120,7 @@ func Rewrite(ctx context.Context, p Provider, key string, model openrouter.Model
 	}
 	state = openrouter.ResponseReceived
 	script := strings.TrimSpace(out.Text)
-	if script == "" || len(strings.Fields(script)) > 1100 || strings.Contains(script, "```") {
+	if script == "" || !utf8.ValidString(script) || len(script) > 64000 || len(strings.Fields(script)) > 1100 || strings.Contains(script, "```") {
 		return result, errors.New("briefing script requires repair")
 	}
 	return Result{Script: script, InstructionsDigest: hex.EncodeToString(digest[:]), Provider: out}, nil
