@@ -47,7 +47,21 @@ class Reassignment(unittest.TestCase):
         self.require_sync_count = None
         self.required_parent_syncs = set()
         self.synced_directories = set()
-        for patcher in [mock.patch.object(Path, 'home', return_value=self.home), mock.patch.object(RUNNER.sys, 'platform', 'darwin'), mock.patch.object(RUNNER.socket, 'gethostname', return_value='fixture-host'), mock.patch.dict(os.environ, {'PROSODY_RUNNER_EXPECTED_HOST': 'fixture-host'}), mock.patch.object(RUNNER, 'github', side_effect=self.github), mock.patch.object(RUNNER, 'command', side_effect=self.command)]:
+        # Model a user-owned installation even when a hermetic suite runs as root.
+        actual_uid = os.getuid()
+        fixture_uid = actual_uid or 501
+        actual_stat = Path.stat
+
+        def fixture_stat(path, *args, **kwargs):
+            """Map only this synthetic owned tree to the fixture user identity."""
+            result = actual_stat(path, *args, **kwargs)
+            if (path == self.home or self.home in path.parents) and result.st_uid == actual_uid:
+                fields = list(result)
+                fields[4] = fixture_uid
+                return os.stat_result(fields)
+            return result
+
+        for patcher in [mock.patch.object(RUNNER.os, 'getuid', return_value=fixture_uid), mock.patch.object(Path, 'stat', fixture_stat), mock.patch.object(Path, 'home', return_value=self.home), mock.patch.object(RUNNER.sys, 'platform', 'darwin'), mock.patch.object(RUNNER.socket, 'gethostname', return_value='fixture-host'), mock.patch.dict(os.environ, {'PROSODY_RUNNER_EXPECTED_HOST': 'fixture-host'}), mock.patch.object(RUNNER, 'github', side_effect=self.github), mock.patch.object(RUNNER, 'command', side_effect=self.command)]:
             patcher.start()
             self.addCleanup(patcher.stop)
 
@@ -233,6 +247,139 @@ class Reassignment(unittest.TestCase):
         self.assertEqual(self.posts, [])
         self.assertEqual(self.effects, [])
         self.assertTrue((self.root / '.runner').exists())
+
+    def test_real_root_identity_refused(self):
+        """The explicit production root guard remains tested separately."""
+        with mock.patch.object(RUNNER.os, 'getuid', return_value=0):
+            with self.assertRaisesRegex(RUNNER.Refused, 'existing user-owned'):
+                RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.posts, [])
+        self.assertEqual(self.effects, [])
+
+    def test_malformed_inventories_refuse_before_effects(self):
+        """Non-object inventories and rows cannot imply an absent registration."""
+        for value in (None, [], {'total_count': 1, 'runners': [None]},
+                      {'total_count': True, 'runners': [{}]}):
+            with self.subTest(value=value), mock.patch.object(RUNNER, 'github', return_value=value):
+                with self.assertRaises(RUNNER.Refused):
+                    RUNNER.reconcile(self.root, self.custody, True)
+                self.assertEqual(self.effects, [])
+                self.assertEqual(self.posts, [])
+
+    def test_malformed_binding_and_service_refused(self):
+        """Invalid object, URL, plist and label shapes expose only safe refusals."""
+        for value in ([], None, dict(self.local, gitHubUrl=[])):
+            with self.subTest(binding=value):
+                (self.root / '.runner').write_text(json.dumps(value))
+                with self.assertRaises(RUNNER.Refused):
+                    RUNNER.reconcile(self.root, self.custody, True)
+        self.write_binding()
+        for value in (b'not plist', plistlib.dumps([]),
+                      plistlib.dumps({'Label': 12, 'WorkingDirectory': str(self.root),
+                                      'ProgramArguments': [str(self.root / 'runsvc.sh')]})):
+            with self.subTest(service=value):
+                self.service_file.write_bytes(value)
+                with self.assertRaises(RUNNER.Refused):
+                    RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.effects, [])
+        self.assertEqual(self.posts, [])
+
+    def test_malformed_target_labels_and_tokens_refused(self):
+        """Malformed label entries or token shapes never reach configuration."""
+        for labels in (None, [None], [{'name': []}], [{'name': 1}]):
+            with self.subTest(labels=labels), self.assertRaises(RUNNER.Refused):
+                RUNNER.target_match([{'id': 2, 'name': RUNNER.NAME, 'labels': labels}], self.local)
+        original = self.github
+        for value in (None, [], {}, {'token': None}, {'token': 12}, {'token': ''}, {'token': 'x y'}):
+            def malformed(path, method='GET'):
+                """Return malformed material only for the synthetic token POST."""
+                return value if method == 'POST' else original(path, method)
+            with self.subTest(token=value), mock.patch.object(RUNNER, 'github', side_effect=malformed):
+                with self.assertRaises(RUNNER.Refused):
+                    RUNNER.reconcile(self.root, self.custody, True)
+                self.assertEqual(self.effects, [])
+                self.assertTrue(self.service_file.exists())
+
+    def test_partial_removal_failure_preserves_recovery_checkpoint(self):
+        """A failed registration after removal never fabricates rollback or success."""
+        original = self.command
+        def fail_registration(args, cwd=None, env=None):
+            """Fail only after official synthetic removal has completed."""
+            if args[0] == str(self.root / 'config.sh') and 'remove' not in args:
+                raise RUNNER.Refused('synthetic registration failure')
+            return original(args, cwd, env)
+        with mock.patch.object(RUNNER, 'command', side_effect=fail_registration):
+            with self.assertRaisesRegex(RUNNER.Refused, 'synthetic registration failure'):
+                RUNNER.reconcile(self.root, self.custody, True)
+        record = json.loads((self.custody / 'reassignment.json').read_text())
+        self.assertEqual(record['phase'], 'register-target-started')
+        self.assertFalse((self.root / '.runner').exists())
+        before = list(self.effects)
+        with self.assertRaisesRegex(RUNNER.Refused, 'metadata is absent'):
+            RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.effects, before)
+
+    def test_online_unconfirmed_does_not_reregister(self):
+        """Offline polling preserves the registered identity for later verification."""
+        original = self.github
+        def offline(path, method='GET'):
+            """Keep only target status offline while preserving actual identity."""
+            result = original(path, method)
+            if path.endswith('/10'):
+                result['status'] = 'offline'
+            return result
+        with mock.patch.object(RUNNER, 'github', side_effect=offline), mock.patch.object(RUNNER.time, 'sleep') as sleep:
+            with self.assertRaisesRegex(RUNNER.Refused, 'online state unconfirmed'):
+                RUNNER.reconcile(self.root, self.custody, True)
+            self.assertEqual(sleep.call_count, 8)
+        self.assertEqual(json.loads((self.custody / 'reassignment.json').read_text())['phase'], 'registered-online-unconfirmed')
+        before = list(self.effects)
+        self.assertEqual(RUNNER.reconcile(self.root, self.custody, True)['status'], 'online')
+        self.assertEqual(self.effects, before)
+        self.assertEqual(len(self.posts), 2)
+
+    def test_checkpoint_shapes_links_and_missing_custody_refused(self):
+        """Bad checkpoints or a target without custody cannot authorize recovery."""
+        self.custody.mkdir(parents=True)
+        record = self.custody / 'reassignment.json'
+        for value in ('invalid JSON', '[]', '{}',
+                      json.dumps({'name': RUNNER.NAME, 'target': RUNNER.TARGET, 'originalID': 2, 'sourceServerAbsent': []})):
+            with self.subTest(value=value):
+                record.write_text(value)
+                with self.assertRaises(RUNNER.Refused):
+                    RUNNER.reconcile(self.root, self.custody, True)
+        record.unlink()
+        record.symlink_to(self.root / '.runner')
+        with self.assertRaisesRegex(RUNNER.Refused, 'checkpoint ownership'):
+            RUNNER.reconcile(self.root, self.custody, True)
+        record.unlink()
+        RUNNER.reconcile(self.root, self.custody, True)
+        record.unlink()
+        before = list(self.effects)
+        with self.assertRaisesRegex(RUNNER.Refused, 'lacks the owning handoff checkpoint'):
+            RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.effects, before)
+
+    def test_second_process_and_service_checks_stop_removal(self):
+        """A newly observed worker or loaded service prevents stale-plan removal."""
+        original = self.command
+        polls = 0
+        def process_appears(args, cwd=None, env=None):
+            """Expose a worker only at the second process guard."""
+            nonlocal polls
+            if args == ['ps', '-axo', 'comm=']:
+                polls += 1
+                return '' if polls == 1 else 'Runner.Worker'
+            return original(args, cwd, env)
+        with mock.patch.object(RUNNER, 'command', side_effect=process_appears):
+            with self.assertRaisesRegex(RUNNER.Refused, 'local runner process'):
+                RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.effects, [])
+        with mock.patch.object(RUNNER, 'loaded', side_effect=[False, True]):
+            with self.assertRaisesRegex(RUNNER.Refused, 'legacy service is loaded'):
+                RUNNER.reconcile(self.root, self.custody, True)
+        self.assertEqual(self.effects, [])
+        self.assertTrue(self.service_file.exists())
 
 
 class SubprocessCleanup(unittest.TestCase):
