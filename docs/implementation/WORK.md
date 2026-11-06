@@ -1569,3 +1569,27 @@ a docstring; this addresses the hosted 50-percent coverage warning without
 changing production preflight code. Independent review clears the final delta.
 No Apple request, signing, upload or account change occurred. Hosted review of the
 new revision remains a separate gate; full RFC acceptance remains incomplete.
+
+## ASC environment protection prerequisite
+
+The next hosted review completed with docstring coverage 100 percent, but raised
+a valid secret-boundary finding: repository-wide ASC credentials are not protected
+by a mutable workflow branch condition. The job now selects `prosody-asc` and
+uses only new `PROSODY_ASC_*` names. Missing environment values cannot fall back
+to old repository `ASC_*` copies. Go/Pulumi prepares a protected, exact-repository
+main-branch-only environment through a bounded reconciler; it changes no secret.
+
+Eight hermetic environment-policy roots and thirteen ASC preflight roots PASS,
+zero failures/skips. These cover creation ordering, foreign/broader policy refusal,
+partial-write reconciliation, explicit-status absence, opener/header/query binding,
+malformed-links safe errors, and structural environment/secret-fallback denials.
+Independent source review is clear. Source tests do not prove live policy, secret
+migration, Apple access or signing. Preview/apply evidence remains separate.
+
+Read-only GitHub inspection found no environment yet, four legacy repository
+ASC names, no namespaced replacements, and zero accessible organization secrets.
+GitHub cannot return stored secret values for copying. Owner entry into the
+protected environment and verified removal of old copies after consumer checks
+remain required. No secret was read, copied or deleted; no Apple call, signing or
+upload occurred. The security thread/merge and operational activation remain OPEN
+until required configuration/migration evidence exists; full RFC remains incomplete.

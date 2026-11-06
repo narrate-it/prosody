@@ -2,7 +2,8 @@
 
 The manual `ASC read-only preflight` workflow runs only from this repository's
 main branch on the approved `self-hosted`, `macOS`, `prosody` runner. It reads the
-existing `run.sire.prosody` app using the four configured ASC secrets. The workflow uses JSON-form YAML so its job/step security structure is parsed
+existing `run.sire.prosody` app using four environment-only `PROSODY_ASC_*` secrets
+in the main-restricted `prosody-asc` GitHub environment. The workflow uses JSON-form YAML so its job/step security structure is parsed
 with the standard JSON decoder in hermetic checks. Checkout is pinned; the fixed system Python runs in isolated mode to refuse retained module/PYTHONPATH shadowing. Git credentials are not persisted. No PR/push event executes this job.
 
 `ASC_API_KEY` accepts the original PKCS#8 PEM or strict single-line base64 of that
@@ -26,3 +27,20 @@ keychain or tester is created/changed. This is not the upload workflow.
 
 Source references: [Apple JWT contract](https://developer.apple.com/documentation/AppStoreConnectAPI/generating-tokens-for-api-requests)
 and [apps API](https://developer.apple.com/documentation/appstoreconnectapi/apps).
+
+
+## Protected environment activation gate
+
+The job-level main condition is defense in depth, not an immutable authorization
+boundary: a workflow writer can edit it. `infra/github-asc` prepares the separately
+admin-controlled environment policy through Go/Pulumi. Preview/review/apply and
+actual policy verification must complete before secret activation or dispatch.
+The new secret names must exist ONLY in the protected environment, never at
+repository or organization scope for this repository. Missing values refuse;
+there is no fallback to the old repository `ASC_*` values.
+
+GitHub cannot reveal those old stored values for copying. The owner must enter
+the original values into the environment. Verify all existing consumers before
+removing old repository copies; until removal is verified, those copies remain
+available to workflow writers and the security/operational gate is still OPEN.
+No environment apply, secret migration or account preflight is claimed by source.

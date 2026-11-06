@@ -1,0 +1,3 @@
+name: prosody-asc-environment
+runtime: go
+description: Main-branch-only GitHub environment for Prosody ASC credentials

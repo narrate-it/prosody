@@ -116,14 +116,24 @@ class Tests(unittest.TestCase):
         """Run one fake response and verify the exact GET identity and timeout."""
         opener = unittest.mock.Mock()
         opener.open.return_value = Response(value if isinstance(value, bytes) else json.dumps(value).encode())
-        with patch.object(asc.urllib.request, 'build_opener', return_value=opener):
+        with patch.object(asc.urllib.request, 'build_opener', return_value=opener) as build:
             asc.read_app('SYNTHETIC_TOKEN')
+        handlers = build.call_args.args
+        self.assertEqual(len(handlers), 3)
+        self.assertTrue(any(isinstance(handler, asc.NoRedirect) for handler in handlers))
+        proxy = next(handler for handler in handlers if isinstance(handler, asc.urllib.request.ProxyHandler))
+        self.assertEqual(proxy.proxies, {})
+        self.assertTrue(any(isinstance(handler, asc.urllib.request.HTTPSHandler) for handler in handlers))
         request = opener.open.call_args.args[0]
         self.assertEqual(request.get_method(), 'GET')
         self.assertTrue(request.full_url.startswith(asc.ORIGIN + '/v1/apps?'))
         self.assertEqual(asc.urllib.parse.parse_qs(asc.urllib.parse.urlsplit(request.full_url).query)
                          ['filter[bundleId]'], [asc.BUNDLE])
         self.assertEqual(opener.open.call_args.kwargs['timeout'], 15)
+        self.assertEqual(request.get_header('Authorization'), 'Bearer SYNTHETIC_TOKEN')
+        query = asc.urllib.parse.parse_qs(asc.urllib.parse.urlsplit(request.full_url).query)
+        self.assertEqual(query['limit'], ['2'])
+        self.assertEqual(query['fields[apps]'], ['bundleId'])
 
     def test_exact_existing_app(self):
         """Accept one exact existing bundle match."""
@@ -138,6 +148,21 @@ class Tests(unittest.TestCase):
                       {'data': [app], 'links': {'next': 'unexpected'}}, b'x' * 65537, b'not JSON'):
             with self.subTest(value=str(value)[:50]), self.assertRaises(asc.Refused):
                 self.inspect(value)
+
+    def test_malformed_links_have_safe_refusal(self):
+        """Null/string links use a fixed refusal without remote data or credentials."""
+        app = {'type': 'apps', 'id': '123', 'attributes': {'bundleId': asc.BUNDLE}}
+        for links in (None, 'SECRET_REMOTE_BODY'):
+            opener = unittest.mock.Mock()
+            opener.open.return_value = Response(json.dumps({'data': [app], 'links': links}).encode())
+            with self.subTest(links_type=type(links).__name__), \
+                 patch.object(asc.urllib.request, 'build_opener', return_value=opener), \
+                 patch.object(asc, 'credentials', return_value=('id', 'issuer', b'key')), \
+                 patch.object(asc, 'token', return_value='SECRET_TOKEN'), \
+                 contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertEqual(asc.main(), 1)
+            self.assertTrue(output.getvalue().startswith('BLOCKED: '))
+            self.assertNotIn('SECRET', output.getvalue())
 
     def test_remote_error_not_rendered(self):
         """Expose a fixed refusal without remote or token material."""
@@ -161,6 +186,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(job['if'], "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'")
         self.assertEqual(job['runs-on'], ['self-hosted', 'macOS', 'prosody'])
         self.assertEqual(job['timeout-minutes'], 3)
+        self.assertEqual(job['environment'], 'prosody-asc')
         self.assertNotIn('env', job)
         self.assertNotIn('permissions', job)
         checkout, read = job['steps']
@@ -168,7 +194,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(checkout['with'], {'ref': '${{ github.sha }}', 'persist-credentials': False, 'clean': False})
         self.assertNotIn('env', checkout)
         self.assertEqual(read['run'], '/usr/bin/python3 -I scripts/asc-preflight.py')
-        self.assertEqual(read['env'], {key: '${{ secrets.' + key + ' }}' for key in
+        self.assertEqual(read['env'], {key: '${{ secrets.PROSODY_' + key + ' }}' for key in
                                      ['ASC_API_KEY', 'ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_TEAM_ID']})
 
     def test_workflow_manual_trusted_main_and_selfhosted(self):
@@ -180,7 +206,7 @@ class Tests(unittest.TestCase):
         """Valid-looking text in another field cannot replace security structure."""
         workflow = Path(__file__).parent.parent / '.github/workflows/asc-preflight.yml'
         original = json.loads(workflow.read_text())
-        for kind in ('guard', 'credentials', 'permission', 'global-secret', 'checkout-secret'):
+        for kind in ('guard', 'credentials', 'permission', 'global-secret', 'checkout-secret', 'environment', 'repository-fallback'):
             with self.subTest(kind=kind):
                 value = copy.deepcopy(original)
                 job = value['jobs']['read-existing-app']
@@ -192,6 +218,10 @@ class Tests(unittest.TestCase):
                     value['permissions']['contents'] = 'write'
                 elif kind == 'global-secret':
                     value['env'] = job['steps'][1].pop('env')
+                elif kind == 'environment':
+                    job.pop('environment')
+                elif kind == 'repository-fallback':
+                    job['steps'][1]['env']['ASC_API_KEY'] = '${{ secrets.ASC_API_KEY }}'
                 else:
                     job['steps'][0]['env'] = job['steps'][1].pop('env')
                 with self.assertRaises((AssertionError, KeyError)):
