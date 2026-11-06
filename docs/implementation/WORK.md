@@ -1263,3 +1263,17 @@ MP4 structural checks separately landed in PR #23 at
 `92b22827dec7fd24f4d6d0450db8f1ddb9b997f1`; their decoding/publication limits
 remain open. Full RFC/TestFlight acceptance is incomplete, so the owned hourly
 reminder remains enabled.
+
+## Rewrite output envelope
+
+Rewrite now rejects invalid UTF-8 and scripts above 64,000 bytes after its
+existing whitespace normalization, matching speech preflight. Rejection keeps
+provider request/generation references and token observations while withholding
+both usable script and provider text; it performs no repair or paid retry.
+
+The compiled original-source overlay failed the three intended negative leaves
+(ASCII overflow, multibyte overflow and invalid UTF-8) plus their parent, while
+four valid controls passed. Corrected source passed all eight named envelope
+records and all 62 briefing records, with zero failures/skips. These are hermetic
+provider-double checks, not live provider, native settlement, database or device
+acceptance. Full RFC/TestFlight acceptance and the owned hourly reminder remain.
