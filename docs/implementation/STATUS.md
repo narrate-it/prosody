@@ -1551,3 +1551,21 @@ overflow in the decoder; both were corrected with direct guard tests. Corrected
 self-check passed while explicitly retaining runtime/image qualification BLOCKED. Repository-hook
 and independent-review receipts remain separate. No fixture/provider/signing or
 infrastructure effects occurred; full RFC acceptance and the reminder remain open.
+
+## Linode powered-off Nanos staging source
+
+`infra/linode` declares an offline protected Fremont VM, private-image disk and
+direct-disk boot profile through Go/Pulumi, with Linode provider v6.9.0 pinned.
+Both boot flags remain false. Existing image metadata and a compute-only quote
+ceiling of $12/month are checked before resource registration. The complete
+$50/month plan, image provenance, data services, backup/restore, firewall/TLS,
+actual boot and backend acceptance remain open. Powered-off instances can still
+incur charges; no live preview/apply or resource creation occurred.
+
+The nested module passed 19 named unit/mock records with zero failures/skips,
+plus vet/lint. Compiled boot-flag mutation failed its graph check while the price
+control passed. Compiled compute-cap omission failed the intended rejection and
+its parent while the valid graph control passed. These are synthetic registration
+checks, not provider, runtime or billing acceptance. Root-hook and final source
+review evidence remain separate. No DNS, signing, provider work or AMOS pin change
+is included; full RFC/TestFlight acceptance and the reminder remain incomplete.
