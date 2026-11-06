@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 
@@ -14,12 +15,16 @@ import (
 type stagingMonitor struct {
 	mu      sync.Mutex
 	count   int
+	calls   int
 	image   map[string]any
 	monthly float64
 }
 
 // Call supplies explicit synthetic image and price results, never cloud evidence.
 func (m *stagingMonitor) Call(a pulumi.MockCallArgs) (resource.PropertyMap, error) {
+	m.mu.Lock()
+	m.calls++
+	m.mu.Unlock()
 	switch a.Token {
 	case "linode:index/getImage:getImage":
 		return resource.NewPropertyMapFromMap(m.image), nil
@@ -124,8 +129,15 @@ func TestStagingRefusals(t *testing.T) {
 			err := pulumi.RunErr(func(ctx *pulumi.Context) error {
 				return registerStaging(ctx, id, pulumi.ToSecret("synthetic").(pulumi.StringOutput))
 			}, pulumi.WithMocks("prosody-linode", "unit", m))
-			if err == nil || m.count != 0 {
-				t.Fatal("invalid image or price registered resources")
+			want, calls := "image is not an available bounded private image", 1
+			switch name {
+			case "invalid-id":
+				want, calls = "an explicit existing private image ID is required", 0
+			case "price-increase", "zero-price":
+				want, calls = "compute price exceeds reviewed ceiling or is invalid", 2
+			}
+			if err == nil || !strings.Contains(err.Error(), want) || m.count != 0 || m.calls != calls {
+				t.Fatalf("expected refusal %q, zero resources and %d lookups; got %v, %d resources and %d lookups", want, calls, err, m.count, m.calls)
 			}
 		})
 	}
