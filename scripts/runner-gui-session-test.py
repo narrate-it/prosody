@@ -112,6 +112,9 @@ class SessionControl(unittest.TestCase):
             with self.assertRaises(GUI.OWNER.Refused):
                 GUI.reconcile(self.root, self.custody, True)
         self.assertFalse(self.effects)
+        self.assertFalse((self.custody / 'session-change.json').exists())
+        result = GUI.reconcile(self.root, self.custody, True)
+        self.assertEqual(result['effect'], 'runner-restarted')
 
     def test_stop_failure_preserves_definition(self):
         """An ambiguous stop leaves original bytes and a recoverable phase."""
@@ -195,6 +198,35 @@ class SessionControl(unittest.TestCase):
             kill.assert_called_once_with(12345, GUI.signal.SIGTERM)
         with self.assertRaises(GUI.OWNER.Refused):
             GUI.interrupted(GUI.signal.SIGTERM, None)
+
+
+
+    def test_exclusive_operation_refuses_overlap(self):
+        """A held real lock refuses a second apply before any remote or service observation."""
+        with GUI.operation_lock(self.custody):
+            with mock.patch.object(GUI.OWNER, 'repository_runners') as inventory:
+                with self.assertRaises(GUI.OWNER.Refused):
+                    GUI.reconcile(self.root, self.custody, True)
+                inventory.assert_not_called()
+        self.assertFalse(self.effects)
+        self.assertFalse((self.custody / 'session-change.json').exists())
+        self.assertEqual(GUI.reconcile(self.root, self.custody, True)['effect'], 'runner-restarted')
+
+    def test_operation_lock_survives_release(self):
+        """Closing an operation leaves the same stable inode for later mutual exclusion."""
+        with GUI.operation_lock(self.custody):
+            inode = (self.custody / 'operation.lock').stat().st_ino
+        with GUI.operation_lock(self.custody):
+            self.assertEqual((self.custody / 'operation.lock').stat().st_ino, inode)
+
+    def test_linked_lock_refuses(self):
+        """A pre-existing lock symlink cannot redirect control-file writes."""
+        GUI.OWNER.prepare_custody(self.custody)
+        (self.custody / 'operation.lock').symlink_to(self.home / 'foreign')
+        with self.assertRaises(OSError):
+            GUI.reconcile(self.root, self.custody, True)
+        self.assertFalse(self.effects)
+        self.assertFalse((self.home / 'foreign').exists())
 
 
 if __name__ == '__main__':

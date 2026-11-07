@@ -86,3 +86,10 @@ Review the real Pulumi preview before any apply. After successful application,
 qualify one tiny signing operation in the actual runner context before another
 full archive. No session apply, native signing check, archive or upload is
 established by the helper's hermetic tests.
+
+Review corrections serialize applies using a retained, nonblocking host-local
+lock inode held before service/receipt observations through terminal verification.
+The lock file is never unlinked on release. This prevents overlapping reconcilers,
+not external job dispatch. Pre-stop busy/worker/drift refusals leave no transition
+receipt; `stop-started` is the first recorded phase after final admission, before
+any stop call. An actual ambiguous stop still requires explicit reconciliation.

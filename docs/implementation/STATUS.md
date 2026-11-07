@@ -1966,3 +1966,14 @@ root hook/commit were NOT REACHED. Owned process cleanup completed and exact
 build lease 0d91c79683c0d78886c31f5af4278923f8877615 was released. Source remains a
 staged local checkpoint with no commit/PR, live apply or signing retry. No
 automatic compilation retry or host fallback was selected.
+
+The explicit warm-cache followup compiled the unchanged nested module (no test
+files), passed vet and lint0, and passed the unchanged root hook lint0/all12Go
+packages without a DB fixture. PR47 was committed/pushed/ready for hosted review.
+Its first hosted result had coverage100 but an actionable pre-stop receipt issue
+and an overlap concern, so it was NOT merged. Source now records stop-started
+only after final checks and serializes apply with a retained exclusive local lock.
+18 session-control roots PASS0skip; the previous source fails the new busy-then-
+retry regression with exactly one failed assertion. Prior 22 legacy roots are separate unchanged-code
+evidence. Followup final review and new-head hook/hosted review remain required.
+No live runner change or signing retry performed.
