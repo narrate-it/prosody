@@ -412,6 +412,74 @@ class Tests(unittest.TestCase):
         capacity.assert_not_called()
         effects.assert_not_called()
 
+    def unlock_fixture(self, statuses, code=0):
+        """Return only mocked native metadata/unlock functions, never real keys."""
+        import ctypes
+        security, core = Mock(), Mock()
+        def opened(path, output):
+            """Supply a synthetic retained native reference."""
+            ctypes.cast(output, ctypes.POINTER(ctypes.c_void_p))[0] = 123
+            return 0
+        def status(reference, output):
+            """Read the next finite fixture state."""
+            ctypes.cast(output, ctypes.POINTER(ctypes.c_uint32))[0] = statuses.pop(0)
+            return 0
+        def unlock(reference, length, buffer, use_password):
+            """Capture synthetic bytes before the caller clears its native buffer."""
+            security.captured = (length, ctypes.string_at(buffer, length), use_password)
+            return code
+        security.SecKeychainOpen.side_effect = opened
+        security.SecKeychainGetStatus.side_effect = status
+        security.SecKeychainUnlock.side_effect = unlock
+        return security, core
+
+    def test_configured_unlock_once_and_utf8_length(self):
+        """One provided credential may unlock only a currently locked keychain."""
+        password = 'SYNTHETIC-credential-\u2603'
+        security, core = self.unlock_fixture([2, 7])
+        with patch.object(p.ctypes, 'CDLL', side_effect=[security, core]):
+            p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'), password)
+        self.assertEqual(security.captured, (len(password.encode()), password.encode(), 1))
+        security.SecKeychainUnlock.assert_called_once()
+        self.assertEqual(security.SecKeychainGetStatus.call_count, 2)
+        core.CFRelease.assert_called_once()
+
+    def test_configured_unlock_failure_or_unconfirmed_stops(self):
+        """Failed authentication and stale locked status never cause another attempt."""
+        for statuses, code in [([2], -1), ([2, 2], 0)]:
+            security, core = self.unlock_fixture(statuses, code)
+            with self.subTest(code=code), patch.object(p.ctypes, 'CDLL', side_effect=[security, core]), \
+                 self.assertRaisesRegex(p.Blocked, 'STOPPED') as error:
+                p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'), 'SYNTHETIC_PASSWORD')
+            self.assertNotIn('SYNTHETIC_PASSWORD', str(error.exception))
+            security.SecKeychainUnlock.assert_called_once()
+            core.CFRelease.assert_called_once()
+
+    def test_already_unlocked_does_not_authenticate_or_validate_password(self):
+        """An unlocked observation never proves the configured password is correct."""
+        security, core = self.unlock_fixture([7])
+        with patch.object(p.ctypes, 'CDLL', side_effect=[security, core]):
+            p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'), 'SYNTHETIC_UNCHECKED')
+        security.SecKeychainUnlock.assert_not_called()
+        core.CFRelease.assert_called_once()
+
+    def test_secrets_removed_before_any_git_subprocess(self):
+        """Runner credentials never enter subprocess environment or command arguments."""
+        sha = 'a' * 40
+        names = ['ASC_API_KEY', 'ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_TEAM_ID', 'PROSODY_KEYCHAIN_PASSWORD']
+        env = {'GITHUB_REPOSITORY': 'narrate-it/prosody', 'GITHUB_REF': 'refs/heads/main',
+               'GITHUB_SHA': sha, 'RUNNER_OS': 'macOS', **{name: 'SYNTHETIC_PASSWORD' for name in names}}
+        def git(argv, **kwargs):
+            """Refuse a credential leak at the first actual child boundary."""
+            self.assertTrue(all(name not in os.environ for name in names))
+            self.assertNotIn('SYNTHETIC_PASSWORD', str(argv))
+            return sha + '\n' if argv[1] == 'rev-parse' else ''
+        with patch.dict(os.environ, env, clear=True), patch.object(p.subprocess, 'check_output', side_effect=git), \
+             patch.object(p, 'require_unlocked_keychain', side_effect=p.Blocked('synthetic stop')) as admission, \
+             self.assertRaisesRegex(p.Blocked, 'synthetic stop'):
+            p.release(True)
+        self.assertEqual(admission.call_args.args[1], 'SYNTHETIC_PASSWORD')
+
     def assert_workflow(self, value):
         """Validate actual parsed workflow security and explicit upload selection."""
         self.assertEqual(set(value['on']), {'workflow_dispatch'})
@@ -429,7 +497,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(j['steps'][0]['uses'], 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262')
         self.assertNotIn('env', j['steps'][0])
         env = j['steps'][1]['env']
-        for name in ['ASC_API_KEY', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_TEAM_ID']:
+        for name in ['ASC_API_KEY', 'ASC_KEY_ID', 'ASC_ISSUER_ID', 'ASC_TEAM_ID', 'PROSODY_KEYCHAIN_PASSWORD']:
             self.assertEqual(env[name], '${{ secrets.' + name + ' }}')
         self.assertIn('"$PREVIEW_UPLOAD" = "true"', j['steps'][1]['run'])
         self.assertIn('/usr/bin/python3 -I scripts/testflight-preview.py --upload', j['steps'][1]['run'])

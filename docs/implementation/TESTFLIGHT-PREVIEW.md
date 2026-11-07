@@ -20,8 +20,10 @@ rollover refuses rather than guessing. This is observation, not a server-side
 build-number reservation; a concurrent release can still invalidate selection.
 
 The runner must already contain the owner's `prosody-ci` identity and one current
-matching App Store profile. The script never unlocks keychains, requests passwords,
-changes the default/search list, broadens key access or retries authentication.
+matching App Store profile. An owner-supplied PROSODY_KEYCHAIN_PASSWORD environment secret authorizes one
+initial native unlock if status is locked. It is never passed in command
+arguments or inherited by child tools. The script does not prompt for passwords,
+change the default/search list, broaden key access or retry a failed unlock.
 An owner may need to answer a new-identity signing prompt locally; a failure stops
 that phase. Preserve existing identities and private recovery material.
 
@@ -69,8 +71,20 @@ source review is clear; required hook and hosted review evidence are separate.
 ## Locked keychain refusal
 
 After actual CodeSign failure with prosody-ci confirmed locked, release admission
-checks native keychain lock metadata before credentials, heavy work and lease
-acquisition, and again before archive/export signing. It never calls unlock or
-authentication APIs. Owner unlock/remediation is required before a new phase; no
-automatic retry occurs. An unlocked observation can become stale and does not
+checks native keychain lock metadata before ASC credential validation, heavy work and lease
+acquisition, and again before archive/export signing. The original read-only guard is retained at archive/export boundaries. With the
+subsequent explicit owner-provided protected credential, initial admission may
+make one native unlock attempt if locked; later checks never unlock again.
+Authentication failure or unconfirmed status stops; no automatic retry occurs. An unlocked observation can become stale and does not
 prove private-key access permissions or actual signing acceptance.
+
+## Protected runner unlock credential
+
+Only the dedicated keychain password belongs in PROSODY_KEYCHAIN_PASSWORD in the
+main-only prosody-asc environment. Do not put it at repository/organization scope,
+in source, chat, logs, command arguments or public artifacts. One initial native
+SecKeychainUnlock call uses a bounded UTF-8 password buffer and explicit password
+length; temporary native buffer clearing is best effort and does not promise
+Python process-memory zeroization. No unlock occurs if already unlocked, so a
+successful metadata check cannot verify the supplied password. A later relock
+stops the phase rather than retrying authentication or relaxing auto-lock policy.
