@@ -2,7 +2,10 @@
 
 Go/Pulumi owns a protected host-local command (provider v1.3.0) for the exact
 `narrate-it/prosody` repository ID and `prosody-asc` environment. Use the existing
-private backend/secrets provider; review `pulumi preview` before apply. The helper
+private backend/secrets provider; review `pulumi preview` and the read-only helper
+plan (`/usr/bin/python3 -I scripts/configure-asc-environment.py --plan`) before apply.
+Pulumi preview does not execute the helper or enumerate its GitHub-side changes.
+The helper
 uses the existing authorized `gh` login without placing its token in IaC inputs.
 `--plan` is read-only. Never invoke `--apply` outside the reviewed IaC operation.
 
