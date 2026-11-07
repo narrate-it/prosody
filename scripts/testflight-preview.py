@@ -278,8 +278,8 @@ def upload_once(tools, folder, receipt, ipa, auth):
     persist_receipt(folder, receipt)
 
 
-def require_unlocked_keychain(path):
-    """Read lock metadata only; never unlock, authenticate or alter key access."""
+def require_unlocked_keychain(path, password=None):
+    """Allow one explicit configured unlock; later checks remain read-only."""
     try:
         security = ctypes.CDLL('/System/Library/Frameworks/Security.framework/Security')
         core = ctypes.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
@@ -297,7 +297,22 @@ def require_unlocked_keychain(path):
             if security.SecKeychainGetStatus(reference, ctypes.byref(status)) != 0:
                 raise Blocked('Signing keychain status unavailable; no signing attempted')
             if not status.value & 1:
-                raise Blocked('prosody-ci is locked; owner must unlock before a new release phase')
+                if not password:
+                    raise Blocked('prosody-ci is locked; configured unlock credential required')
+                raw = password.encode('utf-8')
+                if not 1 <= len(raw) <= 4096:
+                    raise Blocked('Configured keychain credential invalid; no unlock attempted')
+                security.SecKeychainUnlock.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_void_p, ctypes.c_uint8]
+                security.SecKeychainUnlock.restype = ctypes.c_int32
+                buffer = ctypes.create_string_buffer(raw)
+                try:
+                    result = security.SecKeychainUnlock(reference, len(raw), buffer, 1)
+                finally:
+                    ctypes.memset(buffer, 0, ctypes.sizeof(buffer))
+                if result != 0:
+                    raise Blocked('Configured keychain unlock failed; authentication retries STOPPED')
+                if security.SecKeychainGetStatus(reference, ctypes.byref(status)) != 0 or not status.value & 1:
+                    raise Blocked('Keychain unlock not confirmed; authentication retries STOPPED')
         finally:
             core.CFRelease(reference)
     except Blocked:
@@ -344,16 +359,21 @@ def release(upload):
     if (os.environ.get('GITHUB_REPOSITORY') != 'narrate-it/prosody'
             or os.environ.get('GITHUB_REF') != 'refs/heads/main' or os.environ.get('RUNNER_OS') != 'macOS'):
         raise Blocked('Trusted main self-hosted Mac context required')
+    # Remove secrets before even the read-only Git subprocesses are launched.
+    private = {name: os.environ.pop(name, '') for name in
+               ('ASC_API_KEY', 'ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_TEAM_ID', 'PROSODY_KEYCHAIN_PASSWORD')}
     revision = os.environ.get('GITHUB_SHA', '')
     if not re.fullmatch('[0-9a-f]{40}', revision) or subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip() != revision:
         raise Blocked('Checkout revision mismatch')
     if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], text=True):
         raise Blocked('Tracked source is modified')
     keychain = Path.home() / 'Library/Keychains/prosody-ci.keychain-db'
-    require_unlocked_keychain(keychain)
+    password = private.pop('PROSODY_KEYCHAIN_PASSWORD')
+    require_unlocked_keychain(keychain, password)
+    password = None
     asc = load_asc()
-    team = os.environ.get('ASC_TEAM_ID', '')
-    kid, issuer, key = asc.credentials(os.environ)
+    team = private.get('ASC_TEAM_ID', '')
+    kid, issuer, key = asc.credentials(private)
     # Validate the key before any Apple request; this temporary signer file is removed.
     asc.token(kid, issuer, key)
     app = api(asc, kid, issuer, key, asc.APP_REQUEST_PATH)['data']

@@ -1733,3 +1733,26 @@ the early lock guard yields one intended assertion failure before credentials;
 all keychain FFI is mocked in these tests. Independent source review is clear;
 its CFRelease void-signature cleanup is incorporated. No native keychain query,
 unlock, archive, signing or upload was repeated during this correction.
+
+## Owner-configured explicit CI keychain unlock
+
+The owner reports the GUI menu says Lock Keychain, while read-only native status
+still reports locked; the exact cause is unproven. The owner supplied a new
+PROSODY_KEYCHAIN_PASSWORD secret in the protected prosody-asc environment.
+Metadata confirms its presence, not its value or correctness. This is an explicit
+credential/remediation event, not permission to guess passwords or change ACLs.
+
+The runner removes all five secrets from its environment before subprocesses.
+If metadata reports locked, its initial admission may make ONE native unlock
+call with the supplied password in process memory, never argv/logs. Failure or
+unconfirmed status stops authentication attempts. Already-unlocked status does
+not test the password; subsequent archive/export rechecks remain read-only and
+never repeat unlock. Defaults, search list, private-key access and lock settings
+remain unchanged. No live unlock/signing/upload has run from this source yet.
+
+Validation:29 named hermetic release-control roots PASS0fail0skip, including
+UTF-8 byte length, one unlock call, failed/unconfirmed stop, no password test when
+already unlocked and removal of all five secrets before child processes. Native
+FFI is mocked; no real credential value was read or used by these tests.
+Independent source review is clear, with credential-validation wording corrected.
+Required hook, hosted review and actual runner unlock/signing remain separate.
