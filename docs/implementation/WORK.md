@@ -1756,3 +1756,25 @@ already unlocked and removal of all five secrets before child processes. Native
 FFI is mocked; no real credential value was read or used by these tests.
 Independent source review is clear, with credential-validation wording corrected.
 Required hook, hosted review and actual runner unlock/signing remain separate.
+
+## Runner GUI-session source preparation
+
+Established isolated lane fix/runner-gui-security-session at main78ffae1. Prepare
+an opt-in protected Pulumi resource and exact-owner session-only reconciler,
+retaining original plist and partial-phase custody, idle/drift checks, bounded
+restart and no automatic rollback. Fifteen hermetic roots pass; no launchd,
+credential, keychain, signing or upload effect performed. Independent source
+review is clear; required repository/nested-module checks pending. SessionCreate is a
+candidate explanation for Terminal-success/service-failure, not proven cause.
+Actual TestFlight and full RFC acceptance remain open; preserve hourly reminder.
+
+Review corrections: controlled termination unwinds child cleanup; unresolved
+prior phases refuse overwrite/retry; new resource runs /usr/bin/python3 -I.
+15 new roots and 22 legacy roots PASS0skip; no effect execution. The interruption
+regression uses a mocked child, not actual OS-signal execution. Actual read-only
+host plan succeeded. Required hook/nested module remain pending.
+
+Bounded nested Go compile TIMEOUT at240s before package/test results; subsequent
+nested vet/lint and root hook/commit NOT REACHED. Own build lease0d91c796... was
+released after process cleanup. Preserve staged source/private patch; no safe
+commit/draft PR or live effect yet, no automatic compile/signing retry.

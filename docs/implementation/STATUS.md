@@ -1933,3 +1933,36 @@ already unlocked and removal of all five secrets before child processes. Native
 FFI is mocked; no real credential value was read or used by these tests.
 Independent source review is clear, with credential-validation wording corrected.
 Required hook, hosted review and actual runner unlock/signing remain separate.
+
+## Runner security-session candidate correction
+
+Current main 78ffae1 reached Flutter release success but native runs 42409455975,
+42410829013, 42411492731 and 42413201763 failed archive signing with
+errSecInternalComponent. Their private receipts record 1.0.1/build41 upload NOT
+ATTEMPTED; owned build leases were released. Owner-approved Terminal signing of
+a disposable file subsequently verified the expected distribution certificate;
+securityd records the owner's Always Allow choice. That does not qualify runner
+key use. No further signing/authentication retry is selected by this reminder.
+
+The existing runner LaunchAgent sets SessionCreate=true. A separate opt-in IaC
+resource now proposes false while preserving all other service properties and
+keychain/registration state. Fifteen hermetic session-control roots pass; actual
+runner configuration, runner-context signing, archive and Apple acceptance remain
+unexecuted. Independent source review is clear; required gates remain pending. Full RFC remains
+incomplete and the hourly reminder remains owned.
+
+Review followups add controlled SIGTERM cleanup, refusal of unresolved prior
+phase receipts and isolated interpreter invocation. Final hermetic scope is
+15 session-control roots plus 22 unchanged registration-control roots, all PASS
+with no skipped tests. Earlier 12 is the initial checkpoint, not an additional
+suite. The termination regression uses real cleanup code with a mocked child,
+not an actual OS signal. Read-only host plan bound exact runner ID2 and the original/desired plist
+digests without effects. Required hook and nested-module validation
+are separate pending gates; no live session change or signing retry performed.
+
+The bounded nested-module compile reached its 240-second deadline before a Go
+package/test result. This is TIMEOUT, not PASS; nested vet/lint and the required
+root hook/commit were NOT REACHED. Owned process cleanup completed and exact
+build lease 0d91c79683c0d78886c31f5af4278923f8877615 was released. Source remains a
+staged local checkpoint with no commit/PR, live apply or signing retry. No
+automatic compilation retry or host fallback was selected.

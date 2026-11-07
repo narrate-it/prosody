@@ -52,3 +52,37 @@ Hermetic tests exercise mocked API/config/service transitions, denied permission
 idempotent verification, host/identity boundaries and token transport. These are
 not real runner, Keychain, Apple or TestFlight acceptance. Actual preview/apply and
 GitHub online evidence are recorded separately with private recovery custody.
+
+## Opt-in GUI security session
+
+`useGuiSecuritySession: true` adds a second protected local resource for the
+already registered runner. Set `guiSessionCustodyDirectory` to the dedicated
+host-local custody directory required by `scripts/runner-gui-session.py`.
+The default remains unchanged. Changing this setting is a reviewed runner
+configuration effect, not signing authorization or a Keychain permission repair.
+
+The session helper changes only the Boolean `SessionCreate` from true to false
+in the existing owned LaunchAgent, so the service uses the logged-in GUI session
+instead of requesting a new security session. It preserves all other plist
+values, registration and platform labels. It never changes the installed runner
+template, credentials, Keychain ACLs/default/search list/lock policy, or Apple
+assets. The source of this candidate remedy is the matching service-versus-
+Terminal failure reported in actions/runner issue 3407; it is not a guaranteed
+fix. Our Terminal test signed with the expected certificate, while the service
+archive still failed; that distinction alone does not prove causality.
+
+Run `--plan` with the explicit host/directory environment before Pulumi preview.
+Apply requires an online idle exact runner, the existing GUI domain, no observed
+job worker, and a second idle/source check immediately before stop. Admission
+observations cannot eliminate an external job-dispatch race; coordinate an empty
+queue and no new dispatch during this short operation. The source retains the
+original plist and fsynced phase receipt before stop, uses bounded launchctl
+calls, then checks restart/online status. No automatic rollback or blind retry
+is performed after an ambiguous failure. Keep the logged-in Mac awake. A stopped
+or partial service requires inspection of the exact retained phase and plist,
+not re-registration or deletion. The protected destroy intentionally refuses.
+
+Review the real Pulumi preview before any apply. After successful application,
+qualify one tiny signing operation in the actual runner context before another
+full archive. No session apply, native signing check, archive or upload is
+established by the helper's hermetic tests.
