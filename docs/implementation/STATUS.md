@@ -1833,3 +1833,19 @@ failures/skips. The original-source overlay runs the three new roots and fails
 thirteen subtest assertions. This proves the new distinctions, not Apple access.
 Independent source review clears code/tests; its stale-guide finding was fixed.
 No live request was repeated. Required hook and hosted review remain separate.
+
+## Exact ASC read-request scope correction
+
+The owner confirms the API key has Admin role. The latest actual read-only run
+42348943865 returned HTTP403. Apple documents matching scoped JWTs against the
+request path and query (ignoring only limit/cursor/sort). The prior token scoped
+only GET/v1/apps while the request also supplied a bundle filter and fields.
+This correction binds both token and request to the same frozen filtered path,
+retaining the GET-only scope and all credential/transport protections. It does
+not remove scope, retry automatically, change credentials or prove the cause of
+the observed403 until a separately admitted live check succeeds.
+
+Seventeen named hermetic roots PASS, zero failures/skips. The two scope-specific
+roots fail against the original source (two failures), including the actual
+synthetic OpenSSL JWT payload and captured request comparison. This is local
+request-construction evidence; no new Apple request has occurred.

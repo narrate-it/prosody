@@ -59,3 +59,12 @@ A failed HTTP response reports only its bounded integer status. Connection
 failures and invalid responses use separate fixed messages; no remote reason,
 URL, headers or response body is disclosed. A status is diagnostic evidence, not
 a credential-validity verdict or permission to retry. No automatic retry occurs.
+
+## Exact scoped request
+
+The scoped JWT includes the same fixed path/query used for the app-list GET,
+including the exact bundle filter and selected fields. Apple matches query
+parameters when validating scope; a bare path does not describe this filtered
+request. No unscoped fallback is allowed. See
+[Apple token scope rules](https://developer.apple.com/documentation/AppStoreConnectAPI/generating-tokens-for-api-requests).
+The prior403 is retained evidence, not proof of an invalid owner credential.
