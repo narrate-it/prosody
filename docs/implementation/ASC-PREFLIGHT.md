@@ -2,7 +2,7 @@
 
 The manual `ASC read-only preflight` workflow runs only from this repository's
 main branch on the approved `self-hosted`, `macOS`, `prosody` runner. It reads the
-existing `run.sire.prosody` app using four environment-only `PROSODY_ASC_*` secrets
+existing `run.sire.prosody` app using four environment-only `ASC_*` secrets
 in the main-restricted `prosody-asc` GitHub environment. The workflow uses JSON-form YAML so its job/step security structure is parsed
 with the standard JSON decoder in hermetic checks. Checkout is pinned; the fixed system Python runs in isolated mode to refuse retained module/PYTHONPATH shadowing. Git credentials are not persisted. No PR/push event executes this job.
 
@@ -35,19 +35,18 @@ The job-level main condition is defense in depth, not an immutable authorization
 boundary: a workflow writer can edit it. `infra/github-asc` prepares the separately
 admin-controlled environment policy through Go/Pulumi. Preview/review/apply and
 actual policy verification must complete before secret activation or dispatch.
-The new secret names must exist ONLY in the protected environment, never at
-repository or organization scope for this repository. Missing values refuse;
-there is no fallback to the old repository `ASC_*` values.
+The four `ASC_*` names must exist ONLY in the protected environment before
+activation, never at repository or organization scope for this repository.
+GitHub can resolve a repository copy when an environment value is missing; the
+workflow mapping cannot prevent that fallback. Retire broader copies through
+reviewed IaC after checking authorized consumers, then verify absence.
 
-GitHub cannot reveal those old stored values for copying. The owner must enter
-the original values into the environment. Verify all existing consumers before
-removing old repository copies; until removal is verified, those copies remain
-available to workflow writers and the security/operational gate is still OPEN.
-The reviewed environment-only plan has since applied and its exact main-branch
-policy and zero-change preview were verified. Secret migration and the account
-preflight are still NOT RUN. Add original values through the environment secrets
-UI at https://github.com/narrate-it/prosody/settings/environments, selecting
-`prosody-asc`; never paste credentials into chat. The exact new names are
-`PROSODY_ASC_API_KEY`, `PROSODY_ASC_ISSUER_ID`, `PROSODY_ASC_KEY_ID`,
-`PROSODY_ASC_TEAM_ID`. Existing broader copies remain unchanged until the move
-and authorized consumers are verified.
+The owner reports copying the original values and metadata confirms all four
+names in `prosody-asc`: `ASC_API_KEY`, `ASC_ISSUER_ID`, `ASC_KEY_ID`, and
+`ASC_TEAM_ID`. Metadata does not prove value equality or Apple validity. The
+main-only environment policy is already applied. The owner subsequently deleted the repository copies. Read-only verification
+confirms zero repository and accessible organization secrets, all four protected
+environment names, and one exact main branch policy. This owner action clears
+the placement prerequisite; it was not a retirement performed by our IaC helper.
+Independent/hosted source review, merge and the live account check remain pending.
+No secret value was read, signing performed or Apple request sent.

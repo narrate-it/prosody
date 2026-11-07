@@ -194,7 +194,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(checkout['with'], {'ref': '${{ github.sha }}', 'persist-credentials': False, 'clean': False})
         self.assertNotIn('env', checkout)
         self.assertEqual(read['run'], '/usr/bin/python3 -I scripts/asc-preflight.py')
-        self.assertEqual(read['env'], {key: '${{ secrets.PROSODY_' + key + ' }}' for key in
+        self.assertEqual(read['env'], {key: '${{ secrets.' + key + ' }}' for key in
                                      ['ASC_API_KEY', 'ASC_ISSUER_ID', 'ASC_KEY_ID', 'ASC_TEAM_ID']})
 
     def test_workflow_manual_trusted_main_and_selfhosted(self):
@@ -206,7 +206,7 @@ class Tests(unittest.TestCase):
         """Valid-looking text in another field cannot replace security structure."""
         workflow = Path(__file__).parent.parent / '.github/workflows/asc-preflight.yml'
         original = json.loads(workflow.read_text())
-        for kind in ('guard', 'credentials', 'permission', 'global-secret', 'checkout-secret', 'environment', 'repository-fallback'):
+        for kind in ('guard', 'credentials', 'permission', 'global-secret', 'checkout-secret', 'environment', 'alternate-secret'):
             with self.subTest(kind=kind):
                 value = copy.deepcopy(original)
                 job = value['jobs']['read-existing-app']
@@ -220,8 +220,8 @@ class Tests(unittest.TestCase):
                     value['env'] = job['steps'][1].pop('env')
                 elif kind == 'environment':
                     job.pop('environment')
-                elif kind == 'repository-fallback':
-                    job['steps'][1]['env']['ASC_API_KEY'] = '${{ secrets.ASC_API_KEY }}'
+                elif kind == 'alternate-secret':
+                    job['steps'][1]['env']['ASC_API_KEY'] = '${{ secrets.OTHER_ASC_API_KEY }}'
                 else:
                     job['steps'][0]['env'] = job['steps'][1].pop('env')
                 with self.assertRaises((AssertionError, KeyError)):

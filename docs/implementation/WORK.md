@@ -1609,3 +1609,30 @@ The owner must supply the original values in the new environment; broader copies
 must be retired after consumer verification. Until then, the security finding,
 source merge and live preflight remain gated. No Apple request, signing, upload,
 backend deployment or native qualification occurred; full RFC/reminder stay open.
+
+## Owner-confirmed protected ASC copies
+
+The owner reports entering the original four values into `prosody-asc`. Fresh
+GitHub metadata confirms the standard `ASC_*` names there and the same four names
+still at repository scope. Workflow/test expectations now match the names supplied;
+no re-entry is requested. Metadata proves placement, not value equality or Apple
+validity. The source explicitly retains the security/activation gate until reviewed
+IaC retirement of broader copies and consumer/absence verification. No secret
+value was read or changed, and no Apple/signing/upload operation occurred. The
+updated preflight suite executed thirteen named hermetic roots PASS, zero failures
+or skips; this includes structural mutation denials and synthetic OpenSSL signing,
+not Apple account access. Fresh admission averaged 70.965 percent idle with normal
+pressure, zero swap churn and no thermal warning. The exact owned build lease was
+released. The required repository hook and new independent/hosted review remain
+open for this uncommitted delta.
+
+## Protected ASC placement verified after owner deletion
+
+The owner reports deleting the repository secrets. Fresh GitHub metadata confirms
+zero repository secrets and zero accessible organization secrets, with all four
+standard ASC names retained in `prosody-asc`. The environment still has custom
+branch policies with exactly one branch-only `main` rule. This is the owner's
+manual action, not an IaC retirement performed by this session. No secret value
+was read or changed by the agent. The placement prerequisite is now satisfied;
+independent/hosted review, guarded merge and actual Apple account access remain
+separate gates. No signing, upload or full RFC acceptance is claimed.
