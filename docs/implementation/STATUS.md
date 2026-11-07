@@ -1868,3 +1868,24 @@ receipts before upload, bounded private logs/child cleanup and exact lease
 release (or explicit retention if cleanup is uncertain). No real archive, signing
 or upload has executed in this lane yet; hosted/native gates remain separate.
 See [preview delivery](TESTFLIGHT-PREVIEW.md) for operator/recovery scope.
+
+## Preview archive provisioning correction
+
+Actual run42352763746 compiled Flutter release successfully, then failed native
+archive validation because the command-line app provisioning profile also
+applied to dependency/resource-bundle targets. Receipt records version1.0.1,
+build41, upload NOT ATTEMPTED. The owned build lease is absent after cleanup;
+no authentication failure or Apple upload occurred.
+
+The archive now passes a custom PROSODY_APP_PROFILE setting used only by the
+Runner Release target; it no longer globally sets PROVISIONING_PROFILE_SPECIFIER.
+Export retains explicit manual app/profile mapping. Empty custom setting preserves
+the ordinary unselected profile behavior. Runtime Dart code and signing
+credentials/defaults/search lists/ACLs are unchanged. Source controls and actual
+next native archive remain separate evidence.
+
+Corrected source:22 named release-control roots PASS0fail0skip. The parsed
+project guard fails against the original project (one assertion failure); the
+prior real native archive failure is separately retained. No new native build or
+upload occurred during these tests. Independent source review is clear; required
+hook and new-head hosted review remain separate.

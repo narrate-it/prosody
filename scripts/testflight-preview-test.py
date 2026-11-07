@@ -332,6 +332,28 @@ class Tests(unittest.TestCase):
             child.communicate.assert_called_once_with(timeout=20)
             child.stdout.close.assert_called_once()
 
+    def test_archive_profile_is_not_a_global_override(self):
+        """Actual archive argv must not force app profiles onto dependency targets."""
+        command = p.archive_command('KLMNOPQRST', 'C' * 40, 'SYNTHETIC_PROFILE', Path('/tmp/keychain'), Path('/tmp/archive'))
+        self.assertIn('PROSODY_APP_PROFILE=SYNTHETIC_PROFILE', command)
+        self.assertFalse(any(x.startswith('PROVISIONING_PROFILE_SPECIFIER=') for x in command))
+        self.assertIn('CODE_SIGN_STYLE=Manual', command)
+        self.assertEqual(command[-1], 'archive')
+
+    def test_profile_override_belongs_only_to_runner_release(self):
+        """Parse the real Xcode project and enforce app-only profile inheritance."""
+        path = p.ROOT / 'mobile/ios/Runner.xcodeproj/project.pbxproj'
+        objects = json.loads(subprocess.check_output(['/usr/bin/plutil', '-convert', 'json', '-o', '-', str(path)], timeout=10))['objects']
+        targets = [x for x in objects.values() if x.get('isa') == 'PBXNativeTarget' and x.get('name') == 'Runner']
+        self.assertEqual(len(targets), 1)
+        ids = objects[targets[0]['buildConfigurationList']]['buildConfigurations']
+        release = [i for i in ids if objects[i].get('name') == 'Release']
+        self.assertEqual(len(release), 1)
+        self.assertEqual(objects[release[0]]['buildSettings'].get('PROVISIONING_PROFILE_SPECIFIER'), '$(PROSODY_APP_PROFILE)')
+        for key, value in objects.items():
+            if key != release[0] and value.get('isa') == 'XCBuildConfiguration':
+                self.assertNotIn('PROSODY_APP_PROFILE', json.dumps(value))
+
     def assert_workflow(self, value):
         """Validate actual parsed workflow security and explicit upload selection."""
         self.assertEqual(set(value['on']), {'workflow_dispatch'})

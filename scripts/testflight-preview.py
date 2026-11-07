@@ -301,6 +301,14 @@ def signing_profile(team, keychain):
     return identities[0], matches[0]['UUID']
 
 
+def archive_command(team, identity, profile, keychain, archive):
+    """Keep app provisioning target-scoped; dependencies receive no profile."""
+    return ['xcodebuild', '-workspace', 'Runner.xcworkspace', '-scheme', 'Runner',
+            '-configuration', 'Release', '-destination', 'generic/platform=iOS', '-archivePath', str(archive),
+            'DEVELOPMENT_TEAM=' + team, 'CODE_SIGN_STYLE=Manual', 'CODE_SIGN_IDENTITY=' + identity,
+            'PROSODY_APP_PROFILE=' + profile, 'OTHER_CODE_SIGN_FLAGS=--keychain ' + str(keychain), 'archive']
+
+
 def release(upload):
     """Build current preview on trusted main; upload only with explicit invocation."""
     os.umask(0o077)
@@ -362,10 +370,7 @@ def release(upload):
         tools.call('flutter-release', [str(flutter), 'build', 'ios', '--release', '--no-codesign',
                    '--build-name', name, '--build-number', number], ROOT / 'mobile', 1200)
         archive = folder / 'AgentProsody.xcarchive'
-        tools.call('signed-archive', ['xcodebuild', '-workspace', 'Runner.xcworkspace', '-scheme', 'Runner',
-            '-configuration', 'Release', '-destination', 'generic/platform=iOS', '-archivePath', str(archive),
-            'DEVELOPMENT_TEAM=' + team, 'CODE_SIGN_STYLE=Manual', 'CODE_SIGN_IDENTITY=' + identity,
-            'PROVISIONING_PROFILE_SPECIFIER=' + profile, 'OTHER_CODE_SIGN_FLAGS=--keychain ' + str(keychain), 'archive'], ROOT / 'mobile/ios', 1200)
+        tools.call('signed-archive', archive_command(team, identity, profile, keychain, archive), ROOT / 'mobile/ios', 1200)
         tools.call('archive-metadata', ['/usr/bin/python3', '-I', str(ROOT / 'scripts/check-ios-archive.py'),
                    '--archive', str(archive), '--version', name, '--build', number])
         tools.call('archive-signature', ['codesign', '--verify', '--deep', '--strict', str(archive / 'Products/Applications/Runner.app')])
