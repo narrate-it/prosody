@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Opt one existing approved idle runner into its logged-in GUI security session."""
 import argparse
+from contextlib import contextmanager
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -8,6 +10,7 @@ import os
 from pathlib import Path
 import plistlib
 import socket
+import stat
 import signal
 import sys
 import time
@@ -52,7 +55,7 @@ def no_worker(root):
         raise OWNER.Refused('job worker observed; preserve running work')
 
 
-def reconcile(root, custody, apply=False):
+def reconcile_locked(root, custody, apply=False):
     """Validate exact custody, retain a recovery checkpoint and finitely restart only this agent."""
     expected = Path.home() / 'actions-runner-prosody'
     if (sys.platform != 'darwin' or os.getuid() == 0 or root != expected or root.is_symlink()
@@ -115,7 +118,6 @@ def reconcile(root, custody, apply=False):
         """Record partial effects without claiming rollback or recovery success."""
         atomic_write(custody / 'session-change.json', json.dumps({**result, 'phase': phase}).encode())
 
-    checkpoint('prepared')
     # Re-read immediately before stop. No registration, token, ACL or keychain mutation.
     fresh = OWNER.target_match(OWNER.repository_runners(OWNER.TARGET), local)
     if fresh.get('busy') is not False or fresh.get('status') != 'online':
@@ -144,6 +146,42 @@ def reconcile(root, custody, apply=False):
         time.sleep(2)
     raise OWNER.Refused('restart online state unconfirmed; inspect checkpoint, no automatic retry')
 
+
+
+@contextmanager
+def operation_lock(custody):
+    """Hold one nonblocking host-local lock inode through all transition observations/effects."""
+    if custody != Path.home() / '.local/state/prosody-runner-gui-session':
+        raise OWNER.Refused('exact dedicated custody directory required')
+    if any(p.is_symlink() for p in [Path.home() / '.local', Path.home() / '.local/state', custody]):
+        raise OWNER.Refused('linked custody refused')
+    OWNER.prepare_custody(custody)
+    fd = os.open(custody / 'operation.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+            raise OWNER.Refused('operation lock custody mismatch')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise OWNER.Refused('another session reconciler is active; no retry') from error
+        yield
+    finally:
+        # Never unlink the inode: another process may already be waiting on it.
+        os.close(fd)
+
+
+def reconcile(root, custody, apply=False):
+    """Serialize apply before service/receipt inspection; planning stays read-only."""
+    if not apply:
+        return reconcile_locked(root, custody, False)
+    if (sys.platform != 'darwin' or os.getuid() == 0
+            or root != Path.home() / 'actions-runner-prosody' or root.is_symlink()
+            or not os.environ.get('PROSODY_RUNNER_EXPECTED_HOST')
+            or socket.gethostname() != os.environ['PROSODY_RUNNER_EXPECTED_HOST']):
+        raise OWNER.Refused('approved user-owned MacBook host required')
+    with operation_lock(custody):
+        return reconcile_locked(root, custody, True)
 
 def main():
     """Provide separate read-only plan and explicit apply entry points for protected IaC."""

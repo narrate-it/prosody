@@ -1778,3 +1778,10 @@ Bounded nested Go compile TIMEOUT at240s before package/test results; subsequent
 nested vet/lint and root hook/commit NOT REACHED. Own build lease0d91c796... was
 released after process cleanup. Preserve staged source/private patch; no safe
 commit/draft PR or live effect yet, no automatic compile/signing retry.
+
+PR47 first hosted review completed with coverage100 but concrete retry-state and
+concurrent-apply findings, not merge clearance. Fixed by removing pre-admission
+receipt and adding a nonblocking exclusive control lock held through completion.
+18 current session roots PASS0skip; old-source busy-then-retry control RED1 failed assertion.
+Earlier nested compile/vet/lint0 and root hook/all12Go passed the first committed
+head. New delta final review/hook/hosted review remain pending, no live effects.
