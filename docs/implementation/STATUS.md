@@ -1813,3 +1813,23 @@ manual action, not an IaC retirement performed by this session. No secret value
 was read or changed by the agent. The placement prerequisite is now satisfied;
 independent/hosted review, guarded merge and actual Apple account access remain
 separate gates. No signing, upload or full RFC acceptance is claimed.
+
+## Live ASC preflight and safe diagnostic follow-up
+
+PR38 landed at 494f76a with reviewed full-tree equality and main reachability.
+The first trusted-main self-hosted run42340941986 completed with failure at HTTP
+access, after setup, checkout and local credential/JWT processing succeeded.
+The fixed diagnostic did not expose the HTTP status; no account-validity, signing
+or upload success was established and no blind retry occurred.
+
+This follow-up exposes only an integer HTTP status in100..599, separately from
+fixed connection/invalid-response diagnostics. It never renders remote reason,
+URL, headers or body and adds no retry, endpoint or credential scope. HTTP status
+alone does not establish the root cause or which credential/account setting is
+wrong. Source checks/review and any subsequent admitted live run remain separate.
+
+Validation of the diagnostic delta: sixteen named hermetic roots PASS, zero
+failures/skips. The original-source overlay runs the three new roots and fails
+thirteen subtest assertions. This proves the new distinctions, not Apple access.
+Independent source review clears code/tests; its stale-guide finding was fixed.
+No live request was repeated. Required hook and hosted review remain separate.
