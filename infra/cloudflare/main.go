@@ -43,6 +43,9 @@ func main() {
 // registerDNS admits the exact existing zone before registering protected imports.
 // Resource tokens and property names follow Cloudflare provider v6.23.2's schema.
 func registerDNS(ctx *pulumi.Context, v inventory) error {
+	if err := validateStateCustody(v); err != nil {
+		return err
+	}
 	var zone existingZone
 	if err := ctx.Invoke("cloudflare:index/getZone:getZone", map[string]any{"zoneId": v.ZoneID}, &zone, pulumi.Version(providerVersion)); err != nil {
 		return fmt.Errorf("read existing zone: %w", err)

@@ -13,6 +13,12 @@ import (
 
 const domain = "prosody.chat"
 
+// publicStateInputClass records explicit operator review, not inferred publicity
+// or permission to apply. Canonical imported inputs may remain plaintext.
+const publicStateInputClass = "public-reviewed-v1"
+
+var errStateCustody = errors.New("canonical import inputs may be plaintext: explicit public input review and no annotations required")
+
 var cloudID = regexp.MustCompile(`^[a-f0-9]{32}$`)
 var label = regexp.MustCompile(`^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?$`)
 
@@ -23,16 +29,17 @@ type inventory struct {
 }
 
 type record struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Type     string   `json:"type"`
-	Content  string   `json:"content"`
-	TTL      int      `json:"ttl"`
-	Proxied  bool     `json:"proxied"`
-	Priority *int     `json:"priority,omitempty"`
-	Comment  *string  `json:"comment,omitempty"`
-	Tags     []string `json:"tags"`
-	Settings settings `json:"settings"`
+	StateInputClass string   `json:"stateInputClass"`
+	ID              string   `json:"id"`
+	Name            string   `json:"name"`
+	Type            string   `json:"type"`
+	Content         string   `json:"content"`
+	TTL             int      `json:"ttl"`
+	Proxied         bool     `json:"proxied"`
+	Priority        *int     `json:"priority,omitempty"`
+	Comment         *string  `json:"comment,omitempty"`
+	Tags            []string `json:"tags"`
+	Settings        settings `json:"settings"`
 }
 
 type settings struct {
@@ -76,7 +83,21 @@ func loadInventory(r io.Reader) (inventory, error) {
 		}
 		seen[r.ID] = true
 	}
+	if err := validateStateCustody(v); err != nil {
+		return inventory{}, err
+	}
 	return v, nil
+}
+
+// validateStateCustody rejects potentially confidential canonical import inputs.
+// A config label does not prove encryption, publicity or permission to apply.
+func validateStateCustody(v inventory) error {
+	for _, r := range v.Records {
+		if r.StateInputClass != publicStateInputClass || (r.Comment != nil && *r.Comment != "") || len(r.Tags) != 0 {
+			return errStateCustody
+		}
+	}
+	return nil
 }
 
 // validate scopes record ownership to this domain and preserves exact contents.
@@ -176,7 +197,7 @@ func uniqueJSON(d *json.Decoder, depth int) error {
 // Typed decoding additionally enforces the fields allowed in each object.
 func canonicalField(s string) bool {
 	switch s {
-	case "zoneId", "accountId", "records", "id", "name", "type", "content", "ttl", "proxied", "priority", "comment", "tags", "settings", "flatten_cname", "ipv4_only", "ipv6_only":
+	case "zoneId", "accountId", "records", "stateInputClass", "id", "name", "type", "content", "ttl", "proxied", "priority", "comment", "tags", "settings", "flatten_cname", "ipv4_only", "ipv6_only":
 		return true
 	default:
 		return false
