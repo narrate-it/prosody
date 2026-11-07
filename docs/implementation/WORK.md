@@ -1510,3 +1510,29 @@ holds the source; hosted review of the final revision remains separate. No real
 inventory, provider state or DNS was read/changed in qualification; no credential,
 signing, upload, infrastructure apply or deployment occurred. Sensitive canonical
 input support, historical custody/remediation and full RFC acceptance remain open.
+
+## Read-only archive identity source
+
+Added a standalone checker for a future owner-controlled xcarchive's selected
+bundle/version/build and modern thin ARM64/iOS stamps. It rejects simulator or
+ambiguous app metadata, traversal/symlinked descendants, identity disagreement,
+invalid load-command bounds and observed mutation during the read. It does not
+build, sign, install, inspect Keychain state or contact Apple. Success means only
+metadata identity; signatures, profiles, source provenance, SDK/upload rules,
+unused build numbers, executable validity and release acceptance stay unverified.
+
+Twenty-two hermetic roots PASS, zero failures/skips, using synthetic archives and
+non-runnable header fixtures only. Independent source review found binary-plist
+allocation amplification despite the input byte bound. A pre-decode object/extent,
+reference-budget and acyclic-depth guard now rejects compact alias/overlap/cycle,
+deep and oversized-reference fixtures before plistlib allocation while allowing
+legitimate shared object-index references. The earlier twenty-root smoke result
+predated that correction and is not allocation qualification.
+
+In-memory omission of the platform gate produces two expected failures with a
+passing identity control. Omission of binary-graph admission produces five
+expected adversarial failure records with a passing shared-reference control.
+These are hermetic boundary checks, not native signed-archive or Apple evidence.
+No actual artifact was created/inspected, no credentials were read, and no signing,
+upload, provider, state or deployment effect occurred. Required-hook and final
+independent-review evidence stay separate; full RFC and the reminder remain open.
