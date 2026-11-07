@@ -1785,3 +1785,13 @@ receipt and adding a nonblocking exclusive control lock held through completion.
 18 current session roots PASS0skip; old-source busy-then-retry control RED1 failed assertion.
 Earlier nested compile/vet/lint0 and root hook/all12Go passed the first committed
 head. New delta final review/hook/hosted review remain pending, no live effects.
+
+## Runner stopped-phase recovery
+
+PR47 merged/landed verified. Actual saved-plan apply failed at retained stopped
+phase before changing the original plist; runner offline, no keychain/signing
+change, exact owned lease released. Preserve that receipt and backup, no blind
+apply/signing retry. New isolated source adds finite shutdown waiting and explicit
+resume of only this inspected phase with exact source/registration/backup checks.
+29 hermetic roots PASS0skip; native recovery and independent/required gates remain
+separate pending acceptance. Preserve full-RFC hourly reminder.

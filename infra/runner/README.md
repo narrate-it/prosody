@@ -93,3 +93,40 @@ The lock file is never unlinked on release. This prevents overlapping reconciler
 not external job dispatch. Pre-stop busy/worker/drift refusals leave no transition
 receipt; `stop-started` is the first recorded phase after final admission, before
 any stop call. An actual ambiguous stop still requires explicit reconciliation.
+
+### Inspected stopped-phase recovery
+
+The first native apply stopped the listener and retained phase `stopped` before
+any plist write. Its original definition was unchanged, service unloaded and
+remote runner offline/idle. The initial immediate process check could refuse a
+listener still exiting after bootout. The controller now waits finitely for
+listener/worker exit without another stop or any process kill.
+
+`resumeStoppedGuiSession: true` selects `--resume-stopped` for the protected
+session resource. Use it only after independently inspecting a stopped receipt.
+It requires the exact original/desired digests, matching retained backup, same
+local and remote registration, offline/idle status, unloaded service, empty
+listener/worker set and the same exclusive lock. It completes only that original
+transition; it never repeats bootout. Unknown phases, drift, loaded service or
+missing custody refuse. New recovery progress is durably recorded before writes;
+bootstrap/online failure retains an unresolved phase rather than automatic retry.
+No private-key permission or signing operation is included.
+
+Review a new Pulumi preview for this explicit recovery. After qualified recovery,
+reset the one-shot recovery flag through a separately reviewed preview; normal
+apply can then verify the completed transition without restarting. Neither a
+restored runner nor a tiny signing test proves general GUI credential isolation,
+iOS signing, upload or Apple acceptance.
+
+Recovery also requires `registrationSourceDirectory` to preserve the existing
+registration resource's managed source location. That directory's reconciler
+must be byte-identical to the reviewed reconciler in this checkout. The recovery
+preview MUST show the existing runner-control resource SAME: a directory-triggered
+update could otherwise start the unloaded original service before recovery.
+No recovery is admitted on a preview that updates/replaces that resource.
+
+Service absence is checked in the exact `gui/<uid>/<label>` domain. Only the
+observed launchctl113 exact-domain not-found diagnostic confirms absence;
+permission/transport/unknown errors refuse. Caller-domain `launchctl list` is
+not used as recovery admission. Other macOS response formats require reviewed
+qualification rather than guessing absence.
