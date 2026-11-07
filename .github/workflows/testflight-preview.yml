@@ -1,0 +1,56 @@
+{
+  "name": "TestFlight preview upload",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "upload": {
+          "description": "Upload the current preview after validation",
+          "required": true,
+          "default": false,
+          "type": "boolean"
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "prosody-testflight-release",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "preview": {
+      "if": "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'",
+      "runs-on": [
+        "self-hosted",
+        "macOS",
+        "prosody"
+      ],
+      "environment": "prosody-asc",
+      "timeout-minutes": 60,
+      "steps": [
+        {
+          "name": "Check out trusted main revision",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false,
+            "clean": false
+          }
+        },
+        {
+          "name": "Build current preview and optionally upload",
+          "env": {
+            "ASC_API_KEY": "${{ secrets.ASC_API_KEY }}",
+            "ASC_ISSUER_ID": "${{ secrets.ASC_ISSUER_ID }}",
+            "ASC_KEY_ID": "${{ secrets.ASC_KEY_ID }}",
+            "ASC_TEAM_ID": "${{ secrets.ASC_TEAM_ID }}",
+            "PREVIEW_UPLOAD": "${{ inputs.upload }}"
+          },
+          "run": "if [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n  /usr/bin/python3 -I scripts/testflight-preview.py --upload\nelse\n  /usr/bin/python3 -I scripts/testflight-preview.py\nfi"
+        }
+      ]
+    }
+  }
+}
