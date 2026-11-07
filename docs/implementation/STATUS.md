@@ -2012,3 +2012,36 @@ Flutter build, archive or upload. Normal mode gains the same early prerequisite.
 Failure does not retry signing. Eight probe roots and 29 existing release roots
 PASS0skip with native/Apple boundaries mocked; actual probe and TestFlight remain
 NOT RUN. Independent source/docs review is clear; required/hosted gates remain separate.
+
+## Signed archive retained; export-only resume preparation
+
+PR49 landed5bf81736 with full reviewed-tree equality, hostedcoverage100/no findings.
+Actual protected Actions probe42423069975 passed the selected distribution key
+and artifact verification. Full run42423277966 passed probe, Flutter release,
+signed archive, metadata and signature verification, then its read-only guard
+reported the keychain locked BEFORE export. Receipt1.0.1/build41 says upload NOT
+ATTEMPTED, exact owned lease released. No signing authentication retry selected.
+
+A separate source lane adds explicit export/upload resume of an owned private
+unuploaded cache, with a frozen signed CodeDirectory hash, current trusted-main
+ancestry and identical mobile inputs, fresh Apple number/profile selection and
+new metadata/deep-signature validation. It skips Flutter/archive rebuild and uses
+only the existing one initial unlock in the NEW job; later guards remain read-only.
+No lock/ACL/default/search-list change or extra in-job unlock is introduced.
+Resume cannot reuse UNKNOWN/ACCEPTED receipt or stale build/profile binding.
+11 custody/binding roots and9 probe/control roots PASS0skip;29release roots pass
+after the explicit full-history workflow guard update. Initial29 run failed one
+old shallow-checkout shape assertion and remains historical failure. No live
+resume/export/upload; independent review and required/hosted gates pending.
+
+Independent review found that a resumed upload must journal against the original
+archive, not only its new continuation receipt. The source now holds a retained
+exclusive original-archive lock, rechecks the receipt, durably records UNKNOWN
+plus a stable continuation pointer BEFORE upload transport, and propagates known
+acceptance afterward. A lost response or accepted-not-yet-visible build prevents
+another resume even with stale Apple inventory. Duplicate state fields refuse.
+15 resume roots PASS0skip; removing original-journal persistence yields one
+intended failed assertion while the owned-archive positive control passes. The
+initial added acceptance test expected a shorter display state and failed once;
+it now checks the existing qualified acceptance string rather than changing its
+meaning. Native export/upload remain NOT RUN. Final review/hook/hosted gates pending.

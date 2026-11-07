@@ -86,7 +86,7 @@ class SigningProbe(unittest.TestCase):
 
 
 
-    def release_fixture(self, probe_only):
+    def release_fixture(self, probe_only, resume=False):
         """Exercise the real release-mode branch with synthetic ASC/native/lease boundaries."""
         root = Path(self.tmp.name)
         (root / 'mobile').mkdir()
@@ -95,6 +95,15 @@ class SigningProbe(unittest.TestCase):
         folder.mkdir()
         tools = Mock(folder=folder, cleanup_unconfirmed=False)
         tools.call.side_effect = p.Blocked('SYNTHETIC SDK boundary')
+        if resume:
+            def tool_boundary(phase, argv, **kwargs):
+                """Permit verification metadata only, then stop at the export boundary."""
+                f = folder / (phase + '.log')
+                if phase == 'export-ipa':
+                    raise p.Blocked('SYNTHETIC export boundary')
+                f.write_text('CDHash=' + 'c' * 40 + '\n' if phase == 'resume-archive-signature-identity' else '26.0\n')
+                return f
+            tools.call.side_effect = tool_boundary
         asc = Mock()
         asc.credentials.return_value = ('SYNTHETIC_KID', 'SYNTHETIC_ISSUER', b'SYNTHETIC_KEY')
         asc.APP_REQUEST_PATH = '/SYNTHETIC'
@@ -111,13 +120,19 @@ class SigningProbe(unittest.TestCase):
                     patch.object(p, 'signing_profile', return_value=('SYNTHETIC_IDENTITY', 'SYNTHETIC_PROFILE')),
                     patch.object(p, 'capacity', return_value={'SYNTHETIC': True}),
                     patch.object(p.tempfile, 'mkdtemp', return_value=str(folder)),
-                    patch.object(p.subprocess, 'check_output', side_effect=['a' * 40, '']),
+                    patch.object(p.subprocess, 'check_output', side_effect=['a' * 40, '', '']),
                     patch.object(p.subprocess, 'run', side_effect=[claim, release]),
                     patch.object(p, 'Tools', return_value=tools)]:
                 stack.enter_context(patcher)
             probe = stack.enter_context(patch.object(p, 'signing_probe'))
             persist = stack.enter_context(patch.object(p, 'persist_receipt'))
-            if probe_only:
+            if resume:
+                original = {'revision': 'a' * 40, 'version': '0.1.0', 'build': '1',
+                            'identity': 'SYNTHETIC_IDENTITY', 'profile': 'SYNTHETIC_PROFILE'}
+                stack.enter_context(patch.object(p, 'owned_archive', return_value=(root / 'original.xcarchive', original)))
+                with self.assertRaisesRegex(p.Blocked, 'SYNTHETIC export boundary'):
+                    p.release(False, False, 'prosody-testflight-abcdefgh', 'c' * 40)
+            elif probe_only:
                 p.release(False, True)
             else:
                 with self.assertRaisesRegex(p.Blocked, 'SYNTHETIC SDK boundary'):
@@ -141,6 +156,18 @@ class SigningProbe(unittest.TestCase):
         self.assertEqual(tools.call.call_args.args[0], 'sdk-version')
         self.assertEqual(tools.call.call_count, 1)
         self.assertEqual(persist.call_args.args[1]['uploadState'], 'NOT ATTEMPTED')
+
+
+
+    def test_resume_skips_flutter_and_archive_build(self):
+        """The real resume branch reaches export after revalidation without any rebuild call."""
+        tools, probe, persist = self.release_fixture(False, resume=True)
+        probe.assert_called_once()
+        phases = [call.args[0] for call in tools.call.call_args_list]
+        self.assertEqual(phases, ['sdk-version', 'archive-metadata', 'archive-signature',
+                                  'resume-archive-signature-identity', 'export-ipa'])
+        self.assertEqual(persist.call_args.args[1]['uploadState'], 'NOT ATTEMPTED')
+        self.assertEqual(persist.call_args.args[1]['resumedArchive']['cdhash'], 'c' * 40)
 
 
 if __name__ == '__main__':

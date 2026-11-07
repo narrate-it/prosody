@@ -5,6 +5,7 @@ import base64
 import contextlib
 import ctypes
 import datetime
+import fcntl
 import hashlib
 import importlib.util
 import json
@@ -367,10 +368,126 @@ def signing_probe(tools, keychain, identity):
                '--sign', identity, '--keychain', str(keychain), str(probe)], timeout=30)
     tools.call('signing-probe-verification', ['/usr/bin/codesign', '--verify', '--strict', str(probe)], timeout=30)
 
-def release(upload, signing_probe_only=False):
+
+
+def unique_receipt_fields(pairs):
+    """Reject ambiguous duplicate journal keys rather than choose a later state."""
+    value = {}
+    for key, item in pairs:
+        if key in value:
+            raise Blocked('Duplicate archive receipt field')
+        value[key] = item
+    return value
+
+
+def read_owned_receipt(cache):
+    """Read a bounded private regular receipt through a no-follow directory descriptor."""
+    descriptor = os.open(cache, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        if info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise Blocked('Archive cache custody mismatch')
+        fd = os.open('receipt.json', os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK, dir_fd=descriptor)
+        with os.fdopen(fd, 'rb') as stream:
+            info = os.fstat(stream.fileno())
+            if (not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid()
+                    or info.st_mode & 0o077 or info.st_nlink != 1 or info.st_size > 16384):
+                raise Blocked('Archive receipt custody mismatch')
+            raw = stream.read(16385)
+        if len(raw) > 16384:
+            raise Blocked('Archive receipt exceeds bound')
+        prior = json.loads(raw, object_pairs_hook=unique_receipt_fields)
+    finally:
+        os.close(descriptor)
+    return prior
+
+
+@contextlib.contextmanager
+def archive_upload_lock(cache):
+    """Serialize every upload admission for one original archive using a retained inode."""
+    directory = os.open(cache, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    fd = None
+    try:
+        info = os.fstat(directory)
+        if info.st_uid != os.getuid() or info.st_mode & 0o077:
+            raise Blocked('Archive upload custody mismatch')
+        fd = os.open('archive-upload.lock', os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600, dir_fd=directory)
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1:
+            raise Blocked('Archive upload lock custody mismatch')
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise Blocked('Archive upload attempt already active') from error
+        yield
+    finally:
+        if fd is not None:
+            os.close(fd)
+        os.close(directory)
+
+
+def upload_resumed_once(tools, folder, receipt, ipa, auth, archive, prior):
+    """Journal a stable original-archive attempt before transport; unknown never permits replay."""
+    cache = archive.parent
+    with archive_upload_lock(cache):
+        fresh = read_owned_receipt(cache)
+        if fresh != prior or fresh.get('uploadState') != 'NOT ATTEMPTED' or fresh.get('resumeAttempt') is not None:
+            raise Blocked('Original archive already has an attempt or changed receipt')
+        fresh['resumeAttempt'] = {'cache': folder.name, 'revision': receipt['revision'],
+                                  'ipaSHA256': receipt['ipaSHA256'], 'cdhash': receipt['resumedArchive']['cdhash']}
+        fresh['uploadState'] = 'UNKNOWN'
+        persist_receipt(cache, fresh)
+        upload_once(tools, folder, receipt, ipa, auth)
+        fresh['uploadState'] = receipt['uploadState']
+        persist_receipt(cache, fresh)
+
+def owned_archive(cache_name, expected_cdhash, revision):
+    """Admit only an owned unuploaded archive whose original mobile inputs still match main."""
+    if (not re.fullmatch(r'prosody-testflight-[a-z0-9_]{8}', cache_name)
+            or not re.fullmatch(r'[0-9a-f]{40}', expected_cdhash)):
+        raise Blocked('Invalid archive resume reference')
+    cache = Path.home() / 'Library/Caches' / cache_name
+    prior = read_owned_receipt(cache)
+    if (not isinstance(prior, dict) or prior.get('uploadState') != 'NOT ATTEMPTED'
+            or prior.get('resumeAttempt') is not None
+            or prior.get('signingProbe') != 'PASSED'
+            or not isinstance(prior.get('revision'), str)
+            or not re.fullmatch('[0-9a-f]{40}', prior['revision'])):
+        raise Blocked('Archive receipt is not an unuploaded signed preview')
+    for args in (['git', 'merge-base', '--is-ancestor', prior['revision'], revision],
+                 ['git', 'diff', '--quiet', prior['revision'], revision, '--', 'mobile']):
+        if subprocess.run(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15).returncode:
+            raise Blocked('Archive source is not matching trusted-main mobile input')
+    archive = cache / 'AgentProsody.xcarchive'
+    for directory in (archive, archive / 'Products', archive / 'Products/Applications',
+                      archive / 'Products/Applications/Runner.app'):
+        info = directory.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+            raise Blocked('Archive directory custody mismatch')
+    return archive, prior
+
+
+def resume_binding(prior, version, build, identity, profile):
+    """Refuse a stale/colliding Apple selection or a changed approved signing profile."""
+    if any(prior.get(k) != v for k, v in
+           (('version', version), ('build', build), ('identity', identity), ('profile', profile))):
+        raise Blocked('Archive version, build or signing selection no longer matches')
+
+
+def check_archive_cdhash(tools, archive, expected):
+    """Recheck the operator-frozen signed CodeDirectory hash before any export."""
+    log = tools.call('resume-archive-signature-identity', ['/usr/bin/codesign', '-d', '--verbose=4',
+                     str(archive / 'Products/Applications/Runner.app')], timeout=30)
+    if log.stat().st_size > 65536:
+        raise Blocked('Archive signature metadata exceeds bound')
+    hashes = re.findall(r'^CDHash=([0-9a-f]{40})$', log.read_text(), re.M)
+    if hashes != [expected]:
+        raise Blocked('Archive signature identity does not match frozen reference')
+
+def release(upload, signing_probe_only=False, resume_archive='', archive_cdhash=''):
     """Build current preview on trusted main; upload only with explicit invocation."""
-    if upload and signing_probe_only:
-        raise Blocked('Signing probe cannot request an upload')
+    if (upload and signing_probe_only) or (signing_probe_only and resume_archive) or bool(resume_archive) != bool(archive_cdhash):
+        raise Blocked('Incompatible or incomplete release mode')
     os.umask(0o077)
     if (os.environ.get('GITHUB_REPOSITORY') != 'narrate-it/prosody'
             or os.environ.get('GITHUB_REF') != 'refs/heads/main' or os.environ.get('RUNNER_OS') != 'macOS'):
@@ -383,6 +500,7 @@ def release(upload, signing_probe_only=False):
         raise Blocked('Checkout revision mismatch')
     if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], text=True):
         raise Blocked('Tracked source is modified')
+    resumed = owned_archive(resume_archive, archive_cdhash, revision) if resume_archive else None
     keychain = Path.home() / 'Library/Keychains/prosody-ci.keychain-db'
     password = private.pop('PROSODY_KEYCHAIN_PASSWORD')
     require_unlocked_keychain(keychain, password)
@@ -409,6 +527,8 @@ def release(upload, signing_probe_only=False):
         [x['attributes']['version'] for x in builds.get('included', []) if x['type'] == 'preReleaseVersions'],
         [x['attributes']['version'] for x in builds['data']])
     identity, profile = signing_profile(team, keychain)
+    if resumed:
+        resume_binding(resumed[1], name, number, identity, profile)
     admitted = capacity()
     folder = Path(tempfile.mkdtemp(prefix='prosody-testflight-', dir=Path.home() / 'Library/Caches'))
     parent = os.open(folder.parent, os.O_RDONLY | os.O_DIRECTORY)
@@ -437,16 +557,22 @@ def release(upload, signing_probe_only=False):
         sdk = tools.call('sdk-version', ['xcodebuild', '-sdk', 'iphoneos', '-version', 'SDKVersion'])
         if sdk.stat().st_size > 4096 or not re.fullmatch(r'26(?:\.[0-9]+)*\s*', sdk.read_text()):
             raise Blocked('Expected installed iOS26 SDK')
-        flutter = Path.home() / 'develop/flutter/bin/flutter'
-        tools.call('locked-dependencies', [str(flutter), 'pub', 'get', '--enforce-lockfile'], ROOT / 'mobile', 180)
-        tools.call('flutter-release', [str(flutter), 'build', 'ios', '--release', '--no-codesign',
-                   '--build-name', name, '--build-number', number], ROOT / 'mobile', 1200)
-        archive = folder / 'AgentProsody.xcarchive'
-        require_unlocked_keychain(keychain)
-        tools.call('signed-archive', archive_command(team, identity, profile, keychain, archive), ROOT / 'mobile/ios', 1200)
+        if resumed:
+            archive = resumed[0]
+            receipt['resumedArchive'] = {'cache': resume_archive, 'sourceRevision': resumed[1]['revision'], 'cdhash': archive_cdhash}
+        else:
+            flutter = Path.home() / 'develop/flutter/bin/flutter'
+            tools.call('locked-dependencies', [str(flutter), 'pub', 'get', '--enforce-lockfile'], ROOT / 'mobile', 180)
+            tools.call('flutter-release', [str(flutter), 'build', 'ios', '--release', '--no-codesign',
+                       '--build-name', name, '--build-number', number], ROOT / 'mobile', 1200)
+            archive = folder / 'AgentProsody.xcarchive'
+            require_unlocked_keychain(keychain)
+            tools.call('signed-archive', archive_command(team, identity, profile, keychain, archive), ROOT / 'mobile/ios', 1200)
         tools.call('archive-metadata', ['/usr/bin/python3', '-I', str(ROOT / 'scripts/check-ios-archive.py'),
                    '--archive', str(archive), '--version', name, '--build', number])
         tools.call('archive-signature', ['codesign', '--verify', '--deep', '--strict', str(archive / 'Products/Applications/Runner.app')])
+        if resumed:
+            check_archive_cdhash(tools, archive, archive_cdhash)
         if subprocess.check_output(['git', 'diff', '--name-only'], text=True):
             raise Blocked('Build changed tracked source; inspect before upload')
         options = folder / 'ExportOptions.plist'
@@ -469,7 +595,10 @@ def release(upload, signing_probe_only=False):
                 tools.env['API_PRIVATE_KEYS_DIR'] = secrets
                 auth = ['--api-key', kid, '--api-issuer', issuer]
                 tools.call('apple-validation', ['xcrun', 'altool', '--validate-app', '-f', str(ipas[0]), '-t', 'ios', *auth], timeout=300)
-                upload_once(tools, folder, receipt, ipas[0], auth)
+                if resumed:
+                    upload_resumed_once(tools, folder, receipt, ipas[0], auth, archive, resumed[1])
+                else:
+                    upload_once(tools, folder, receipt, ipas[0], auth)
         print('PASS: Preview archive/export' + (' and upload accepted; processing remains unverified.' if upload else ' complete; no upload requested.'), flush=True)
     finally:
         try:
@@ -491,13 +620,15 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument('--upload', action='store_true')
     mode.add_argument('--signing-probe-only', action='store_true')
+    parser.add_argument('--resume-archive', default='')
+    parser.add_argument('--archive-cdhash', default='')
     args = parser.parse_args()
     def stop(signum, frame):
         """Unwind owned child groups, credential files and lease on termination."""
         raise Blocked('Release interrupted; inspect retained receipt before retry')
     signal.signal(signal.SIGTERM, stop)
     try:
-        release(args.upload, args.signing_probe_only)
+        release(args.upload, args.signing_probe_only, args.resume_archive, args.archive_cdhash)
     except Blocked as error:
         print('BLOCKED: ' + str(error), flush=True)
         return 1
