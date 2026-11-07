@@ -353,8 +353,24 @@ def archive_command(team, identity, profile, keychain, archive):
             'PROSODY_APP_PROFILE=' + profile, 'OTHER_CODE_SIGN_FLAGS=--keychain ' + str(keychain), 'archive']
 
 
-def release(upload):
+
+def signing_probe(tools, keychain, identity):
+    """Sign and verify one private disposable OS-binary copy, without a build or upload."""
+    require_unlocked_keychain(keychain)
+    with open('/bin/echo', 'rb') as stream:
+        raw = stream.read(4 * 1024 * 1024 + 1)
+    if not raw or len(raw) > 4 * 1024 * 1024:
+        raise Blocked('Signing probe template exceeds bounds')
+    probe = tools.folder / 'signing-probe'
+    probe.write_bytes(raw)
+    tools.call('signing-probe', ['/usr/bin/codesign', '--force', '--timestamp=none',
+               '--sign', identity, '--keychain', str(keychain), str(probe)], timeout=30)
+    tools.call('signing-probe-verification', ['/usr/bin/codesign', '--verify', '--strict', str(probe)], timeout=30)
+
+def release(upload, signing_probe_only=False):
     """Build current preview on trusted main; upload only with explicit invocation."""
+    if upload and signing_probe_only:
+        raise Blocked('Signing probe cannot request an upload')
     os.umask(0o077)
     if (os.environ.get('GITHUB_REPOSITORY') != 'narrate-it/prosody'
             or os.environ.get('GITHUB_REF') != 'refs/heads/main' or os.environ.get('RUNNER_OS') != 'macOS'):
@@ -412,6 +428,12 @@ def release(upload):
     tools = None
     try:
         tools = Tools(folder)
+        receipt['signingProbe'] = 'NOT COMPLETED'
+        signing_probe(tools, keychain, identity)
+        receipt['signingProbe'] = 'PASSED'
+        if signing_probe_only:
+            print('Signing probe passed; no Flutter build, archive or upload attempted.', flush=True)
+            return
         sdk = tools.call('sdk-version', ['xcodebuild', '-sdk', 'iphoneos', '-version', 'SDKVersion'])
         if sdk.stat().st_size > 4096 or not re.fullmatch(r'26(?:\.[0-9]+)*\s*', sdk.read_text()):
             raise Blocked('Expected installed iOS26 SDK')
@@ -466,14 +488,16 @@ def release(upload):
 def main():
     """Run one explicit phase; never echo raw failures, secrets or private paths."""
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--upload', action='store_true')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--upload', action='store_true')
+    mode.add_argument('--signing-probe-only', action='store_true')
     args = parser.parse_args()
     def stop(signum, frame):
         """Unwind owned child groups, credential files and lease on termination."""
         raise Blocked('Release interrupted; inspect retained receipt before retry')
     signal.signal(signal.SIGTERM, stop)
     try:
-        release(args.upload)
+        release(args.upload, args.signing_probe_only)
     except Blocked as error:
         print('BLOCKED: ' + str(error), flush=True)
         return 1

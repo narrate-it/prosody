@@ -1993,3 +1993,22 @@ inspected stopped-phase recovery bound to original/desired digests, exact backup
 registration and unloaded/idle state. It does not repeat bootout or infer success
 from a callback. Twenty-nine hermetic roots pass0skip; actual recovery, signing,
 TestFlight and full RFC remain unqualified. Review and required gates pending.
+
+## Runner recovered; actual Actions signing probe preparation
+
+PR48 landed7e4db693 with exact reviewed-tree equality/reachability, hosted100%
+coverage and no findings. Its independently reviewed saved-plan recovery kept
+the old controller SAME, completed the inspected stopped transition without a
+second bootout, and returned the existing runner online/idle with SessionCreate
+false. Final receipt says online; signing-unqualified. Keychain permissions,
+default/search list and lock settings were not changed; build lease released.
+
+A context-only metadata smoke query could not confirm key access; it is not a
+real Actions signing result. The existing protected manual trusted-main workflow
+now proposes a mutually exclusive signing-probe-only mode. It signs/verifies a
+bounded private disposable OS-binary copy under the selected keychain/identity
+and existing capacity/lease/one-initial-unlock policy, then returns before any SDK,
+Flutter build, archive or upload. Normal mode gains the same early prerequisite.
+Failure does not retry signing. Eight probe roots and 29 existing release roots
+PASS0skip with native/Apple boundaries mocked; actual probe and TestFlight remain
+NOT RUN. Independent source/docs review is clear; required/hosted gates remain separate.
