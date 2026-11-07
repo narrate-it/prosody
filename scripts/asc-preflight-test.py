@@ -152,7 +152,7 @@ class Tests(unittest.TestCase):
     def test_malformed_links_have_safe_refusal(self):
         """Null/string links use a fixed refusal without remote data or credentials."""
         app = {'type': 'apps', 'id': '123', 'attributes': {'bundleId': asc.BUNDLE}}
-        for links in (None, 'SECRET_REMOTE_BODY'):
+        for links in (None, 'SECRET_REMOTE_BODY', [], False, 1):
             opener = unittest.mock.Mock()
             opener.open.return_value = Response(json.dumps({'data': [app], 'links': links}).encode())
             with self.subTest(links_type=type(links).__name__), \
@@ -161,7 +161,7 @@ class Tests(unittest.TestCase):
                  patch.object(asc, 'token', return_value='SECRET_TOKEN'), \
                  contextlib.redirect_stdout(io.StringIO()) as output:
                 self.assertEqual(asc.main(), 1)
-            self.assertTrue(output.getvalue().startswith('BLOCKED: '))
+            self.assertEqual(output.getvalue(), 'BLOCKED: ASC response invalid; diagnostics suppressed\n')
             self.assertNotIn('SECRET', output.getvalue())
 
     def test_remote_error_not_rendered(self):
