@@ -144,10 +144,16 @@ def read_app(bearer):
         if app['type'] != 'apps' or not re.fullmatch(r'[0-9]+', app['id']) or app['attributes']['bundleId'] != BUNDLE:
             raise Refused('Existing app identity mismatch')
     except urllib.error.HTTPError as error:
+        code = error.code
         error.close()
-        raise Refused('ASC HTTP access denied or unavailable') from None
-    except (urllib.error.URLError, TimeoutError, OSError, ValueError, KeyError, TypeError):
-        raise Refused('ASC response unavailable or invalid') from None
+        if type(code) is int and 100 <= code <= 599:
+            # Only bounded protocol status is public; never reason, URL, headers or body.
+            raise Refused('ASC HTTP status ' + str(code) + '; inspect account access before retry') from None
+        raise Refused('ASC HTTP status unavailable; inspect before retry') from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise Refused('ASC connection failed; diagnostics suppressed') from None
+    except (ValueError, KeyError, TypeError):
+        raise Refused('ASC response invalid; diagnostics suppressed') from None
 
 
 def run():

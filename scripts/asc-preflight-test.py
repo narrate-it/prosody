@@ -176,6 +176,46 @@ class Tests(unittest.TestCase):
         self.assertNotIn('SECRET', output.getvalue())
         self.assertNotIn('PRIVATE', output.getvalue())
 
+    def test_http_status_is_bounded_and_body_is_not_read(self):
+        """Expose only integer protocol status, close the body and never retry."""
+        for code in (401, 403, 404, 429, 500, 503):
+            with self.subTest(code=code):
+                body = unittest.mock.Mock()
+                error = urllib.error.HTTPError('https://SECRET.invalid/', code,
+                                               'SECRET_REASON', {'X-Secret': 'PRIVATE'}, body)
+                opener = unittest.mock.Mock()
+                opener.open.side_effect = error
+                with patch.object(asc.urllib.request, 'build_opener', return_value=opener), \
+                     self.assertRaisesRegex(asc.Refused, '^ASC HTTP status ' + str(code) + ';'):
+                    asc.read_app('SECRET_TOKEN')
+                body.read.assert_not_called()
+                body.close.assert_called_once()
+                opener.open.assert_called_once()
+
+    def test_malformed_http_status_never_renders_remote_value(self):
+        """Refuse noninteger and out-of-range status without formatting remote data."""
+        for code in ('SECRET_STATUS', True, 0, 600):
+            with self.subTest(code_type=type(code).__name__):
+                error = urllib.error.HTTPError('https://SECRET.invalid/', code,
+                                               'SECRET_REASON', {}, io.BytesIO(b'PRIVATE'))
+                opener = unittest.mock.Mock()
+                opener.open.side_effect = error
+                with patch.object(asc.urllib.request, 'build_opener', return_value=opener), \
+                     self.assertRaisesRegex(asc.Refused, '^ASC HTTP status unavailable; inspect before retry$'):
+                    asc.read_app('SECRET_TOKEN')
+                opener.open.assert_called_once()
+
+    def test_connection_failure_is_distinct_and_redacted(self):
+        """Separate network failures from HTTP responses without leaking reasons."""
+        for error in (urllib.error.URLError('SECRET_REASON'), TimeoutError('PRIVATE'), OSError('PRIVATE')):
+            opener = unittest.mock.Mock()
+            opener.open.side_effect = error
+            with self.subTest(error_type=type(error).__name__), \
+                 patch.object(asc.urllib.request, 'build_opener', return_value=opener), \
+                 self.assertRaisesRegex(asc.Refused, '^ASC connection failed; diagnostics suppressed$'):
+                asc.read_app('SECRET_TOKEN')
+            opener.open.assert_called_once()
+
     def assert_workflow(self, document):
         """Check actual job/step boundaries, never text that could be a comment."""
         self.assertEqual(document['on'], {'workflow_dispatch': None})

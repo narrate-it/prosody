@@ -48,5 +48,14 @@ main-only environment policy is already applied. The owner subsequently deleted 
 confirms zero repository and accessible organization secrets, all four protected
 environment names, and one exact main branch policy. This owner action clears
 the placement prerequisite; it was not a retirement performed by our IaC helper.
-Independent/hosted source review, merge and the live account check remain pending.
-No secret value was read, signing performed or Apple request sent.
+PR38 subsequently passed independent/hosted review and merged at494f76a. The
+first trusted-main live account check (run42340941986) failed at HTTP access;
+the original diagnostic exposed no status. Account access is not accepted. No
+secret value was read by the agent and no distribution signing or upload occurred.
+
+## Safe HTTP diagnostics
+
+A failed HTTP response reports only its bounded integer status. Connection
+failures and invalid responses use separate fixed messages; no remote reason,
+URL, headers or response body is disclosed. A status is diagnostic evidence, not
+a credential-validity verdict or permission to retry. No automatic retry occurs.
