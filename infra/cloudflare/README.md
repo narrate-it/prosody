@@ -136,5 +136,11 @@ race build hit its 300-second watchdog before any test event; it is NOT a race
 pass. Fresh race, vet/lint, root-hook and independent-review evidence remain
 separately recorded. No live provider or persisted-state check ran for this guard.
 
+The one bounded race follow-up completed: 31 named records across 10 roots PASS,
+zero failures/skips, with no cached test verdict. This overlaps the ordinary suite;
+do not add the totals. Vet/lint pass with zero issues, and the required root hook
+passes all 12 Go packages without a DB fixture. The initial compile timeout remains
+historical failed evidence, not a race pass or a reason to relax admission.
+
 Build this module from the full repository checkout: it reuses the repository
 Unicode validator through the local parent-module replacement in go.mod.

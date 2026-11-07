@@ -1670,3 +1670,20 @@ no race pass is claimed. Independent source review is clear with the documented
 remote-drift limitation. Race, vet/lint and required-hook results stay separately
 scoped. No real inventory was classified or edited; no DNS/provider/state update,
 secret read, signing, upload or deployment occurred. Full RFC/reminder remain open.
+
+## Cloudflare custody guard race follow-up
+
+After fresh capacity admission and a new exact owned lease, one bounded race
+follow-up completed on unchanged source: 31 named records across ten roots PASS,
+zero failures/skips, with no cached test verdict. These overlap the ordinary
+31-record suite and are not additive. The first five-minute compilation watchdog
+still executed zero cases and remains a retained failure. Its owned process group
+was confirmed empty before the final follow-up receipt.
+
+Nested-module vet/lint pass with zero issues. The preserved root hook passed lint
+zero/all twelve Go packages without a DB fixture. Independent source review clears
+the supplied-inventory guard with its explicit remote-drift limitation. Draft PR39
+holds the source; hosted review of the final revision remains separate. No real
+inventory, provider state or DNS was read/changed in qualification; no credential,
+signing, upload, infrastructure apply or deployment occurred. Sensitive canonical
+input support, historical custody/remediation and full RFC acceptance remain open.
