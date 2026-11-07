@@ -1672,3 +1672,22 @@ Seventeen named hermetic roots PASS, zero failures/skips. The two scope-specific
 roots fail against the original source (two failures), including the actual
 synthetic OpenSSL JWT payload and captured request comparison. This is local
 request-construction evidence; no new Apple request has occurred.
+
+## Current-preview TestFlight upload lane
+
+The owner explicitly authorizes uploading current built functionality without
+waiting for full RFC/backend completion. PR42 landed901aeb1 and actual trusted-main
+run42350764030 PASS: the configured key can read the existing app with exact scope.
+New distribution identity and matching profile were supplied by the owner; actual
+archive signing remains untested. The new manual main-only self-hosted workflow
+prepares bounded private archive/export evidence and optional explicit upload.
+No hosted Mac fallback, keychain defaults/search-list/ACL change or automatic
+retry is introduced. Full backend/auth/device acceptance remains separate.
+
+Current-preview release controls: twenty named hermetic roots PASS0fail0skip;
+initial14-root run had two macOS observation errors, corrected before final20.
+Independent final source review is clear. The workflow retains crash-safe UNKNOWN
+receipts before upload, bounded private logs/child cleanup and exact lease
+release (or explicit retention if cleanup is uncertain). No real archive, signing
+or upload has executed in this lane yet; hosted/native gates remain separate.
+See [preview delivery](TESTFLIGHT-PREVIEW.md) for operator/recovery scope.
