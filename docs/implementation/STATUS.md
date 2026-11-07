@@ -1977,3 +1977,19 @@ only after final checks and serializes apply with a retained exclusive local loc
 retry regression with exactly one failed assertion. Prior 22 legacy roots are separate unchanged-code
 evidence. Followup final review and new-head hook/hosted review remain required.
 No live runner change or signing retry performed.
+
+## Runner partial-apply recovery source
+
+PR47 landed at d154637 with full reviewed-tree equality/reachability. Latest
+hosted review passed coverage100 with resolved inline findings. An independently
+reviewed Pulumi preview had one existing-control update and one session-control
+create, no deletes/replacements. The saved-plan apply FAILED after stopping the
+runner, before any service definition write: retained phase stopped, unchanged
+original SessionCreate=true, unloaded service and remote offline/idle. No keychain
+mutation, signing or upload occurred; owned build lease was released.
+
+A separate source lane adds finite graceful-shutdown observation and opt-in
+inspected stopped-phase recovery bound to original/desired digests, exact backup,
+registration and unloaded/idle state. It does not repeat bootout or infer success
+from a callback. Twenty-nine hermetic roots pass0skip; actual recovery, signing,
+TestFlight and full RFC remain unqualified. Review and required gates pending.

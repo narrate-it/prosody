@@ -11,6 +11,7 @@ from pathlib import Path
 import plistlib
 import socket
 import stat
+import subprocess
 import signal
 import sys
 import time
@@ -128,7 +129,7 @@ def reconcile_locked(root, custody, apply=False):
     checkpoint('stop-started')
     OWNER.command(['launchctl', 'bootout', domain + '/' + label])
     checkpoint('stopped')
-    OWNER.no_local_runner()
+    wait_stopped()
     if OWNER.service(root) != current or path.read_bytes() != raw:
         raise OWNER.Refused('stopped service drifted; retain checkpoint')
     atomic_write(path, desired)
@@ -146,6 +147,103 @@ def reconcile_locked(root, custody, apply=False):
         time.sleep(2)
     raise OWNER.Refused('restart online state unconfirmed; inspect checkpoint, no automatic retry')
 
+
+
+def wait_stopped():
+    """Wait finitely for graceful listener shutdown without killing or restarting any process."""
+    for attempt in range(8):
+        rows = OWNER.command(['ps', '-axo', 'comm=']).splitlines()
+        if not any(Path(row.strip()).name in {'Runner.Listener', 'Runner.Worker'} for row in rows):
+            return
+        if attempt < 7:
+            time.sleep(1)
+    raise OWNER.Refused('runner shutdown unconfirmed; retain stopped checkpoint')
+
+
+
+def gui_service_absent(domain, label):
+    """Accept only the exact GUI-domain confirmed-not-found result, never a lookup error."""
+    try:
+        result = subprocess.run(['/bin/launchctl', 'print', domain + '/' + label],
+                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                text=True, timeout=10)
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise OWNER.Refused('GUI service lookup unavailable') from error
+    if result.returncode == 0:
+        return False
+    expected = ('Bad request.\nCould not find service "' + label
+                + '" in domain for user gui: ' + domain.split('/')[1] + '\n')
+    if result.returncode == 113 and result.stderr == expected:
+        return True
+    raise OWNER.Refused('GUI service absence not confirmed')
+
+def resume_stopped(root, custody):
+    """Continue only an inspected stopped transition with unchanged original service and backup."""
+    local = OWNER.binding(root)
+    if local.get('gitHubUrl') != OWNER.TARGET_URL or local.get('workFolder') != OWNER.WORK:
+        raise OWNER.Refused('existing target registration required')
+    row = OWNER.target_match(OWNER.repository_runners(OWNER.TARGET), local)
+    if row.get('status') != 'offline' or row.get('busy') is not False:
+        raise OWNER.Refused('recovery requires exact offline idle runner')
+    current = OWNER.service(root)
+    if current is None:
+        raise OWNER.Refused('original service definition missing')
+    path, label = current
+    record = custody / 'session-change.json'
+    if record.is_symlink() or not record.is_file() or record.stat().st_uid != os.getuid():
+        raise OWNER.Refused('owned recovery checkpoint required')
+    try:
+        prior = json.loads(record.read_text())
+    except (ValueError, OSError) as error:
+        raise OWNER.Refused('recovery checkpoint unreadable') from error
+    raw = path.read_bytes()
+    desired = desired_bytes(raw)
+    original_digest = hashlib.sha256(raw).hexdigest()
+    desired_digest = hashlib.sha256(desired).hexdigest()
+    if (not isinstance(prior, dict) or prior.get('phase') != 'stopped'
+            or prior.get('name') != OWNER.NAME or prior.get('runnerID') != local['agentId']
+            or prior.get('action') != 'use-gui-session' or desired == raw
+            or prior.get('originalSHA256') != original_digest
+            or prior.get('desiredSHA256') != desired_digest):
+        raise OWNER.Refused('recovery state is not the exact stopped original transition')
+    backup = custody / ('launchagent-' + original_digest + '.plist')
+    if (backup.is_symlink() or not backup.is_file() or backup.stat().st_uid != os.getuid()
+            or backup.read_bytes() != raw):
+        raise OWNER.Refused('original recovery backup mismatch')
+    domain = 'gui/' + str(os.getuid())
+    OWNER.command(['launchctl', 'print', domain])
+    if not gui_service_absent(domain, label):
+        raise OWNER.Refused('service already loaded; recovery refuses another restart')
+    wait_stopped()
+    fresh_local = OWNER.binding(root)
+    if fresh_local != local:
+        raise OWNER.Refused('local registration changed during recovery admission')
+    fresh = OWNER.target_match(OWNER.repository_runners(OWNER.TARGET), fresh_local)
+    if fresh.get('id') != local['agentId'] or fresh.get('status') != 'offline' or fresh.get('busy') is not False:
+        raise OWNER.Refused('runner changed during recovery admission')
+    if OWNER.service(root) != current or path.read_bytes() != raw or not gui_service_absent(domain, label):
+        raise OWNER.Refused('service changed during recovery admission')
+
+    def checkpoint(phase):
+        """Persist recovery progress without discarding original transition bindings."""
+        atomic_write(record, json.dumps({**prior, 'phase': phase}).encode())
+
+    checkpoint('resume-definition-started')
+    atomic_write(path, desired)
+    checkpoint('definition-written')
+    OWNER.command(['launchctl', 'bootstrap', domain, str(path)])
+    checkpoint('started')
+    for _ in range(8):
+        row = OWNER.target_match(OWNER.repository_runners(OWNER.TARGET), local)
+        if row.get('status') == 'online':
+            OWNER.command(['launchctl', 'print', domain + '/' + label])
+            if path.read_bytes() != desired:
+                raise OWNER.Refused('recovered service definition drifted')
+            checkpoint('online; signing-unqualified')
+            return {'action': 'resume-inspected-stopped-transition', 'effect': 'runner-restarted',
+                    'name': OWNER.NAME, 'runnerID': local['agentId'], 'status': 'online', 'signing': 'NOT TESTED'}
+        time.sleep(2)
+    raise OWNER.Refused('recovery online state unconfirmed; no automatic retry')
 
 
 @contextmanager
@@ -171,9 +269,9 @@ def operation_lock(custody):
         os.close(fd)
 
 
-def reconcile(root, custody, apply=False):
+def reconcile(root, custody, apply=False, resume=False):
     """Serialize apply before service/receipt inspection; planning stays read-only."""
-    if not apply:
+    if not apply and not resume:
         return reconcile_locked(root, custody, False)
     if (sys.platform != 'darwin' or os.getuid() == 0
             or root != Path.home() / 'actions-runner-prosody' or root.is_symlink()
@@ -181,6 +279,8 @@ def reconcile(root, custody, apply=False):
             or socket.gethostname() != os.environ['PROSODY_RUNNER_EXPECTED_HOST']):
         raise OWNER.Refused('approved user-owned MacBook host required')
     with operation_lock(custody):
+        if resume:
+            return resume_stopped(root, custody)
         return reconcile_locked(root, custody, True)
 
 def main():
@@ -189,13 +289,14 @@ def main():
     flags = parser.add_mutually_exclusive_group(required=True)
     flags.add_argument('--plan', action='store_true')
     flags.add_argument('--apply', action='store_true')
+    flags.add_argument('--resume-stopped', action='store_true')
     flags.add_argument('--refuse-destroy', action='store_true')
     args = parser.parse_args()
     try:
         if args.refuse_destroy:
             raise OWNER.Refused('automatic service restoration/destroy refused')
         result = reconcile(Path(os.environ['PROSODY_RUNNER_DIR']),
-                           Path(os.environ['PROSODY_RUNNER_GUI_CUSTODY']), args.apply)
+                           Path(os.environ['PROSODY_RUNNER_GUI_CUSTODY']), args.apply, args.resume_stopped)
         print(json.dumps(result))
     except (OWNER.Refused, OSError, KeyError, KeyboardInterrupt):
         print('GUI session operation refused/incomplete; inspect retained checkpoint before retry', file=sys.stderr)
