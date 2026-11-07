@@ -138,7 +138,10 @@ def read_app(bearer):
                 raise Refused('ASC response exceeded bound')
         value = json.loads(body)
         rows = value['data']
-        if value.get('links', {}).get('next') or not isinstance(rows, list) or len(rows) != 1:
+        links = value.get('links', {})
+        if not isinstance(links, dict):
+            raise ValueError()
+        if links.get('next') or not isinstance(rows, list) or len(rows) != 1:
             raise Refused('Expected exactly one existing app')
         app = rows[0]
         if app['type'] != 'apps' or not re.fullmatch(r'[0-9]+', app['id']) or app['attributes']['bundleId'] != BUNDLE:
