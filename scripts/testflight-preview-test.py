@@ -182,6 +182,7 @@ class Tests(unittest.TestCase):
             with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'narrate-it/prosody',
                  'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': sha, 'RUNNER_OS': 'macOS', 'ASC_TEAM_ID': 'KLMNOPQRST'}, clear=True), \
                  patch.object(p.subprocess, 'check_output', side_effect=[sha + '\n', '']), \
+                 patch.object(p, 'require_unlocked_keychain'), \
                  patch.object(p, 'load_asc', return_value=asc), patch.object(p, 'api', side_effect=values), \
                  patch.object(p, 'signing_profile', return_value=('C' * 40, 'profile')), \
                  patch.object(p, 'capacity', return_value={}), patch.object(p.Path, 'home', return_value=home), \
@@ -353,6 +354,63 @@ class Tests(unittest.TestCase):
         for key, value in objects.items():
             if key != release[0] and value.get('isa') == 'XCBuildConfiguration':
                 self.assertNotIn('PROSODY_APP_PROFILE', json.dumps(value))
+
+    def test_keychain_status_reads_without_authentication(self):
+        """Only unlocked status admits; native object ownership is released."""
+        import ctypes
+        for bits in [1, 7, 0, 2]:
+            security, core = Mock(), Mock()
+            def opened(path, output):
+                """Set a synthetic retained keychain reference."""
+                ctypes.cast(output, ctypes.POINTER(ctypes.c_void_p))[0] = 123
+                return 0
+            def status(reference, output):
+                """Supply only the fixture lock-status bitmask."""
+                ctypes.cast(output, ctypes.POINTER(ctypes.c_uint32))[0] = bits
+                return 0
+            security.SecKeychainOpen.side_effect = opened
+            security.SecKeychainGetStatus.side_effect = status
+            with self.subTest(bits=bits), patch.object(p.ctypes, 'CDLL', side_effect=[security, core]):
+                if bits & 1:
+                    p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'))
+                else:
+                    with self.assertRaisesRegex(p.Blocked, 'locked'):
+                        p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'))
+            core.CFRelease.assert_called_once()
+            security.SecKeychainUnlock.assert_not_called()
+
+    def test_keychain_unknown_status_fails_closed(self):
+        """Native metadata errors do not become authorization or expose diagnostics."""
+        import ctypes
+        for phase in ['open', 'status']:
+            security, core = Mock(), Mock()
+            def opened(path, output):
+                """Return a valid reference only for the status-error case."""
+                if phase == 'open':
+                    return -1
+                ctypes.cast(output, ctypes.POINTER(ctypes.c_void_p))[0] = 123
+                return 0
+            security.SecKeychainOpen.side_effect = opened
+            security.SecKeychainGetStatus.return_value = -1
+            with self.subTest(phase=phase), patch.object(p.ctypes, 'CDLL', side_effect=[security, core]), \
+                 self.assertRaises(p.Blocked):
+                p.require_unlocked_keychain(Path('/tmp/synthetic-keychain'))
+            self.assertEqual(core.CFRelease.call_count, 0 if phase == 'open' else 1)
+            security.SecKeychainUnlock.assert_not_called()
+
+    def test_locked_keychain_stops_before_credentials_or_build(self):
+        """A locked keychain cannot spend a build phase or load the ASC key."""
+        sha = 'a' * 40
+        with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'narrate-it/prosody',
+             'GITHUB_REF': 'refs/heads/main', 'GITHUB_SHA': sha, 'RUNNER_OS': 'macOS'}, clear=True), \
+             patch.object(p.subprocess, 'check_output', side_effect=[sha + '\n', '']), \
+             patch.object(p, 'require_unlocked_keychain', side_effect=p.Blocked('locked')), \
+             patch.object(p, 'load_asc', side_effect=AssertionError('credentials reached before lock admission')) as credentials, patch.object(p, 'capacity') as capacity, \
+             patch.object(p.subprocess, 'run') as effects, self.assertRaisesRegex(p.Blocked, 'locked'):
+            p.release(True)
+        credentials.assert_not_called()
+        capacity.assert_not_called()
+        effects.assert_not_called()
 
     def assert_workflow(self, value):
         """Validate actual parsed workflow security and explicit upload selection."""

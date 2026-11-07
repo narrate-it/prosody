@@ -3,6 +3,7 @@
 import argparse
 import base64
 import contextlib
+import ctypes
 import datetime
 import hashlib
 import importlib.util
@@ -277,6 +278,34 @@ def upload_once(tools, folder, receipt, ipa, auth):
     persist_receipt(folder, receipt)
 
 
+def require_unlocked_keychain(path):
+    """Read lock metadata only; never unlock, authenticate or alter key access."""
+    try:
+        security = ctypes.CDLL('/System/Library/Frameworks/Security.framework/Security')
+        core = ctypes.CDLL('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
+        security.SecKeychainOpen.argtypes = [ctypes.c_char_p, ctypes.POINTER(ctypes.c_void_p)]
+        security.SecKeychainOpen.restype = ctypes.c_int32
+        security.SecKeychainGetStatus.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_uint32)]
+        security.SecKeychainGetStatus.restype = ctypes.c_int32
+        core.CFRelease.argtypes = [ctypes.c_void_p]
+        core.CFRelease.restype = None
+        reference = ctypes.c_void_p()
+        if security.SecKeychainOpen(os.fsencode(path), ctypes.byref(reference)) != 0 or not reference.value:
+            raise Blocked('Signing keychain metadata unavailable; no signing attempted')
+        try:
+            status = ctypes.c_uint32()
+            if security.SecKeychainGetStatus(reference, ctypes.byref(status)) != 0:
+                raise Blocked('Signing keychain status unavailable; no signing attempted')
+            if not status.value & 1:
+                raise Blocked('prosody-ci is locked; owner must unlock before a new release phase')
+        finally:
+            core.CFRelease(reference)
+    except Blocked:
+        raise
+    except Exception:
+        raise Blocked('Signing keychain status unavailable; no signing attempted') from None
+
+
 def signing_profile(team, keychain):
     """Select exactly one valid distribution identity/profile in owned custody."""
     raw = subprocess.check_output(['security', 'find-identity', '-v', '-p', 'codesigning', str(keychain)], text=True, timeout=10)
@@ -320,6 +349,8 @@ def release(upload):
         raise Blocked('Checkout revision mismatch')
     if subprocess.check_output(['git', 'status', '--porcelain', '--untracked-files=no'], text=True):
         raise Blocked('Tracked source is modified')
+    keychain = Path.home() / 'Library/Keychains/prosody-ci.keychain-db'
+    require_unlocked_keychain(keychain)
     asc = load_asc()
     team = os.environ.get('ASC_TEAM_ID', '')
     kid, issuer, key = asc.credentials(os.environ)
@@ -341,7 +372,6 @@ def release(upload):
         [x['attributes']['versionString'] for x in trains['data']] +
         [x['attributes']['version'] for x in builds.get('included', []) if x['type'] == 'preReleaseVersions'],
         [x['attributes']['version'] for x in builds['data']])
-    keychain = Path.home() / 'Library/Keychains/prosody-ci.keychain-db'
     identity, profile = signing_profile(team, keychain)
     admitted = capacity()
     folder = Path(tempfile.mkdtemp(prefix='prosody-testflight-', dir=Path.home() / 'Library/Caches'))
@@ -370,6 +400,7 @@ def release(upload):
         tools.call('flutter-release', [str(flutter), 'build', 'ios', '--release', '--no-codesign',
                    '--build-name', name, '--build-number', number], ROOT / 'mobile', 1200)
         archive = folder / 'AgentProsody.xcarchive'
+        require_unlocked_keychain(keychain)
         tools.call('signed-archive', archive_command(team, identity, profile, keychain, archive), ROOT / 'mobile/ios', 1200)
         tools.call('archive-metadata', ['/usr/bin/python3', '-I', str(ROOT / 'scripts/check-ios-archive.py'),
                    '--archive', str(archive), '--version', name, '--build', number])
@@ -382,6 +413,7 @@ def release(upload):
             'provisioningProfiles': {BUNDLE: profile}, 'manageAppVersionAndBuildNumber': False,
             'uploadSymbols': True}))
         out = folder / 'export'
+        require_unlocked_keychain(keychain)
         tools.call('export-ipa', ['xcodebuild', '-exportArchive', '-archivePath', str(archive),
                    '-exportPath', str(out), '-exportOptionsPlist', str(options)], timeout=300)
         ipas = list(out.glob('*.ipa'))

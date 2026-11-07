@@ -1889,3 +1889,24 @@ project guard fails against the original project (one assertion failure); the
 prior real native archive failure is separately retained. No new native build or
 upload occurred during these tests. Independent source review is clear; required
 hook and new-head hosted review remain separate.
+
+## Locked signing keychain admission guard
+
+Actual corrected run42353827442 compiled Flutter release and reached CodeSign,
+then failed errSecInternalComponent against the new prosody-ci keychain. The
+read-only native status query confirmed it was locked. Receipt1.0.1/build41 says
+upload NOT ATTEMPTED; owned job lease was released. Authentication retries remain
+STOPPED pending owner remediation; no certificate/profile replacement is implied.
+
+The release script now reads lock metadata before ASC credentials/capacity/lease
+and immediately before archive/export signing. Locked or unknown status refuses
+without unlock, password entry, ACL/default/search-list change or retry. Unlocked
+is only a point-in-time prerequisite, not key-use authorization or proof that
+signing will work; later lock/access failures still stop. No live signing retry
+is authorized by this source correction.
+
+Validation:25 named hermetic release-control roots PASS0fail0skip. Omitting only
+the early lock guard yields one intended assertion failure before credentials;
+all keychain FFI is mocked in these tests. Independent source review is clear;
+its CFRelease void-signature cleanup is incorporated. No native keychain query,
+unlock, archive, signing or upload was repeated during this correction.

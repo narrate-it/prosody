@@ -65,3 +65,12 @@ historical evidence. Corrected17/18/19-root results are superseded by the final2
 Synthetic process and mocked Apple/Keychain controls do not establish native
 archive, signing, upload, Apple processing or TestFlight acceptance. Independent
 source review is clear; required hook and hosted review evidence are separate.
+
+## Locked keychain refusal
+
+After actual CodeSign failure with prosody-ci confirmed locked, release admission
+checks native keychain lock metadata before credentials, heavy work and lease
+acquisition, and again before archive/export signing. It never calls unlock or
+authentication APIs. Owner unlock/remediation is required before a new phase; no
+automatic retry occurs. An unlocked observation can become stale and does not
+prove private-key access permissions or actual signing acceptance.
