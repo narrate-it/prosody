@@ -1795,3 +1795,15 @@ apply/signing retry. New isolated source adds finite shutdown waiting and explic
 resume of only this inspected phase with exact source/registration/backup checks.
 29 hermetic roots PASS0skip; native recovery and independent/required gates remain
 separate pending acceptance. Preserve full-RFC hourly reminder.
+
+## Actual runner-job signing probe
+
+PR48 merged/landed verified; reviewed recovery apply succeeded with old controller
+SAME, runner online/idle, SessionCreate false, terminal phase signing-unqualified.
+No signing/keychain-policy mutation and owned lease released. Prepare one actual
+protected manual-main Actions probe before a full archive: bounded disposable
+binary, exact selected identity/keychain, existing native admission/lease and
+one initial configured unlock rule, no signing retry. Probe-only explicitly
+refuses upload and returns before SDK/Flutter/archive/upload. Eight hermetic
+probe roots plus29existing release roots PASS0skip; actual runner probe not run,
+source review clear, required/hosted gates pending, full RFC reminder remains.
