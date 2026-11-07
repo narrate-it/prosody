@@ -83,7 +83,7 @@ class Tests(unittest.TestCase):
         decode = lambda value: base64.urlsafe_b64decode(value + '=' * (-len(value) % 4))
         self.assertEqual(json.loads(decode(header))['alg'], 'ES256')
         payload = json.loads(decode(claims))
-        self.assertEqual(payload['scope'], ['GET /v1/apps'])
+        self.assertEqual(payload['scope'], ['GET /v1/apps?filter%5BbundleId%5D=run.sire.prosody&limit=2&fields%5Bapps%5D=bundleId'])
         self.assertEqual(payload['exp'] - payload['iat'], 300)
         raw = decode(encoded)
         self.assertEqual(len(raw), 64)
@@ -106,6 +106,29 @@ class Tests(unittest.TestCase):
                                        '-signature', str(root / 'sig')], input=(header + '.' + claims).encode(),
                                       capture_output=True, timeout=10)
             self.assertEqual(verified.returncode, 0)
+
+    def test_token_scope_matches_exact_read_request(self):
+        """Bind JWT scope to actual filtered request without broadening API access."""
+        prefix = bytes.fromhex('3059301306072a8648ce3d020106082a8648ce3d03010703420004')
+        public = prefix.ljust(91, b'\0')
+        signature = b'\x30\x06\x02\x01\x01\x02\x01\x02'
+        with patch.object(asc, 'openssl', side_effect=[public, signature]):
+            jwt = asc.token('ABCDEFGHIJ', '11111111-2222-3333-4444-555555555555', b'SYNTHETIC')
+        encoded = jwt.split('.')[1]
+        claims = json.loads(base64.urlsafe_b64decode(encoded + '=' * (-len(encoded) % 4)))
+        opener = unittest.mock.Mock()
+        opener.open.return_value = Response(json.dumps({'data': [
+            {'type': 'apps', 'id': '123', 'attributes': {'bundleId': asc.BUNDLE}}]}).encode())
+        with patch.object(asc.urllib.request, 'build_opener', return_value=opener):
+            asc.read_app(jwt)
+        request = opener.open.call_args.args[0]
+        target = asc.urllib.parse.urlsplit(request.full_url)
+        self.assertEqual(claims['scope'], ['GET ' + target.path + '?' + target.query])
+        self.assertEqual(target.netloc, 'api.appstoreconnect.apple.com')
+        self.assertEqual(target.path, '/v1/apps')
+        self.assertEqual(asc.urllib.parse.parse_qs(target.query),
+                         {'filter[bundleId]': ['run.sire.prosody'], 'limit': ['2'], 'fields[apps]': ['bundleId']})
+        opener.open.assert_called_once()
 
     def test_redirect_refused(self):
         """Never follow a redirect with the bearer credential."""

@@ -17,6 +17,8 @@ from pathlib import Path
 
 BUNDLE = 'run.sire.prosody'
 ORIGIN = 'https://api.appstoreconnect.apple.com'
+APP_REQUEST_PATH = '/v1/apps?' + urllib.parse.urlencode(
+    {'filter[bundleId]': BUNDLE, 'limit': '2', 'fields[apps]': 'bundleId'})
 
 
 class Refused(Exception):
@@ -95,7 +97,7 @@ def token(kid, issuer, key):
     now = int(time.time())
     header = {'alg': 'ES256', 'kid': kid, 'typ': 'JWT'}
     claims = {'iss': issuer, 'iat': now, 'exp': now + 300,
-              'aud': 'appstoreconnect-v1', 'scope': ['GET /v1/apps']}
+              'aud': 'appstoreconnect-v1', 'scope': ['GET ' + APP_REQUEST_PATH]}
     encode = lambda value: b64(json.dumps(value, separators=(',', ':')).encode())
     message = encode(header) + b'.' + encode(claims)
     with tempfile.TemporaryDirectory(prefix='prosody-asc-') as directory:
@@ -122,9 +124,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def read_app(bearer):
     """Issue one bounded TLS GET; discard all remote diagnostics and metadata."""
-    query = urllib.parse.urlencode({'filter[bundleId]': BUNDLE, 'limit': '2',
-                                  'fields[apps]': 'bundleId'})
-    request = urllib.request.Request(ORIGIN + '/v1/apps?' + query,
+    request = urllib.request.Request(ORIGIN + APP_REQUEST_PATH,
                                     headers={'Authorization': 'Bearer ' + bearer,
                                              'Accept': 'application/json'}, method='GET')
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect(),
