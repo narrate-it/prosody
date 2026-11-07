@@ -1645,3 +1645,28 @@ No live tokens, runner reconfiguration, API mutation, signing or upload occurred
 Prior 21-root evidence remains scoped to its earlier checkpoint. Required hooks
 passed lint zero/all twelve cached Go packages; no database fixture was configured.
 Hosted review of the new revision and full RFC acceptance remain open.
+
+## Cloudflare canonical import-input custody guard
+
+Historical adoption of fourteen records succeeded without DNS drift, but persisted
+canonical content inputs were plaintext despite desired Pulumi secret flags.
+The source documentation now distinguishes desired flags, encrypted output fields,
+absent fields and actual canonical input custody. This does not rewrite or erase
+that private state, backups or prior snapshots.
+
+The new source requires per-record `public-reviewed-v1` classification and refuses
+nonempty comments/tags. Both JSON loading and direct registration check every
+record before provider invocation. A marker is operator classification, not proof
+of public data, encryption or authority to apply; proxied origins can be private.
+The guard checks only supplied inventory. Remote values may drift before import;
+private state custody and fresh comparison remain necessary, and confidential
+canonical-input handling is still unqualified.
+
+The ordinary nested-module suite passed 31 named records across ten roots with
+zero failures/skips. Compiled omission of both admission checks produced twelve
+expected failure records, including parents, with the valid public-input control
+passing. Initial race compilation hit a 300-second watchdog before any test event;
+no race pass is claimed. Independent source review is clear with the documented
+remote-drift limitation. Race, vet/lint and required-hook results stay separately
+scoped. No real inventory was classified or edited; no DNS/provider/state update,
+secret read, signing, upload or deployment occurred. Full RFC/reminder remain open.

@@ -10,12 +10,15 @@ logical name based on that ID, and has both `protect` and `retainOnDelete`.
 Cloudflare provider v6.23.2 is pinned in main.go; the Pulumi Go SDK is pinned
 in go.mod/go.sum. The program uses Pulumi’s public registration/invoke API with
 the pinned provider’s resource tokens and property schema. Existing
-A/AAAA/CNAME/MX/TXT records, TTL, proxy state, priority, comments, tags and the
-supported settings are preserved. Other types/settings fail closed until their
+A/AAAA/CNAME/MX/TXT records, TTL, proxy state, priority and supported settings
+are preserved. The limited custody profile rejects nonempty comments/tags and
+requires explicit per-record public-input review. Other types/settings fail closed until their
 schemas are implemented. TXT content is not normalized or stripped of quotes.
-Resource content, private comments and tags are marked as Pulumi secrets, so state uses the stack's secret
-provider. The same three fields are explicitly listed as additional secret
-outputs, without relying on provider-side inference. Secret values must never be committed or displayed in preview logs.
+Desired content/comment/tag properties retain Pulumi secret flags and additional
+secret-output flags. These flags do NOT prove confidentiality of canonical inputs
+returned during import. Actual adoption found plaintext canonical content inputs;
+only qualifying output fields were encrypted. Do not import confidential values
+through this profile, commit inventory/state or expose previews containing them.
 
 ## Inventory and custody
 
@@ -31,11 +34,26 @@ any import/apply. Its shape is:
   "accountId": "EXISTING_ACCOUNT_ID",
   "records": [{
     "id": "EXISTING_RECORD_ID", "name": "prosody.chat", "type": "A",
+    "stateInputClass": "public-reviewed-v1",
     "content": "EXISTING_ADDRESS", "ttl": 1, "proxied": true,
     "comment": null, "tags": [], "settings": {}
   }]
 }
 ```
+
+`stateInputClass` is documentary operator classification, not a grant to apply.
+An absent/unknown/private classification rejects the whole inventory, including
+before provider invocation when direct registration is used. Nonempty comments
+or tags are unsupported even when the content was classified public. Do not strip
+existing annotations or omit managed entries just to satisfy the guard. A public
+DNS name does not make every API value public: for example, a proxied origin may
+be intentionally hidden. Review each exact value before marking it public; this
+program cannot infer that decision or prove confidentiality from a string label.
+The guard checks only the supplied inventory. Remote comments, tags or other
+canonical values can change between review and provider import; this code cannot
+intercept or prove confidentiality of everything the provider returns. Fresh
+inventory comparison and private state custody remain necessary. The guard is not
+a qualified remote-state confidentiality boundary.
 
 This is an illustrative schema, not executable desired state. Use the actual
 reviewed snapshot. IDs must be canonical 32-character hex. All records must
@@ -83,19 +101,40 @@ this nested module; qualify it separately. No live update is implicit in tests.
 
 ## Current verification boundary
 
-The nested module's 18 named unit/mock records passed with no skips, and vet
-passed. A separate private-snapshot probe passed 17 records (16 repeated parser
+Before this custody guard, the nested module's 18 named unit/mock records
+passed with no skips, and vet passed. A separate private-snapshot probe passed 17 records (16 repeated parser
 records plus the snapshot probe) and verified the captured inventory has all 14
 DNS records. Those totals overlap; do not add them. Compiled omission of the
 Unicode/canonical-key guards failed both intended roots while 12 controls
 passed. Initial dependency compilation attempts timed out before any tests;
 the completed later run supersedes only that local module verification gate.
 
-Cloudflare MCP zone/DNS reads succeeded. Its OAuth connection returned 403 on
-`GET /user/tokens/permission_groups` with no supported OAuth scope. Token creation
-was not attempted; no token was created or alternate authentication route used. Pulumi's provider still needs its own approved credential and a
-reviewed state backend before live preview. No live preview, import or DNS
-update is claimed. Unit mocks do not establish a no-change Cloudflare plan.
+The original authentication/source-only note is historical. Using the separately
+owner-provided provider token, the reviewed adoption-only saved plan later applied
+14 imports. The post-adoption preview had no changes and independent Cloudflare
+MCP inventories matched before/after; no DNS contents changed. That evidence does
+not qualify this new guard against the provider or authorize another apply.
+
+Persisted-state inspection at the pinned provider found all 14 canonical
+`inputs.content` values plaintext. The present content/tag output fields were
+encrypted. Input comment/tag fields and output comments were absent, which is NOT
+proof of encryption. The credential was not found in the inspected artifacts;
+private state/export custody remains required. No public state was published.
+
+This source-only correction does not rewrite that state, erase historical copies,
+update the live inventory or classify any real record. Existing inventories without
+the review marker now fail closed. Confidential input support remains blocked until
+exact persisted-input protection and custody are independently demonstrated. Do not
+assume a no-op update or mock secret flag repairs an existing imported snapshot.
+Historical state and backups need separate reviewed custody/remediation; this guard
+supplies no erasure or zero-residual-exposure claim.
+
+This guard's ordinary suite passes 31 named records across 10 roots, with zero
+failures/skips. A compiled omission of both custody admission calls fails 12
+records (including parents) while the valid public-input control passes. The first
+race build hit its 300-second watchdog before any test event; it is NOT a race
+pass. Fresh race, vet/lint, root-hook and independent-review evidence remain
+separately recorded. No live provider or persisted-state check ran for this guard.
 
 Build this module from the full repository checkout: it reuses the repository
 Unicode validator through the local parent-module replacement in go.mod.

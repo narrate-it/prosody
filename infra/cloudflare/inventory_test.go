@@ -9,8 +9,8 @@ import (
 func sampleInventory() inventory {
 	p := 1
 	flatten := false
-	note := "existing record note"
-	return inventory{ZoneID: strings.Repeat("a", 32), AccountID: strings.Repeat("b", 32), Records: []record{{ID: strings.Repeat("c", 32), Name: domain, Type: "A", Content: "192.0.2.1", TTL: 1, Proxied: true}, {ID: strings.Repeat("d", 32), Name: domain, Type: "MX", Content: "smtp.example.com", TTL: 1, Priority: &p}, {ID: strings.Repeat("e", 32), Name: "_dmarc." + domain, Type: "TXT", Content: `"v=DMARC1; p=none"`, TTL: 1}, {ID: strings.Repeat("f", 32), Name: "www." + domain, Type: "CNAME", Content: domain, TTL: 1, Proxied: true, Comment: &note, Tags: []string{"service:dns"}, Settings: settings{FlattenCname: &flatten}}, {ID: strings.Repeat("0", 32), Name: domain, Type: "AAAA", Content: "2001:db8::1", TTL: 1, Proxied: true}}}
+	note := ""
+	return inventory{ZoneID: strings.Repeat("a", 32), AccountID: strings.Repeat("b", 32), Records: []record{{StateInputClass: publicStateInputClass, ID: strings.Repeat("c", 32), Name: domain, Type: "A", Content: "192.0.2.1", TTL: 1, Proxied: true}, {StateInputClass: publicStateInputClass, ID: strings.Repeat("d", 32), Name: domain, Type: "MX", Content: "smtp.example.com", TTL: 1, Priority: &p}, {StateInputClass: publicStateInputClass, ID: strings.Repeat("e", 32), Name: "_dmarc." + domain, Type: "TXT", Content: `"v=DMARC1; p=none"`, TTL: 1}, {StateInputClass: publicStateInputClass, ID: strings.Repeat("f", 32), Name: "www." + domain, Type: "CNAME", Content: domain, TTL: 1, Proxied: true, Comment: &note, Tags: []string{}, Settings: settings{FlattenCname: &flatten}}, {StateInputClass: publicStateInputClass, ID: strings.Repeat("0", 32), Name: domain, Type: "AAAA", Content: "2001:db8::1", TTL: 1, Proxied: true}}}
 }
 
 // TestInventory preserves public mail/text data exactly while admitting only
@@ -89,6 +89,7 @@ func TestInventoryCaseAliases(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, raw := range []string{
+		strings.Replace(string(b), `"stateInputClass":`, `"StateInputClass":`, 1),
 		strings.Replace(string(b), `"zoneId":`, `"ZoneId":"`+strings.Repeat("f", 32)+`","zoneId":`, 1),
 		strings.Replace(string(b), `"content":`, `"Content":"overwritten","content":`, 1),
 		strings.Replace(string(b), `"settings":{}`, `"settings":{"flatten_cname":false,"Flatten_cname":true}`, 1),

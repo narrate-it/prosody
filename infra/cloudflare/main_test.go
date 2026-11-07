@@ -16,10 +16,14 @@ type dnsMonitor struct {
 	name    string
 	mu      sync.Mutex
 	count   int
+	calls   int
 }
 
 // Call simulates only the exact zone lookup; it supplies no real Cloudflare proof.
 func (m *dnsMonitor) Call(a pulumi.MockCallArgs) (resource.PropertyMap, error) {
+	m.mu.Lock()
+	m.calls++
+	m.mu.Unlock()
 	if a.Token != "cloudflare:index/getZone:getZone" {
 		return nil, fmt.Errorf("unexpected invoke")
 	}
@@ -27,7 +31,8 @@ func (m *dnsMonitor) Call(a pulumi.MockCallArgs) (resource.PropertyMap, error) {
 }
 
 // NewResource checks the actual Pulumi registration RPC rather than calling a
-// cloud provider. It asserts import identity, protection and secret input flags.
+// cloud provider. It asserts import identity, protection and desired secret flags,
+// not persisted canonical-input encryption.
 func (m *dnsMonitor) NewResource(a pulumi.MockResourceArgs) (string, resource.PropertyMap, error) {
 	if a.TypeToken != "cloudflare:index/dnsRecord:DnsRecord" {
 		return a.Name, a.Inputs, nil
@@ -44,7 +49,7 @@ func (m *dnsMonitor) NewResource(a pulumi.MockResourceArgs) (string, resource.Pr
 		return "", nil, fmt.Errorf("wrong stable import identity")
 	}
 	if !a.Inputs["content"].IsSecret() || !a.Inputs["tags"].IsSecret() {
-		return "", nil, fmt.Errorf("private DNS inputs not marked secret")
+		return "", nil, fmt.Errorf("desired DNS inputs not marked secret")
 	}
 
 	if a.Inputs["type"].StringValue() == "MX" {
@@ -58,8 +63,8 @@ func (m *dnsMonitor) NewResource(a pulumi.MockResourceArgs) (string, resource.Pr
 		if !s.IsObject() || !s.ObjectValue()["flattenCname"].IsBool() || s.ObjectValue()["flattenCname"].BoolValue() {
 			return "", nil, fmt.Errorf("CNAME settings changed")
 		}
-		if !a.Inputs["comment"].IsSecret() || a.Inputs["comment"].SecretValue().Element.StringValue() != "existing record note" {
-			return "", nil, fmt.Errorf("comment lost or not secret")
+		if !a.Inputs["comment"].IsSecret() || a.Inputs["comment"].SecretValue().Element.StringValue() != "" {
+			return "", nil, fmt.Errorf("empty comment lost or desired secret flag missing")
 		}
 	}
 	m.mu.Lock()
