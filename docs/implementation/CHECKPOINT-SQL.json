@@ -1,0 +1,222 @@
+{
+  "status": "local-only; no native registration; semantic SQL/privilege/runtime review still required",
+  "statements": [
+    {
+      "id": "CheckpointSourceSQL",
+      "sql": "SELECT s.installation_id,s.application_id,s.environment_id,s.person_id,s.feed_id,CASE WHEN octet_length(s.source_bytes)<=65536 THEN s.source_bytes ELSE NULL END,CASE WHEN octet_length(s.settings_bytes)<=65536 THEN s.settings_bytes ELSE NULL END FROM public.app_prosody_submissions s JOIN public.app_prosody_work w ON w.item_id=s.id JOIN public.app_prosody_feeds f ON f.workspace_id=s.workspace_id AND f.id=s.feed_id WHERE s.workspace_id=$1 AND s.id=$2 AND w.work_id=$3 AND s.status='processing' AND s.deleted_at IS NULL AND f.deleted_at IS NULL FOR SHARE OF s,w,f",
+      "sha256": "a0b4bc52dd94dabf2dad0f6b92c899d587300433be55b643829d140ff40572c8",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3
+      ],
+      "arguments": [
+        {
+          "slot": 1,
+          "name": "workspace",
+          "type_and_bound": "uuid/native-workspace"
+        },
+        {
+          "slot": 2,
+          "name": "item",
+          "type_and_bound": "uuid/native-captured-item"
+        },
+        {
+          "slot": 3,
+          "name": "job",
+          "type_and_bound": "uuid/native-original-job"
+        }
+      ],
+      "result_columns": [
+        {
+          "column": 1,
+          "name": "installation",
+          "type_and_bound": "uuid"
+        },
+        {
+          "column": 2,
+          "name": "application",
+          "type_and_bound": "safeLabel text <=128"
+        },
+        {
+          "column": 3,
+          "name": "environment",
+          "type_and_bound": "safeLabel text <=128"
+        },
+        {
+          "column": 4,
+          "name": "person",
+          "type_and_bound": "uuid"
+        },
+        {
+          "column": 5,
+          "name": "feed",
+          "type_and_bound": "uuidv7"
+        },
+        {
+          "column": 6,
+          "name": "source",
+          "type_and_bound": "bytea/1..65536"
+        },
+        {
+          "column": 7,
+          "name": "settings",
+          "type_and_bound": "bytea/1..65536, exact uniquely spelled settingsRevision positive int64"
+        }
+      ],
+      "max_rows": 1,
+      "expected_rows": "exactly 1; absence rejects without output/advancement",
+      "native_review_required": "bind captured/native/accepted-result values and actual bytes inside admitted caller-owned transaction; native receipt/finality not supplied by application catalog"
+    },
+    {
+      "id": "CheckpointInsertSQL",
+      "sql": "INSERT INTO public.app_prosody_stage_checkpoints(workspace_id,job_id,invocation_id,stage_id,item_id,feed_id,binding_bytes,artifact_bytes,artifact_digest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(workspace_id,job_id,invocation_id,stage_id) DO NOTHING",
+      "sha256": "f58ad4c47c8be91cf71961be3b036518aa5f9697590d92e78014bac43542ed3a",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9
+      ],
+      "arguments": [
+        {
+          "slot": 1,
+          "name": "workspace",
+          "type_and_bound": "uuid/native-workspace"
+        },
+        {
+          "slot": 2,
+          "name": "job",
+          "type_and_bound": "uuid/native-original-job"
+        },
+        {
+          "slot": 3,
+          "name": "invocation",
+          "type_and_bound": "uuid/native-original-invocation"
+        },
+        {
+          "slot": 4,
+          "name": "stage",
+          "type_and_bound": "text/rewrite or speech"
+        },
+        {
+          "slot": 5,
+          "name": "item",
+          "type_and_bound": "uuid/native-captured-item"
+        },
+        {
+          "slot": 6,
+          "name": "feed",
+          "type_and_bound": "uuidv7/native-captured-feed"
+        },
+        {
+          "slot": 7,
+          "name": "binding",
+          "type_and_bound": "bytea/1..8192/versioned exact immutable binding"
+        },
+        {
+          "slot": 8,
+          "name": "artifact",
+          "type_and_bound": "bytea/1..256000 rewrite or 1..67108864 speech; native rederives actual bytes/digest/manifest relation"
+        },
+        {
+          "slot": 9,
+          "name": "artifactDigest",
+          "type_and_bound": "bytea32/SHA256(actual artifact bytes)"
+        }
+      ],
+      "result_columns": [],
+      "max_rows": 1,
+      "expected_rows": "0 insert requires exact matching replay; 1 fresh insert; every other count/error rejects",
+      "native_review_required": "bind captured/native/accepted-result values and actual bytes inside admitted caller-owned transaction; native receipt/finality not supplied by application catalog"
+    },
+    {
+      "id": "CheckpointReadSQL",
+      "sql": "SELECT CASE WHEN octet_length(binding_bytes)<=8192 THEN binding_bytes ELSE NULL END,CASE WHEN octet_length(artifact_bytes)<=CASE WHEN stage_id='rewrite' THEN 256000 ELSE 67108864 END THEN artifact_bytes ELSE NULL END,artifact_digest FROM public.app_prosody_stage_checkpoints WHERE workspace_id=$1 AND job_id=$2 AND invocation_id=$3 AND stage_id=$4 FOR SHARE",
+      "sha256": "b688af31ccf23afd28b742920466bc6c6e60394b1dc427347b4e3718da7a9158",
+      "workspace_parameter": 1,
+      "phase": "private checkpoint/resume only; no human-read/publication catalog",
+      "ordinal_slots": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "arguments": [
+        {
+          "slot": 1,
+          "name": "workspace",
+          "type_and_bound": "uuid/native-workspace"
+        },
+        {
+          "slot": 2,
+          "name": "job",
+          "type_and_bound": "uuid/native-original-job"
+        },
+        {
+          "slot": 3,
+          "name": "invocation",
+          "type_and_bound": "uuid/native-original-invocation"
+        },
+        {
+          "slot": 4,
+          "name": "stage",
+          "type_and_bound": "text/rewrite or speech"
+        }
+      ],
+      "result_columns": [
+        {
+          "column": 1,
+          "name": "binding",
+          "type_and_bound": "bytea/1..8192"
+        },
+        {
+          "column": 2,
+          "name": "artifact",
+          "type_and_bound": "bytea/1..256000 rewrite or 1..67108864 speech"
+        },
+        {
+          "column": 3,
+          "name": "artifactDigest",
+          "type_and_bound": "bytea32"
+        }
+      ],
+      "max_rows": 1,
+      "expected_rows": "exactly 1; absence rejects without output/advancement",
+      "native_review_required": "bind captured/native/accepted-result values and actual bytes inside admitted caller-owned transaction; native receipt/finality not supplied by application catalog"
+    }
+  ],
+  "binding_encoding": {
+    "version": 1,
+    "format": "Go encoding/json compact struct envelope: version then binding; fixed CheckpointBinding field names/order; no normalization/reencoding of source/settings bytes",
+    "result_codec_digest": "CodecDigest identifies the accepted stage-result codec; it is NOT the local binding encoding version",
+    "artifact_profile": "transaction-backed actual bytes only; no external objects",
+    "native_status": "descriptive data only; original native invocation/attempt identities are stable across a newly admitted worker fence"
+  },
+  "migration_sha256": "1dff805c008775d3a328d34bad216099b24ded6e3f1e14604066755d807da333",
+  "callback_call_bounds": {
+    "write_fresh": {
+      "CheckpointSourceSQL": 1,
+      "CheckpointInsertSQL": 1
+    },
+    "write_existing": {
+      "CheckpointSourceSQL": 2,
+      "CheckpointInsertSQL": 1,
+      "CheckpointReadSQL": 1
+    },
+    "read": {
+      "CheckpointSourceSQL": 1,
+      "CheckpointReadSQL": 1
+    }
+  },
+  "restart_order": "Native final-publication reconciliation lookup precedes any processing-only checkpoint read. Already-published jobs are not made processing again."
+}

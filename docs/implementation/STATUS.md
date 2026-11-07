@@ -1202,6 +1202,24 @@ provider calls or iPhone changes. Actual I/O/deadline/cleanup and iOS range prof
 remain acceptance gates. Required hook stays enabled; full RFC incomplete.
 
 
+### 2026-11-02 — Bytes-only private checkpoint source (PR7)
+
+New isolated prosody-checkpoints / feat/private-stage-checkpoints, basea5de1fa.
+Added separate migration, bounded artifact codec, three exact SQL constants and
+caller-held write/read functions. Native receipts/authority remain external and
+migration/adapter disabled. No external-object or ready/publication fields in
+private table. Publication final writes now require affected count1 before
+mandatory StageReady. See CHECKPOINTS.md and exact CHECKPOINT-SQL.json.
+
+Pure codec and transaction-double publication tests pass; old-source regressions
+fail for label validation and zero/multiple affected rows. Independent review
+cleared source after correcting label contract. Real PostgreSQL test source is
+present but UNRUN (no approved fixture); ordinary unit runs skip DB tests.
+Fresh admitted capacity: load2.84/2.69/2.80, idle28.15/40.16%, normal pressure,
+zero swap churn, no warnings. Required initial hook lint0/unit pass. No fixture
+created, native API enabled, paid call or deployment. Full RFC not complete;
+retain owned reminder. Hosted review and real persistence acceptance remain open.
+
 ### 2026-11-03 UTC — Current continuation checkpoint
 
 Earlier capacity holds and unexecuted-test notes above are historical. Subsequent
@@ -1889,3 +1907,44 @@ project guard fails against the original project (one assertion failure); the
 prior real native archive failure is separately retained. No new native build or
 upload occurred during these tests. Independent source review is clear; required
 hook and new-head hosted review remain separate.
+
+### 2026-11-03 — PR7 rebased after the publication guard landed
+
+PR #14 landed at dc95bca3. The same checkpoint PR #7 now inherits that guard and
+has no publication source/test delta. Backup ref
+`backup/checkpoints-before-publication-dc95` preserves original f596a1b. Rebase
+conflicts retained all main records plus the complete original PR7 November 2
+entry in chronological position; checkpoint code, tests, migration002 and exact
+SQL catalog remain byte-identical to f596a1b.
+
+Fresh scoped checkpoint/catalog/port and publication-count tests passed on the
+rebased source. `TestPrivateCheckpointPostgres` explicitly SKIPPED because the
+owned fixture was not configured; no fixture was provisioned or adopted. PR7
+stays DRAFT, migration002 remains UNENABLED and native atomic checkpoint receipts
+remain unsupported. Unit/double evidence is not DB rollback/receipt qualification.
+Capacity interval idle 40.11/47.00%, normal pressure, zero swap churn and no thermal
+warning; required commit hooks stay enabled. No provider/device/deployment effect.
+Full RFC remains incomplete; keep the owned reminder.
+
+
+### 2026-11-03 — Checkpoint domain PostgreSQL acceptance
+
+David approved one disposable domain fixture invocation, now completed and
+consumed. At exact PR #7 head `28ce03d2`, installed PostgreSQL 14.21 over a private
+Unix socket (no TCP) passed all 132 named store checks (32 top-level), with zero
+failures or skips, including `TestPrivateCheckpointPostgres`. This supplies real
+domain SQL/replay/rollback evidence; earlier unconfigured skips remain historical.
+Migration 002 was applied only in the disposable test database. The application
+migration registry and adapter remain UNREGISTERED/UNENABLED for checkpoints.
+
+The exact owned server stopped successfully, its data was removed, socket files
+were absent, logs retained, and the build lease released. The one-time approval
+does not authorize another fixture invocation. All six checkpoint source/test,
+migration and SQL catalog blobs remain byte-identical to `28ce03d2` and `f596a1b`;
+backup `backup/checkpoints-before-pg14-record` preserves the tested head. This
+record-only continuation keeps the tested base; no rebase or source change.
+
+PR #7 remains DRAFT. Native PostgreSQL 16/TLS/roles, same-transaction opaque
+checkpoint receipts, current authority/grants and runtime-profile acceptance
+remain open; ordinary PostgreSQL 14 tests do not qualify them. No provider,
+HTTP, iOS or deployment acceptance follows. The full RFC remains incomplete.
