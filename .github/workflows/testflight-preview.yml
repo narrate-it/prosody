@@ -14,6 +14,18 @@
           "required": true,
           "default": false,
           "type": "boolean"
+        },
+        "resume_archive": {
+          "description": "Owned local cache basename for an unuploaded signed archive; blank builds normally",
+          "required": false,
+          "default": "",
+          "type": "string"
+        },
+        "archive_cdhash": {
+          "description": "Frozen signed app CDHash required with resume_archive",
+          "required": false,
+          "default": "",
+          "type": "string"
         }
       }
     }
@@ -42,7 +54,8 @@
           "with": {
             "ref": "${{ github.sha }}",
             "persist-credentials": false,
-            "clean": false
+            "clean": false,
+            "fetch-depth": 0
           }
         },
         {
@@ -54,9 +67,11 @@
             "ASC_TEAM_ID": "${{ secrets.ASC_TEAM_ID }}",
             "PREVIEW_UPLOAD": "${{ inputs.upload }}",
             "PROSODY_KEYCHAIN_PASSWORD": "${{ secrets.PROSODY_KEYCHAIN_PASSWORD }}",
-            "PREVIEW_SIGNING_PROBE_ONLY": "${{ inputs.signing_probe_only }}"
+            "PREVIEW_SIGNING_PROBE_ONLY": "${{ inputs.signing_probe_only }}",
+            "PREVIEW_RESUME_ARCHIVE": "${{ inputs.resume_archive }}",
+            "PREVIEW_ARCHIVE_CDHASH": "${{ inputs.archive_cdhash }}"
           },
-          "run": "if [ \"$PREVIEW_SIGNING_PROBE_ONLY\" = \"true\" ]; then\n  if [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n    echo \"Choose either signing probe or upload\"\n    exit 1\n  fi\n  /usr/bin/python3 -I scripts/testflight-preview.py --signing-probe-only\nelif [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n  /usr/bin/python3 -I scripts/testflight-preview.py --upload\nelse\n  /usr/bin/python3 -I scripts/testflight-preview.py\nfi"
+          "run": "if [ -n \"$PREVIEW_RESUME_ARCHIVE\" ] || [ -n \"$PREVIEW_ARCHIVE_CDHASH\" ]; then\n  if [ \"$PREVIEW_SIGNING_PROBE_ONLY\" = \"true\" ]; then\n    echo \"Archive resume cannot select probe-only\"\n    exit 1\n  fi\n  if [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n    /usr/bin/python3 -I scripts/testflight-preview.py --upload --resume-archive \"$PREVIEW_RESUME_ARCHIVE\" --archive-cdhash \"$PREVIEW_ARCHIVE_CDHASH\"\n  else\n    /usr/bin/python3 -I scripts/testflight-preview.py --resume-archive \"$PREVIEW_RESUME_ARCHIVE\" --archive-cdhash \"$PREVIEW_ARCHIVE_CDHASH\"\n  fi\nelif [ \"$PREVIEW_SIGNING_PROBE_ONLY\" = \"true\" ]; then\n  if [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n    echo \"Choose either signing probe or upload\"\n    exit 1\n  fi\n  /usr/bin/python3 -I scripts/testflight-preview.py --signing-probe-only\nelif [ \"$PREVIEW_UPLOAD\" = \"true\" ]; then\n  /usr/bin/python3 -I scripts/testflight-preview.py --upload\nelse\n  /usr/bin/python3 -I scripts/testflight-preview.py\nfi"
         }
       ]
     }

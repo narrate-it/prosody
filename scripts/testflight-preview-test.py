@@ -493,7 +493,7 @@ class Tests(unittest.TestCase):
         self.assertEqual(j['if'], "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'")
         self.assertNotIn('env', value)
         self.assertNotIn('env', j)
-        self.assertEqual(j['steps'][0]['with'], {'ref': '${{ github.sha }}', 'persist-credentials': False, 'clean': False})
+        self.assertEqual(j['steps'][0]['with'], {'ref': '${{ github.sha }}', 'persist-credentials': False, 'clean': False, 'fetch-depth': 0})
         self.assertEqual(j['steps'][0]['uses'], 'actions/checkout@11d5960a326750d5838078e36cf38b85af677262')
         self.assertNotIn('env', j['steps'][0])
         env = j['steps'][1]['env']
@@ -507,7 +507,7 @@ class Tests(unittest.TestCase):
         import copy
         value = json.loads((p.ROOT / '.github/workflows/testflight-preview.yml').read_text())
         self.assert_workflow(value)
-        for mutation in ['environment', 'runner', 'main', 'secrets', 'upload-default']:
+        for mutation in ['environment', 'runner', 'main', 'secrets', 'upload-default', 'shallow-history']:
             changed = copy.deepcopy(value)
             j = changed['jobs']['preview']
             if mutation == 'environment':
@@ -518,6 +518,8 @@ class Tests(unittest.TestCase):
                 j['if'] = 'true'
             elif mutation == 'secrets':
                 changed['env'] = j['steps'][1].pop('env')
+            elif mutation == 'shallow-history':
+                j['steps'][0]['with']['fetch-depth'] = 1
             else:
                 changed['on']['workflow_dispatch']['inputs']['upload']['default'] = True
             with self.subTest(mutation=mutation), self.assertRaises((AssertionError, KeyError)):

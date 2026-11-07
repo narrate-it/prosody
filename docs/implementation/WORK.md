@@ -1807,3 +1807,22 @@ one initial configured unlock rule, no signing retry. Probe-only explicitly
 refuses upload and returns before SDK/Flutter/archive/upload. Eight hermetic
 probe roots plus29existing release roots PASS0skip; actual runner probe not run,
 source review clear, required/hosted gates pending, full RFC reminder remains.
+
+## Resume existing verified archive
+
+Actual runner probe passed; full42423277966 produced signed/verified archive but
+stopped on read-only locked status before export, uploadNOTATTEMPTED/lease released.
+Preserve archive/receipt; no full rebuild or blind upload retry. Prepare explicit
+owned-cache/frozen-CDHash resume with trusted-main ancestor/unchanged mobile input,
+current Apple selection and fresh signature/metadata checks. NEW job retains one
+initial native unlock, no additional in-job unlock or keychain-policy change.
+11resume+9probe rootsPASS0skip;29release rootsPASS after reviewed-shape expectation
+update; initial1shape failure retained. Source review/required/hosted/native gates
+separate; full RFC/reminder unchanged.
+
+Review correction binds every continuation upload durably to the original archive
+under a retained exclusive lock. UNKNOWN+stable attempt pointer precede transport;
+ACCEPTED/UNKNOWN origins never replay on stale Apple inventory. 15resume rootsPASS;
+journal-persistence omissionRED1assertion/controlPASS1. Initial acceptance display
+expectation failure retained/corrected, no remote acceptance inferred. Final
+source review/required/hosted/native gates remain separate.
