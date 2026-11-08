@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/api.dart';
+import '../data/mark_read.dart';
+import '../data/models.dart';
 
 // Bundled recordings only. This fixture never synthesizes audio at runtime.
 const previewNarrationScripts = <String, String>{
@@ -183,6 +185,25 @@ class PreviewApi extends ProsodyApi {
   void _query(Map<String, String>? query, [Set<String> allowed = const {}]) {
     if (query != null && query.keys.any((key) => !allowed.contains(key))) {
       throw const ApiFailure(400, 'This preview request is not supported.');
+    }
+  }
+
+  // The offline preview has no credential. Keep this local-only operation
+  // separate from the production action's captured-session transport.
+  @override
+  Future<void> markRead(Briefing item) async {
+    final saved = SavedProgress.fromJson(
+      await progress(item.id, item.renditionId),
+      item,
+    );
+    final result = await updateProgress(item.id, markReadUpdate(item, saved));
+    SavedProgress.fromJson(
+      result,
+      item,
+      expectedPreviousRevision: saved.revision,
+    );
+    if (result['markedRead'] != true) {
+      throw const FormatException('Read status was not confirmed');
     }
   }
 

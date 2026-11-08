@@ -47,6 +47,21 @@ class ProsodyApi {
       throw ArgumentError('Invalid API route');
     }
     final token = await session.accessToken();
+    return _requestWithToken(method, path, token, query: query, body: body);
+  }
+
+  // Private transport keeps a compound action on its captured credential. It
+  // shares ordinary redirect, status, deadline and response-size restrictions.
+  Future<Map<String, dynamic>> _requestWithToken(
+    String method,
+    String path,
+    String token, {
+    Map<String, String>? query,
+    Object? body,
+  }) async {
+    if (!path.startsWith('/prosody/v1/')) {
+      throw ArgumentError('Invalid API route');
+    }
     final request = http.Request(
       method,
       origin.replace(path: path, queryParameters: query),
@@ -173,11 +188,32 @@ class ProsodyApi {
   );
   // No automatic retry: a lost response may follow a committed mutation.
   Future<void> markRead(Briefing item) async {
+    final token = await session.accessToken();
+    final path = '/prosody/v1/items/${Uri.encodeComponent(item.id)}/progress';
     final saved = SavedProgress.fromJson(
-      await progress(item.id, item.renditionId),
+      await _requestWithToken(
+        'GET',
+        path,
+        token,
+        query: {'renditionId': item.renditionId},
+      ),
       item,
     );
-    final result = await updateProgress(item.id, markReadUpdate(item, saved));
+    // A different token (including same-person rotation) requires a new action.
+    // Equality is not person identity or proof of current server authority.
+    if (await session.accessToken() != token) {
+      throw const ApiFailure(
+        401,
+        'Your session changed. Reopen this briefing before marking it read.',
+      );
+    }
+    // Even a change after that check cannot lend a later session to this write.
+    final result = await _requestWithToken(
+      'PUT',
+      path,
+      token,
+      body: markReadUpdate(item, saved),
+    );
     SavedProgress.fromJson(
       result,
       item,
