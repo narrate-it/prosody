@@ -1,6 +1,8 @@
 import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
+
 import '../data/api.dart';
 import '../data/models.dart';
 import 'coverage.dart';
@@ -49,7 +51,7 @@ class ProgressRecorder {
   }
 
   bool _visible = true, _viewed = false, _sending = false, _closed = false;
-  bool _unknownResume = false;
+  bool _unknownResume = false, _discardPending = false;
   static const _unknownResumeMessage =
       'Your saved place could not be loaded. Playback can continue, but progress syncing is paused.';
 
@@ -177,14 +179,14 @@ class ProgressRecorder {
   void _capture() {
     final item = _item;
     final intervals = _sampler.take();
-    if (_unknownResume ||
+    if (_discardPending ||
+        _unknownResume ||
         item == null ||
         (intervals.isEmpty && !_viewed && !_resumePosition.dirty)) {
       return;
     }
     if (_pending.length >= 128) {
-      failure.value =
-          'Progress syncing is paused. Refresh before continuing to record your place.';
+      failure.value = 'Progress syncing is paused. Refresh before continuing to record your place.';
       return;
     }
     _pending.add(
@@ -195,11 +197,11 @@ class ProgressRecorder {
   }
 
   Future<void> _send() async {
-    if (_sending || failure.value != null) return;
+    if (_discardPending || _sending || failure.value != null) return;
     _sending = true;
     try {
       while (_pending.isNotEmpty) {
-        if (_unknownResume || failure.value != null) return;
+        if (_discardPending || _unknownResume || failure.value != null) return;
         final update = _pending.first;
         final identity = '${update.item.id}/${update.item.renditionId}';
         if (!_revisions.containsKey(identity)) {
@@ -207,12 +209,13 @@ class ProgressRecorder {
             update.item.id,
             update.item.renditionId,
           );
+          if (_discardPending) return;
           _revisions[identity] = SavedProgress.fromJson(
             progress,
             update.item,
           ).revision;
         }
-        if (_unknownResume || failure.value != null) return;
+        if (_discardPending || _unknownResume || failure.value != null) return;
         final progress = await api.updateProgress(update.item.id, {
           'renditionId': update.item.renditionId,
           'expectedRevision': _revisions[identity],
@@ -221,6 +224,7 @@ class ProgressRecorder {
           'played': update.intervals.map((e) => e.toJson()).toList(),
           'viewed': update.viewed,
         });
+        if (_discardPending) return;
         _revisions[identity] = SavedProgress.fromJson(
           progress,
           update.item,
@@ -229,6 +233,7 @@ class ProgressRecorder {
         _pending.removeAt(0);
       }
     } catch (e) {
+      if (_discardPending) return;
       // A transport failure may follow commit. Never blindly advance a local
       // revision or retry an uncertain mutation with a manufactured revision.
       failure.value = e is ApiFailure && e.status == 409
@@ -253,7 +258,19 @@ class ProgressRecorder {
     await _send();
   }
 
-  Future<void> close() async {
+  // Ordinary teardown retains its final flush. Session end instead discards
+  // unsent progress before any await; a request already handed off may commit.
+  Future<void> close({bool discardPending = false}) async {
+    if (discardPending) {
+      _discardPending = true;
+      _pending.clear();
+      _revisions.clear();
+      _sampler.take();
+      _sampler.discontinuity();
+      _resumePosition.reset();
+      _viewed = false;
+      _item = null;
+    }
     _closed = true;
     _timer?.cancel();
     await _playbackSubscription?.cancel();

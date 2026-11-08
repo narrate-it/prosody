@@ -2123,3 +2123,29 @@ One shared JSON sample now verifies Go encoder/Dart decoder compatibility.
 Actual producer-golden PASS, analysis0, focused52/full287 named Flutter records
 PASS0fail0skip/done success=true. Native event hookup, tap/current-access, device,
 provider and new upload acceptance remain unqualified; preserve the reminder.
+
+### 2026-11-07 — Session-end progress fencing
+
+Sign-out now discards unsent local progress before waiting for playback stop or
+session sign-out. Late progress reads and write responses cannot start another
+write under a later session or revive the discarded queue. Ordinary same-session
+teardown retains its final flush. Failed sign-out stays on an explicit retry-only
+surface; it does not resume playback with a permanently closed recorder.
+
+Public UI regressions exercise held reads, held writes with a queued second
+snapshot, normal teardown, playback-stop failure and sign-out failure/retry.
+Already handed-off requests can still commit; this is neither remote cancellation
+nor rollback, NoEffect, memory zeroization or native current-authority proof.
+The local tests use a mutable session double and bounded HTTP responses, not a
+live AMOS grant or device. Full RFC/backend/native/device acceptance remains open;
+the owned hourly reminder remains.
+
+Actual corrected-source analysis: zero issues; focused15 and full292 named Flutter
+records PASS, zero failure/skip and done success=true (focused is included in full).
+Original-source public UI checks fail both late-read and late-write actor assertions
+while normal teardown passes. Initial harness setup timeouts remain failed runs;
+corrected harness reproduced the actor mismatch. First fixed-source analysis stopped
+on one test-style finding before tests; it was corrected, not counted as a pass.
+Independent source review found a failed-sign-out recovery defect; the terminal
+retry state and two failure controls address it and received independent CLEAR.
+Required repository hook and hosted review remain separately gated.

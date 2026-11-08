@@ -1942,3 +1942,29 @@ The isolated decoder-copy mutation (version-equality guard omitted) fails exactl
 one unsupported-version test; its shared-sample positive control passes. Source
 SHA-256 was unchanged before/after the run. Copies are generated test artifacts,
 not production-source replacement. Final docs/hook/hosted gates remain separate.
+
+### 2026-11-07 — Session-end progress fencing
+
+Sign-out now discards unsent local progress before waiting for playback stop or
+session sign-out. Late progress reads and write responses cannot start another
+write under a later session or revive the discarded queue. Ordinary same-session
+teardown retains its final flush. Failed sign-out stays on an explicit retry-only
+surface; it does not resume playback with a permanently closed recorder.
+
+Public UI regressions exercise held reads, held writes with a queued second
+snapshot, normal teardown, playback-stop failure and sign-out failure/retry.
+Already handed-off requests can still commit; this is neither remote cancellation
+nor rollback, NoEffect, memory zeroization or native current-authority proof.
+The local tests use a mutable session double and bounded HTTP responses, not a
+live AMOS grant or device. Full RFC/backend/native/device acceptance remains open;
+the owned hourly reminder remains.
+
+Actual corrected-source analysis: zero issues; focused15 and full292 named Flutter
+records PASS, zero failure/skip and done success=true (focused is included in full).
+Original-source public UI checks fail both late-read and late-write actor assertions
+while normal teardown passes. Initial harness setup timeouts remain failed runs;
+corrected harness reproduced the actor mismatch. First fixed-source analysis stopped
+on one test-style finding before tests; it was corrected, not counted as a pass.
+Independent source review found a failed-sign-out recovery defect; the terminal
+retry state and two failure controls address it and received independent CLEAR.
+Required repository hook and hosted review remain separately gated.
