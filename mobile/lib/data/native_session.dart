@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/services.dart';
@@ -12,6 +13,7 @@ class NativeSessionConfiguration {
   final String audience;
   static const clientId = 'prosody-ios';
   static const redirect = 'run.prosody.prosody:/oauth/callback';
+
   /// Requires an explicit HTTPS origin and a nonempty audience.
   NativeSessionConfiguration({required this.issuer, required this.audience}) {
     if (issuer.scheme != 'https' ||
@@ -26,6 +28,7 @@ class NativeSessionConfiguration {
       );
     }
   }
+
   /// Names the Keychain record by the complete configured client binding.
   String get binding =>
       jsonEncode([issuer.toString(), audience, clientId, redirect]);
@@ -33,6 +36,7 @@ class NativeSessionConfiguration {
 
 class NativeSessionFailure implements Exception {
   final String reason;
+
   /// Stores a diagnostic reason without including grant or callback contents.
   const NativeSessionFailure(this.reason);
   @override
@@ -50,6 +54,7 @@ class NativeSession implements InteractiveSession {
   DateTime? _expires;
   int _generation = 0;
   bool _busy = false;
+
   /// Creates a candidate client with injectable platform, transport and clock.
   NativeSession(
     this.configuration, {
@@ -75,23 +80,40 @@ class NativeSession implements InteractiveSession {
     final response = await client
         .send(request)
         .timeout(const Duration(seconds: 15));
+    if (path == '/oauth/revoke' &&
+        (response.statusCode == 200 || response.statusCode == 204)) {
+      _discardBody(response);
+      return {};
+    }
+    if (response.statusCode != 200) {
+      _discardBody(response);
+      throw const NativeSessionFailure('Issuer request denied');
+    }
     final bytes = await collectBoundedBody(
       response.stream,
       maxBytes: 16384,
       deadline: const Duration(seconds: 15),
     );
-    if (path == '/oauth/revoke' &&
-        (response.statusCode == 200 || response.statusCode == 204)) {
-      return {};
-    }
-    if (response.statusCode != 200) {
-      throw const NativeSessionFailure('Issuer request denied');
-    }
     final decoded = jsonDecode(utf8.decode(bytes));
     if (decoded is! Map<String, dynamic>) {
       throw const NativeSessionFailure('Invalid issuer response');
     }
     return decoded;
+  }
+
+  /// Requests best-effort cleanup without changing a header-known outcome.
+  /// A body or its cancellation can fail or never finish; neither is awaited.
+  void _discardBody(http.StreamedResponse response) {
+    try {
+      unawaited(
+        response.stream
+            .listen(null, onError: (Object _) {})
+            .cancel()
+            .catchError((Object _) {}),
+      );
+    } catch (_) {
+      // Cleanup failure cannot reinterpret the already-known HTTP status.
+    }
   }
 
   /// Rejects results belonging to a superseded session operation.
