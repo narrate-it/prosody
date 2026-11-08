@@ -1,11 +1,12 @@
 # iOS preview and TestFlight preparation
 
-Prosody is **not ready for a useful TestFlight beta**. Native simulator and physical-iPhone debug builds
-and hot-reload connections have been demonstrated, but production sign-in and the
-complete authorized submit → generate → listen journey remain unavailable.
-This checklist does not authorize signing changes, paid provider calls, deployment
-or upload. The owning Prosody session keeps implementation/release decisions;
-AMOS keeps its generic authority, worker and human-session interfaces.
+Current delivery and remaining gates are recorded in [READINESS.md](READINESS.md).
+Preview 1.0.1 (41) has an accepted upload receipt; Apple processing/tester visibility
+remain unverified. The earlier account, signing and upload preparation below is
+historical and must not be treated as a current failed-signing gate or instruction
+to recreate working signing material. Full authenticated service acceptance is
+still open. Follow [TESTFLIGHT-PREVIEW.md](TESTFLIGHT-PREVIEW.md) for the approved
+release workflow; this document selects no signing, upload or deployment action.
 
 ## Read-only preflight
 

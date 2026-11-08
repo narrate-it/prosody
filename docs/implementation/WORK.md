@@ -2289,3 +2289,27 @@ with zero failures/skips (overlapping scopes). Both provider and briefing packag
 pass; scoped lint reports zero issues. Independent source/test review CLEAR.
 Final documentation, required repository hook and hosted review remain separate;
 no native or live provider acceptance follows from these local checks.
+
+### 2026-11-08 — Delivery/readiness reconciliation
+
+Replaced the stale readiness snapshot that still projected the historical
+sire-ci signing failure and unverified upload/account state. Read-only GitHub
+inspection confirms run42426530316 SUCCESS at23:45:56Z on2026-11-07; both private
+journals still record 1.0.1/build41 ACCEPTED. Apple processing/compliance/tester
+visibility remain unverified; no duplicate upload, legal attestation or signing
+retry is selected. Current mobile source differs from the delivered app; the
+latest verified mobile tree is unchanged from PR66 through current main8c0633c.
+
+The inventory now distinguishes Prosody domain ownership from generic AMOS
+primitives and credits, without promoting, the bounded cloud document-host and
+record-claim advances at5f01ec4. Generic completion/held-read composition remains
+open; PR514 has no peer reply at this read. Native/SQL/provider/device qualification
+is not inferred. PR7 remains draft; its one-run ordinary SQL approval is consumed.
+Nanos packaging now acknowledges existing Go/Pulumi infrastructure modules while
+keeping the missing composed application host, image/boot and recovery gates.
+
+This changes five Markdown files only. Evidence/relative links/source-tree
+comparisons are checked independently; no application-code change, database
+fixture, live provider/Apple request, signing/upload, IaC apply, spend/deployment
+or AMOS pin change is selected.
+Required hook and review are separate; full acceptance/reminder remain open.
