@@ -2030,3 +2030,28 @@ zero failures/skips and done success=true (overlap), including existing director
 transport, response-safety and credential-free preview controls. Independent
 three-file source/test review CLEAR. Final docs/repository-hook/hosted gates are
 separate; these local checks do not qualify deployed/native/device behavior.
+
+### 2026-11-08 — Cancellation between pipeline ports
+
+The local ordinary rewrite/speech pipeline now checks cancellation before each
+subsequent port call, including completion lookup/validation and recovery resume.
+A completed lookup/dispatch/checkpoint/validation can no longer cause another
+port call after cancellation was observed. Calls already entered are not
+preempted, and cancellation can race a check. Native admission/fencing and
+transaction finality remain required at the real effect boundary.
+
+Prior port errors retain their classification: UNKNOWN is not replaced with
+cancellation or used as no-effect/retry permission. Accepted attempts, checkpoints
+and publication identities remain available for original-identity reconciliation.
+When the final publication validation completes successfully and then cancels,
+its known receipt is retained; there is no further port to prevent.
+
+Original-source regression run FAIL15 named records (13 leaves plus two parents),
+with four controls PASS. Corrected ordinary70/race70 named records across15roots
+each PASS, zero failures/skips; totals overlap. Scoped pipeline lint reports zero
+issues. Test capabilities, receipts and recovery state are explicitly synthetic
+and in memory: these checks prove local ordering, not native authority, durable
+commit, real provider settlement or crash recovery. Final hook/review gates are
+separate. No AMOS source/pin, scheduler, fixture, provider, signing/upload, spend
+or deployment change is selected. Full RFC acceptance remains incomplete and
+the hourly reminder stays; accepted TestFlight build41 is unchanged.
