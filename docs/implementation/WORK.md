@@ -2428,3 +2428,16 @@ checks, not real Keychain/server/process-termination qualification. Current AMOS
 main52d65c9 source contract still excludes published feed/media and full
 worker/enrollment/deployment completion; PR514 has no peer reply at boundary read.
 Required repository hook remains separate; full RFC/reminder remain open.
+Hosted review of6c2d18c completed SUCCESS/no inline findings/docstrings N/A but
+its architecture text identified old in-memory access surviving failed sign-in
+recovery discovery. Accepted as a same-PR correction before merge; no merge
+attempted. New original-candidate read-failure regression FAIL1/normal sign-out
+control PASS1. Sign-in now clears local token/expiry before recovery I/O; added
+both read-failure and corrupt-record controls. Active storage ordering remains
+unchanged. Old42/435 results are historical for this revised source; affected
+verification and fresh final review remain required.
+PR74 follow-up corrected verification: analyzer0/focused44/fullFlutter437 named
+PASS0fail0skip/done-success-true (overlap), exactb4e7fe55 owned lease RELEASED.
+Independent affected source/test/docs review CLEAR; actual device/server and
+rollout/downgrade qualification remain separate. Earlier hostedSUCCESS is not
+approval of the new source revision; required hook/new-head review still apply.

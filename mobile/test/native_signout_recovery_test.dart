@@ -106,6 +106,42 @@ void main() {
         .setMockMethodCallHandler(h.channel, null),
   );
 
+  test(
+    'failed sign-in recovery read cannot retain old in-memory access',
+    () async {
+      final session = h.session();
+      expect(await session.restore(), isTrue);
+      h.failOperation = 'read';
+      await expectLater(session.signIn(), throwsA(isA<PlatformException>()));
+      await expectLater(
+        session.accessToken(),
+        throwsA(isA<NativeSessionFailure>()),
+      );
+      expect(h.revoked, isEmpty);
+      // No active storage deletion may precede successful pending-state discovery.
+      expect(h.records.containsKey(h.config.binding), isTrue);
+    },
+  );
+
+  test(
+    'invalid sign-in recovery record cannot retain old in-memory access',
+    () async {
+      final session = h.session();
+      expect(await session.restore(), isTrue);
+      h.records[h.pendingBinding] = {
+        'token': 'PRIVATE',
+        'expires': 'PRIVATE_INVALID',
+      };
+      await expectLater(session.signIn(), throwsA(isA<NativeSessionFailure>()));
+      await expectLater(
+        session.accessToken(),
+        throwsA(isA<NativeSessionFailure>()),
+      );
+      expect(h.revoked, isEmpty);
+      expect(h.records.containsKey(h.config.binding), isTrue);
+    },
+  );
+
   test('failed revoke explicit retry keeps same original target', () async {
     final session = h.session();
     expect(await session.restore(), isTrue);

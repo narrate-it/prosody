@@ -2562,3 +2562,9 @@ Final corrected evidence: analyzer0/focused42/fullFlutter435 named PASS0fail0ski
 done-success-true (overlap). Independent review clear; failed intermediate phases
 remain in WORK. All exact test leases released. Hook and actual native/server
 qualification remain separate; no production activation or new upload selected.
+PR74 initial hostedSUCCESS contained an additional sign-in recovery-discovery
+memory-access concern. Accepted and fixed before merge: token/expiry invalidate
+before recovery I/O. Original-candidate new regression FAIL1/controlPASS1;
+corrected analyzer0/focused44/fullFlutter437 PASS0fail0skip/done-success-true
+(overlap). Fresh final review and hook remain separate; prior42/435 evidence is
+historical for this changed source. Production remains inactive.
