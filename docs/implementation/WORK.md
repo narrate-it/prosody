@@ -1852,3 +1852,20 @@ functional acceptance remain open; preserve reminder and all upload evidence.
 - Required hook/independent/hosted review are separate delivery gates. This is
   source verification, not a new signed build or device/TestFlight acceptance.
   Already accepted build 41 is unchanged. Full RFC/reminder remain incomplete.
+
+### 2026-11-07 — Activity timestamp validation
+
+The next independent client task rejects invalid `acceptedAt` calendar, clock and
+UTC-offset fields instead of letting Dart normalize them. The source response
+field is Go `time.Time` JSON (`internal/store/activity.go`); valid RFC 3339 forms
+with explicit timezone remain supported. Leap days, numeric offsets and
+nanosecond-form fractions are accepted with Dart's existing microsecond precision.
+No authority, cursor or service-currentness meaning is inferred from the date.
+
+Original source: 16 malformed-case failures, six valid positive controls PASS,
+and two already-rejected malformed controls PASS (24 named total, zero skips).
+Corrected analysis: no issues. Focused activity model/widget checks: 42 named
+PASS; full Flutter: 235 named PASS, zero failures/skips, done success=true.
+Independent two-file source/test review CLEAR; final docs/hook/hosted review are
+separate gates. No DB/native/device/provider or new upload acceptance is claimed.
+Accepted build 41 is unchanged; full RFC and hourly reminder remain incomplete.

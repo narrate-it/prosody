@@ -22,10 +22,7 @@ class ActivitySummary {
         accepted is! String) {
       throw const FormatException('Invalid activity summary');
     }
-    final timestamp = DateTime.tryParse(accepted);
-    if (timestamp == null || !timestamp.isUtc) {
-      throw const FormatException('Invalid activity timestamp');
-    }
+    final timestamp = _parseActivityTimestamp(accepted);
     return ActivitySummary(
       id: id,
       title: title,
@@ -55,4 +52,43 @@ class ActivityPage {
     }
     return ActivityPage(List.unmodifiable(summaries), cursor as String?);
   }
+}
+
+final _activityTimestampPattern = RegExp(
+  r'([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.[0-9]+)?(?:Z|([+-])([0-9]{2}):([0-9]{2}))',
+);
+
+/// Decode the server's RFC 3339 timestamp without normalizing invalid fields.
+///
+/// DateTime.tryParse alone accepts February 30 and overflowing time/offset fields.
+/// Validate the original calendar and clock before applying its explicit offset.
+DateTime _parseActivityTimestamp(String value) {
+  final match = _activityTimestampPattern.matchAsPrefix(value);
+  if (match == null || match.end != value.length) {
+    throw const FormatException('Invalid activity timestamp');
+  }
+  final fields = [for (var i = 1; i <= 6; i++) int.parse(match.group(i)!)];
+  final calendar = DateTime.utc(
+    fields[0],
+    fields[1],
+    fields[2],
+    fields[3],
+    fields[4],
+    fields[5],
+  );
+  if (calendar.year != fields[0] ||
+      calendar.month != fields[1] ||
+      calendar.day != fields[2] ||
+      calendar.hour != fields[3] ||
+      calendar.minute != fields[4] ||
+      calendar.second != fields[5] ||
+      (match.group(8) != null && int.parse(match.group(8)!) > 23) ||
+      (match.group(9) != null && int.parse(match.group(9)!) > 59)) {
+    throw const FormatException('Invalid activity timestamp');
+  }
+  final timestamp = DateTime.tryParse(value);
+  if (timestamp == null || !timestamp.isUtc) {
+    throw const FormatException('Invalid activity timestamp');
+  }
+  return timestamp;
 }
