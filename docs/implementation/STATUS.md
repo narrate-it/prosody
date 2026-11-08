@@ -2324,3 +2324,33 @@ transient, stale and unmounted controls. Earlier candidate failures remain faile
 runs; no merge or hosted approval of this new revision is implied. Local field
 cleanup still supplies no server-key revoke, memory zeroization, native authority
 or delivery acceptance. Full RFC/reminder stay active and build41 is unchanged.
+
+### 2026-11-08 — Session-bound notification preference reconciliation
+
+A real Settings widget/HTTP-double regression reproduced a preference write under
+one token followed by confirmation with a later session token. The compound API
+now captures the original credential for both requests, checks local session
+continuity before confirmation and after its response, and refuses observed
+changes. Even a change after the local check cannot make the read borrow a later
+token. The widget's existing revision guard remains a local refusal callback so
+feed/API changes or unmount suppress follow-up reads and stale UI updates.
+
+One write is attempted; a lost/transient write response permits one original-token
+read, never another write. Explicit 401/403 skips readback. Offline preview stays
+explicitly credential-free. Token equality and local callbacks are not native
+current authority, identity proof, cancellation of handed-off work or rollback.
+A previously sent write can commit; no retry/NoEffect/refund inference is made.
+
+Original widget regression FAIL1. First correction analysis passed but three
+existing stale/unmounted read-suppression checks failed; full Flutter was not
+reached. Those failures are retained and the local refusal guard was restored.
+Corrected verification and final hook/review evidence are recorded separately.
+No backend/AMOS source or pin, fixture, provider, signing/upload, spend/deploy
+change is selected. Full RFC/reminder remain active; accepted build41 is unchanged.
+
+Corrected source: analyzer zero issues; focused50/full375 named Flutter records
+PASS0fail0skip with done success=true (overlap). Tests include real API/widget
+transport, lost-response/denial controls, post-check token races, stale/unmounted
+read suppression and credential-free offline preview. Independent source review
+CLEAR; final docs/repository hook/hosted review remain separate. No native/device
+or service-currentness acceptance is implied.

@@ -1,3 +1,5 @@
+import 'package:prosody/data/notification_preference.dart';
+
 import 'dart:async';
 import 'dart:convert';
 
@@ -217,6 +219,19 @@ class PreviewApi extends ProsodyApi {
       throw const FormatException('Read status was not confirmed');
     }
   }
+
+  @override
+  Future<NotificationPreferenceResult> changeNotifications(
+    String feed,
+    bool enabled, {
+    bool Function()? isCurrent,
+  }) => confirmNotificationPreference(
+    write: () => notifications(feed, enabled),
+    read: () => settings(feed),
+    // This adapter has no authenticated transport or session token.
+    checkSession: () async {},
+    isCurrent: isCurrent,
+  );
 
   @override
   Future<Map<String, dynamic>> request(

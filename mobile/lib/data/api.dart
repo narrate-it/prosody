@@ -8,6 +8,7 @@ import 'activity.dart';
 import 'bounded_body.dart';
 import 'feed_directory.dart';
 import 'mark_read.dart';
+import 'notification_preference.dart';
 
 class ApiFailure implements Exception {
   final int status;
@@ -185,6 +186,41 @@ class ProsodyApi {
       'PUT',
       '/prosody/v1/feeds/${Uri.encodeComponent(feed)}/notifications',
       body: {'enabled': enabled},
+    );
+  }
+
+  /// Keeps preference write/reconciliation on one captured credential.
+  /// Equality checks reject local session changes, not prove current authority.
+  Future<NotificationPreferenceResult> changeNotifications(
+    String feed,
+    bool enabled, {
+    bool Function()? isCurrent,
+  }) async {
+    final token = await session.accessToken();
+    Future<void> checkSession() async {
+      if (await session.accessToken() != token) {
+        throw const ApiFailure(401, 'Your session has changed. Sign in again.');
+      }
+    }
+
+    return confirmNotificationPreference(
+      write: () async {
+        await _requestWithToken(
+          'PUT',
+          '/prosody/v1/feeds/${Uri.encodeComponent(feed)}/notifications',
+          token,
+          body: {'enabled': enabled},
+        );
+      },
+      read: () async => FeedSettings.fromJson(
+        await _requestWithToken(
+          'GET',
+          '/prosody/v1/feeds/${Uri.encodeComponent(feed)}/settings',
+          token,
+        ),
+      ),
+      checkSession: checkSession,
+      isCurrent: isCurrent,
     );
   }
 

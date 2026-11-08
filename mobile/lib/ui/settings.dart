@@ -167,24 +167,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _notificationError = _notificationMessage = null;
     });
     try {
-      Object? writeError;
-      try {
-        await api.notifications(feed, enabled);
-      } catch (e) {
-        writeError = e;
-      }
+      final result = await api.changeNotifications(
+        feed,
+        enabled,
+        isCurrent: () => _current(revision),
+      );
       if (!_current(revision)) return;
-      if (writeError is ApiFailure &&
-          (writeError.status == 401 || writeError.status == 403)) {
-        throw writeError;
-      }
-      // A response may be lost after commit. Read once; never repeat the write.
-      final current = await api.settings(feed);
-      if (!_current(revision)) return;
+      final current = result.settings;
       setState(() {
         _notifications = current.notifications;
         _notificationMessage =
-            writeError == null && current.notifications == enabled
+            result.writeConfirmed && current.notifications == enabled
             ? 'Saved for you in this feed.'
             : 'Current preference confirmed.';
       });
