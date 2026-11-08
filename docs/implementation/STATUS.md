@@ -2546,3 +2546,19 @@ See NATIVE-SESSION-BOOTSTRAP.md; full RFC/reminder remain incomplete.
 Bootstrap verification: analyzer0, focused47/fullFlutter424 named PASS0fail0skip,
 done-success-true (overlap). Initial collector failure is retained in WORK;
 full-suite success is from a fresh admitted run. Both exact test leases released.
+
+### 2026-11-08 — Native sign-out recovery source
+
+PR73 landedf1de8f3 with exact full-tree equality/main reachability, hostedSUCCESS,
+no merge-blocking findings; docstrings N/A. Its architecture review identified a
+pre-existing sign-out retry target-loss issue as a production activation gate.
+New source keeps one pending token in a separate exact-binding Keychain slot,
+persists it before active deletion on every recovery path, and denies restore
+while pending. Explicit retry targets the same grant; no background revocation.
+Only observed revoke200/204 acknowledgement clears pending, not local expiry.
+See NATIVE-SIGNOUT-RECOVERY.md for failures, bounded scope and remaining actual
+Keychain/issuer/device gates. Sign-in remains inactive; build42 unchanged.
+Final corrected evidence: analyzer0/focused42/fullFlutter435 named PASS0fail0skip,
+done-success-true (overlap). Independent review clear; failed intermediate phases
+remain in WORK. All exact test leases released. Hook and actual native/server
+qualification remain separate; no production activation or new upload selected.

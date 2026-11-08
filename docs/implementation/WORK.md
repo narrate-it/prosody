@@ -2382,3 +2382,49 @@ Fresh full-suite phase:424 named records PASS0fail0skip/done-success-true;
 this overlaps focused47, not an additive count. Collector now accepts only
 object-shaped test events. Exact owned full-suite lease released. No device,
 real issuer, live provider or deployment acceptance. Required hook remains separate.
+
+### 2026-11-08 — Preserve original sign-out revocation target
+
+Implemented the pre-production follow-up accepted from PR73. One pending
+Keychain slot per exact configuration retains the original token without
+restoring local access. It uses existing bridge operations/protection only.
+Restore refuses active grant adoption with pending state; explicit sign-out or
+sign-in recovery retries the same target before any new browser login. Every
+path persists pending before active deletion. Local expiry/clock adjustment is
+not issuer-expiry proof; only observed revoke acknowledgement clears pending.
+
+Original source: lost-target retry assertion FAIL, normal successful sign-out
+control PASS. The complete initial eight-root run had5FAIL/3PASS; one browser
+failure was malformed harness code and is excluded from substantive evidence.
+Initial correction analysis FAILED two test brace-style findings before tests.
+Those were fixed. Independent review found a further first-persistence-failure
+ordering gap through restore/sign-in; central preparation and recreated-client
+regressions address it. No final verification or real-device acceptance is
+inferred from these earlier checkpoints. Source remains inactive pending gates;
+no new upload, Keychain policy/native bridge change, provider or deployment.
+First corrected runtime phase: analyzer0; focused26PASS/3FAIL/0skip, full suite
+NOT REACHED. All new recovery cases passed; three older assertions expected
+concurrent login during sign-out or restoration after a failed revoke. These
+are revised to assert the new stricter serialization/pending-refusal contract,
+while retaining login after completed cleanup and successful-session expiry
+controls. Earlier late-current/new-login generation protection remains tested.
+Exact owned phase lease released; no green result is inferred from that run.
+The subsequent analysis stopped before tests on an unused legacy delete counter
+left by the stricter serialized-login test rewrite. Removed that unused test-only
+counter; production bytes unchanged. This failed phase and exact release are
+retained separately, not promoted to runtime success.
+Next phase: analyzer0/focused29PASS0fail0skip, but fullFlutter422PASS/13FAIL/0skip;
+not green. All13 failures were the unchanged response-body fixture returning an
+active grant for every Keychain binding, including the new pending slot. Its
+three read mocks are now binding-aware; body bounds/header/cleanup and safe-error
+assertions remain unchanged. Production bytes remain at reviewed7814c9c4; all
+exact owned leases released. Affected body tests join the final focused selection.
+Final binding-aware verification: analyzer0, focused42/fullFlutter435 named
+records PASS0fail0skip/done-success-true (overlap, not additive). Production bytes
+remain at reviewed7814c9c4. The first-write ordering finding and local-expiry
+cleanup concern are corrected; independent source/fixture/docs review CLEAR.
+All exact owned test leases released. These are synthetic adapter/recreated-client
+checks, not real Keychain/server/process-termination qualification. Current AMOS
+main52d65c9 source contract still excludes published feed/media and full
+worker/enrollment/deployment completion; PR514 has no peer reply at boundary read.
+Required repository hook remains separate; full RFC/reminder remain open.
