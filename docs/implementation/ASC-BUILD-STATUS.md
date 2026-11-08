@@ -62,3 +62,21 @@ stopped, not the remote cause. No provider field, identifier, value, response
 body or raw exception is printed. The same exact-match predicates still apply;
 a refusal cannot authorize upload. Another read waits for reviewed landed
 source and current execution admission; authentication failure stops retries.
+
+## Explicit included app
+
+PR71 landed atd5804bf. Its single read-only run42518668182 refused metadata at
+`app-binding`; that stage does not prove a cross-app result or an authentication
+failure. The query had selected the app field but included only the prerelease
+version. Apple's build-list contract separately permits `include=app`.
+
+The follow-up query explicitly includes `preReleaseVersion,app` and requests
+only `bundleId` for the included app. Validation requires exactly two included
+resources: one prerelease version and one app, in either order. The app's ID
+must match both the previously verified app ID and build linkage, and its bundle
+ID must match `run.sire.prosody`. Missing, duplicate, foreign or mismatched app
+resources refuse the whole response. Existing filter, train/build, status,
+expiry and transport checks remain. JWT scope changes with the exact query.
+This is a source correction to request the relationship data explicitly, not
+proof that it caused the observed refusal. A reviewed live read remains needed.
+No signing, upload or broader app selection is added.

@@ -103,7 +103,8 @@ def build_request_path(appid, version, build):
     return '/v1/builds?' + urllib.parse.urlencode({
         'filter[app]': appid, 'filter[preReleaseVersion.version]': version,
         'filter[preReleaseVersion.platform]': 'IOS', 'filter[version]': build,
-        'include': 'preReleaseVersion',
+        'include': 'preReleaseVersion,app',
+        'fields[apps]': 'bundleId',
         'fields[builds]': 'version,processingState,expired,preReleaseVersion,app',
         'fields[preReleaseVersions]': 'version,platform', 'limit': '2'})
 
@@ -242,16 +243,21 @@ def read_build(bearer, appid, version, build):
                 or len(rows) != 1):
             raise ValueError()
         stage = 'train-count'
-        if type(included) is not list or len(included) != 1:
+        if type(included) is not list or len(included) != 2:
+            raise ValueError()
+        trains = [r for r in included if type(r) is dict and r.get('type') == 'preReleaseVersions']
+        apps = [r for r in included if type(r) is dict and r.get('type') == 'apps']
+        if len(trains) != 1 or len(apps) != 1:
             raise ValueError()
         stage = 'build-resource'
-        row, train = rows[0], included[0]
+        row, train, app = rows[0], trains[0], apps[0]
         resource_id = lambda v: type(v) is str and re.fullmatch(r'[A-Za-z0-9-]{1,128}', v)
         if row['type'] != 'builds' or not resource_id(row['id']):
             raise ValueError()
         attrs, relations = row['attributes'], row['relationships']
         stage = 'app-binding'
-        if relations['app']['data'] != {'type': 'apps', 'id': appid}:
+        if (relations['app']['data'] != {'type': 'apps', 'id': appid}
+                or app['id'] != appid or app['attributes']['bundleId'] != BUNDLE):
             raise ValueError()
         stage = 'train-binding'
         if (train['type'] != 'preReleaseVersions' or not resource_id(train['id'])
