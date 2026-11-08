@@ -90,8 +90,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _text = catalogs[0];
         _speech = catalogs[1];
       });
-    } catch (_) {
+    } catch (error) {
       if (!_current(revision)) return;
+      if (error is ApiFailure && (error.status == 401 || error.status == 403)) {
+        _key.clear();
+      }
       setState(() => _catalogError = 'Model choices could not be loaded.');
     } finally {
       if (_current(revision)) setState(() => _catalogLoading = false);

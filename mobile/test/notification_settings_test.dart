@@ -39,6 +39,7 @@ class _Api extends ProsodyApi {
   final writes = <(String, bool)>[];
   final catalogs = <String>[];
   bool catalogFailure = false;
+  Future<List<ProviderModel>> Function(String)? catalog;
   Future<FeedSettings> Function(String)? read;
   Future<void> Function(String, bool)? write;
 
@@ -63,6 +64,7 @@ class _Api extends ProsodyApi {
   @override
   Future<List<ProviderModel>> models(String kind) async {
     catalogs.add(kind);
+    if (catalog != null) return catalog!(kind);
     if (catalogFailure) throw StateError('private catalog diagnostic');
     return [
       ProviderModel(kind, kind, kind == 'speech' ? ['voice'] : []),
@@ -119,6 +121,121 @@ Future<void> _tap(WidgetTester tester) async {
 }
 
 void main() {
+  for (final status in [401, 403, 500, 0]) {
+    testWidgets('catalog result handles current key draft status=$status', (
+      tester,
+    ) async {
+      final pending = Completer<List<ProviderModel>>();
+      final api = _Api()..catalog = (_) => pending.future;
+      addTearDown(api.close);
+      await _open(tester, api, feed: _admin);
+      expect(api.catalogs.length, 2);
+      await tester.scrollUntilVisible(
+        find.byType(TextField),
+        150,
+        scrollable: _settingsScrollable,
+      );
+      await tester.enterText(find.byType(TextField), 'synthetic-draft');
+      final controller = tester
+          .widget<TextField>(find.byType(TextField))
+          .controller!;
+      expect(controller.text, 'synthetic-draft');
+      pending.completeError(
+        status == 0
+            ? StateError('private catalog detail')
+            : ApiFailure(status, 'private catalog detail'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        controller.text,
+        status == 401 || status == 403 ? isEmpty : 'synthetic-draft',
+      );
+      await tester.scrollUntilVisible(
+        find.text('Model choices could not be loaded.'),
+        -150,
+        scrollable: _settingsScrollable,
+      );
+      expect(find.text('Model choices could not be loaded.'), findsOneWidget);
+      expect(find.textContaining('private catalog detail'), findsNothing);
+      await tester.scrollUntilVisible(
+        find.text('Arrival notifications'),
+        -150,
+        scrollable: _settingsScrollable,
+      );
+      expect(_toggle(tester).onChanged, isNotNull);
+      expect(api.reads, ['personal']);
+      expect(api.writes, isEmpty);
+    });
+  }
+
+  for (final status in [401, 403]) {
+    testWidgets(
+      'stale catalog denial preserves new feed draft status=$status',
+      (tester) async {
+        final pending = Completer<List<ProviderModel>>();
+        var catalogs = 0;
+        final api = _Api()
+          ..catalog = (kind) {
+            if (++catalogs <= 2) return pending.future;
+            return Future.value([
+              ProviderModel(kind, kind, kind == 'speech' ? ['voice'] : []),
+            ]);
+          };
+        addTearDown(api.close);
+        await _open(tester, api, feed: _admin);
+        await tester.scrollUntilVisible(
+          find.byType(TextField),
+          150,
+          scrollable: _settingsScrollable,
+        );
+        await tester.enterText(find.byType(TextField), 'old-synthetic-draft');
+        const next = Feed(
+          id: 'studio',
+          name: 'Studio',
+          kind: 'team',
+          canManage: true,
+        );
+        await _open(tester, api, feed: next);
+        await tester.scrollUntilVisible(
+          find.byType(TextField),
+          150,
+          scrollable: _settingsScrollable,
+        );
+        await tester.enterText(find.byType(TextField), 'new-synthetic-draft');
+        pending.completeError(ApiFailure(status, 'private old catalog detail'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          'new-synthetic-draft',
+        );
+        expect(find.text('Model choices could not be loaded.'), findsNothing);
+        expect(api.reads, ['personal', 'studio']);
+        expect(api.catalogs.length, 4);
+        expect(tester.takeException(), isNull);
+      },
+    );
+    testWidgets(
+      'unmounted catalog denial does not touch disposed key status=$status',
+      (tester) async {
+        final pending = Completer<List<ProviderModel>>();
+        final api = _Api()..catalog = (_) => pending.future;
+        addTearDown(api.close);
+        await _open(tester, api, feed: _admin);
+        await tester.scrollUntilVisible(
+          find.byType(TextField),
+          150,
+          scrollable: _settingsScrollable,
+        );
+        await tester.enterText(find.byType(TextField), 'synthetic-draft');
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        pending.completeError(ApiFailure(status, 'private old catalog detail'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(api.writes, isEmpty);
+      },
+    );
+  }
+
   testWidgets(
     'member preference is off by default and independent of provider catalog',
     (tester) async {

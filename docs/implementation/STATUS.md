@@ -2280,3 +2280,24 @@ No live OpenRouter request, native accounting/authority, DB/device/service or
 provider-acceptance qualification follows. Final docs/hook/hosted gates remain
 separate. AMOS source/pin, signing/upload, spend and deployment are unchanged;
 full RFC/reminder stay active and accepted TestFlight build41 is unchanged.
+
+### 2026-11-08 — Catalog-denied replacement-key drafts
+
+A current 401/403 response from the provider catalog now clears the replacement-key
+controller in Settings after the existing mounted/revision guard. Previously a draft typed
+while catalogs were pending survived that explicit denial. Other catalog failures
+retain the draft; old-feed or unmounted results cannot clear a new editor value.
+Generic catalog diagnostics and independent notification preferences are unchanged.
+
+Original-source public UI checks fail the two current 401/403 cleanup cases;
+six controls pass (HTTP 500/transport retention, stale 401/403, unmounted 401/403).
+This is local field cleanup, not server-key revocation, memory zeroization,
+clipboard/request-copy deletion, feed revocation or native authority proof.
+No cleanup write or paid request is added. Corrected verification and final
+hook/review remain separately recorded. Full RFC/reminder remain active;
+TestFlight build41 is unchanged.
+
+Corrected analysis: zero issues. Focused 32/full 357 named Flutter records PASS,
+zero failures/skips and done success=true (overlap). Independent source/test
+review CLEAR. Final documentation/repository hook/hosted gates are separate;
+no DB/native/device/provider or credential-revocation acceptance is implied.
