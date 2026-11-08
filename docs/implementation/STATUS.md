@@ -2149,3 +2149,33 @@ on one test-style finding before tests; it was corrected, not counted as a pass.
 Independent source review found a failed-sign-out recovery defect; the terminal
 retry state and two failure controls address it and received independent CLEAR.
 Required repository hook and hosted review remain separately gated.
+
+### 2026-11-07 — Mark-read session binding
+
+The production mark-read action now captures one original credential for its
+revision read and mutation. It refuses a changed credential after the read; even
+an immediate later session change cannot supply a different token for the PUT.
+Same-person token rotation also requires a fresh action: token equality is not a
+person-identity or current-authority proof. Existing server admission still owns
+authorization, and a handed-off write can commit despite local session changes.
+
+The private shared transport preserves HTTPS route restrictions, redirect refusal,
+status handling, bounded response reads and deadlines. The offline PreviewApi has
+an explicit local-only mark-read override retaining revision/result validation;
+it neither obtains fake credentials nor falls back from failed authentication.
+No source wire arguments, provider calls, retries or native authority are added.
+
+Actual original-source check: held-read/session-change assertion FAIL1 with seven
+controls PASS; the action incorrectly succeeded after the credential changed.
+Corrected analysis: zero issues; focused24/full300 named Flutter records PASS,
+zero failure/skip and done success=true (focused is included in full). Cases cover
+stable session, post-check race, expiry before read/before update, malformed read,
+unconfirmed update and lost-response no-retry. Existing preview validation passes.
+Independent three-file source/test review CLEAR; final docs/hook/hosted gates
+remain separate. No live grant, service, device or remote cancellation evidence.
+
+An isolated compiled-copy control removing only the captured-token PUT fails the
+post-check race assertion exactly once (it sends the later token); the stable
+session control passes. Production source SHA-256 is unchanged. This is a local
+transport/session control, not native person/grant or remote rollback proof.
+Full RFC acceptance and the hourly reminder remain incomplete; build41 is unchanged.
