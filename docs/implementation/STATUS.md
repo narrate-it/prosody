@@ -2380,3 +2380,36 @@ records PASS0fail0skip with done success=true (overlap). Independent source/test
 review CLEAR. Final documentation, unchanged repository hook and hosted review
 remain separate; these checks do not qualify native authority, a device or a
 production service.
+
+### 2026-11-08 — Preserve header-known issuer outcomes
+
+NativeSession now handles explicit revoke200/204 acknowledgments and non200
+issuer denials before collecting response bytes. It requests best-effort body
+cancellation without awaiting its completion. A broken/oversized body cannot
+reinterpret an acknowledged revoke or replace the fixed denial diagnostic.
+Successful token/current200 responses still require the existing bounded JSON
+collection and validation. No retry or session-generation behavior is added.
+
+Original-source checks: four acknowledged-revoke body errors and two denied
+revoke diagnostic failures, with two empty-body controls PASS. Corrected checks
+also cover unfinished asynchronous cancellation, denied current responses and
+successful-current responses that must still reject broken/oversized bodies.
+Platform/transport are injected doubles: no real Keychain, issuer or iOS flow
+ran. Cleanup is best effort, not proven drained or preemptible; the five-second
+pending-cleanup check is only a bounded harness control, not network latency.
+Local sign-out clearing remains unchanged. A denial is not remote NoEffect,
+rollback, refund or proof that a previous request did not act.
+
+Corrected verification/final review/hook are separately recorded. No production
+sign-in activation, AMOS pin, provider, fixture, signing/upload, spend/deploy or
+full RFC acceptance follows. Accepted build41 is unchanged; reminder stays.
+
+Initial corrected verification stopped at three analyzer brace-style findings in
+the new test fixture. No focused or full corrected tests ran in that phase. The
+test-only braces were fixed; the failed analyzer run remains retained.
+
+Corrected analyzer reports zero issues. Focused31/full395 named Flutter records
+PASS0fail0skip and done success=true (overlap). Independent source/test review
+CLEAR; final documentation/repository hook/hosted review are separate. These
+checks exercise injected platform/transport, not live issuer, native revocation,
+real cleanup completion or device acceptance.
