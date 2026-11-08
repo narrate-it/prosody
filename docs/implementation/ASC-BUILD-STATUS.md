@@ -47,3 +47,18 @@ finite-number controls are included in the corrected sixteen-root run.
 No pre-fix overflow execution is claimed. The exact owned verification lease
 was released. Required repository hook and independent review remain separate.
 No live build status has been read by this source preparation.
+
+## Live read and fixed refusal stages
+
+PR70 landed at213e205. The one read-only workflow run42513773221 reached the
+build-response validator but refused its metadata; it did not verify processing,
+expiry or tester visibility. No authentication failure was reported. Its exact
+owned lease was released; build41's accepted upload remains unchanged.
+
+The follow-up reader reports only a fixed local validation stage: `json`,
+`envelope`, `build-count`, `train-count`, `build-resource`, `app-binding`,
+`train-binding`, `build-version` or `status`. These identify where validation
+stopped, not the remote cause. No provider field, identifier, value, response
+body or raw exception is printed. The same exact-match predicates still apply;
+a refusal cannot authorize upload. Another read waits for reviewed landed
+source and current execution admission; authentication failure stops retries.

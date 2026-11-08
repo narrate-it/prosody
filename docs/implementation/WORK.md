@@ -2328,3 +2328,18 @@ The interrupted claim was reconciled and released, then fresh capacity and a
 new exact lease admitted verification; that lease was released in finally.
 Source review, unchanged mandatory hook and live read are separate next gates.
 See [ASC-BUILD-STATUS.md](ASC-BUILD-STATUS.md). Full RFC/reminder remain open.
+
+### 2026-11-08 — Apple metadata diagnostic follow-up
+
+Reconciled PR70 landing213e205 and actual read-only run42513773221: trusted main,
+approved runner, response metadata refusal, no reported authentication failure,
+no status/tester acceptance and no duplicate upload. Exact read lease released.
+Added fixed local stage labels to identify the rejecting predicate without
+rendering response fields or raw errors. Original diagnostic source yields ten
+failing subtest assertions across two roots; valid exact-build control PASS.
+Source predicates and credential/request scopes remain unchanged. No further
+live request selected before follow-up verification, independent review and
+landing. Full RFC/reminder remain open.
+Corrected hermetic suites:18 exact-build roots,17 existing ASC roots and29
+release roots PASS separately, zero skips; no live Apple request. Exact owned
+verification lease released. Independent final five-file review CLEAR.
