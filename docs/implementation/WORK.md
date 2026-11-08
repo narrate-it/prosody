@@ -2055,3 +2055,23 @@ commit, real provider settlement or crash recovery. Final hook/review gates are
 separate. No AMOS source/pin, scheduler, fixture, provider, signing/upload, spend
 or deployment change is selected. Full RFC acceptance remains incomplete and
 the hourly reminder stays; accepted TestFlight build41 is unchanged.
+
+### 2026-11-08 — Bounded notification JSON bytes
+
+Added a dormant raw-byte entry point for the existing ready-notification profile:
+4096-octet predecode ceiling, octet/strict UTF-8/no-BOM admission, closed two-level
+JSON structure and decoded duplicate-key rejection. String escapes and exact
+version-one syntax are checked; failures have fixed diagnostics without private
+source or offsets. Required hint semantics reuse the existing mapped validator,
+whose body/helpers remain byte-equivalent. No native transport/event, permission,
+authentication, navigation or playback is connected. See NOTIFICATIONS.md.
+
+Actual analysis0/focused93/full349 named Flutter records PASS0fail0skip and done
+success=true (overlap). The Go producer golden check PASS1. An intentionally
+unsafe alternative composition, jsonDecode then fromPayload, fails duplicate
+rejection exactly once while its golden control passes; actual source SHA is
+unchanged. This is a new API, not a reproduced bug in an earlier production raw
+entry point. Original mapped dictionaries cannot recover erased duplicates.
+Independent source/test review CLEAR; final docs/hook/hosted gates remain separate.
+No DB/native/device/provider/delivery, signing/upload, spend/deploy or AMOS pin
+acceptance follows. Build41 is unchanged; full RFC and reminder remain active.
