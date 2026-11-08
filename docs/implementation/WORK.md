@@ -2173,3 +2173,29 @@ transport, lost-response/denial controls, post-check token races, stale/unmounte
 read suppression and credential-free offline preview. Independent source review
 CLEAR; final docs/repository hook/hosted review remain separate. No native/device
 or service-currentness acceptance is implied.
+
+### 2026-11-08 — Refuse stale-session settings results
+
+A settings read now captures one token for its GET and refuses the result if
+local token retrieval subsequently reports replacement or expiry. Settings
+cannot accept that observed old-session result and proceed into catalogs or
+enable preferences under the later session. A stable read retains the same
+fields and one-request behavior; HTTP denials keep their status and fixed safe
+diagnostic. Preview explicitly keeps its credential-free local dispatcher.
+
+Original-source regression: two API failures (replacement and expiry during
+response) plus one real Settings widget failure; stable-read and offline-preview
+controls PASS2. Corrected tests also cover expired initial session/zero requests
+and a denied read/one request/no private body disclosure. Verification and final
+review/hook results remain separately recorded. The final equality check is a
+non-atomic local observation, not person identity, native current authority or
+revocation/recall proof. No retry or write is added.
+
+No AMOS source/pin, fixture, provider, signing/upload, spend/deploy or backend
+activation is selected. Full RFC/reminder remain active; build41 is unchanged.
+
+Corrected verification: analyzer zero issues; focused57/full382 named Flutter
+records PASS0fail0skip with done success=true (overlap). Independent source/test
+review CLEAR. Final documentation, unchanged repository hook and hosted review
+remain separate; these checks do not qualify native authority, a device or a
+production service.
