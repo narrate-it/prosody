@@ -2260,3 +2260,32 @@ Corrected ordinary169/race169 named records across28 roots each PASS0fail0skip
 zero issues. Independent source/test review CLEAR; final documentation, required
 repository hook and hosted review remain separately gated. No native or live
 provider acceptance follows from these local checks.
+
+### 2026-11-08 — Lossless provider catalog Unicode
+
+Both model catalog routes now validate the bounded response with the existing
+strict Unicode JSON validator before decoding. Malformed UTF-8 and unpaired
+UTF-16 escapes cannot be silently repaired into different model IDs, names or
+voices. Invalid Unicode in ignored metadata also rejects the whole catalog;
+no partial model list is adopted. Existing routes, bounds, DTOs and fixed safe
+error are unchanged. No retry, duplicate-key or semantic catalog admission is
+added.
+
+Original owned TLS checks fail 41 named records (40 malformed leaves plus
+parent); 13 valid-control records pass (12 leaves plus parent). Each route is
+checked for exact GET/query/credential binding and one request. Valid literal
+and escaped U+FFFD, paired/literal non-BMP text, backslash lookalikes and empty
+catalogs retain their prior values. These are local decoder controls, not live
+provider model/voice support or authority evidence. Corrected verification and
+final review/hook results are separately recorded.
+
+No live provider request, native accounting/current authority, DB/device or
+service qualification is claimed. No AMOS pin/activation, fixture provisioning,
+signing/upload, spend or deployment change is selected. Build41 is unchanged;
+full RFC acceptance is incomplete and the reminder stays.
+
+Corrected ordinary and race runs each pass 223 named records across 30 roots,
+with zero failures/skips (overlapping scopes). Both provider and briefing packages
+pass; scoped lint reports zero issues. Independent source/test review CLEAR.
+Final documentation, required repository hook and hosted review remain separate;
+no native or live provider acceptance follows from these local checks.
