@@ -17,6 +17,8 @@ var ErrDuration = errors.New("audio exceeds admitted duration")
 // not trust MIME, bitrate estimates, ID3 duration fields or an agent's metadata.
 // This adapter only admits the decoder's supported MP3 profiles. Provider and
 // malformed-frame qualification are required before publishing external audio.
+// Cancellation is checked during frame preflight, compressed/PCM reads and before
+// returning a measurement; it does not preempt computation inside a decoder read.
 func MeasureMP3(ctx context.Context, b []byte, maxBytes int, maxDuration time.Duration) (time.Duration, error) {
 	samples, rate, err := measureMP3Samples(ctx, b, maxBytes, maxDuration)
 	if err != nil {
@@ -27,15 +29,23 @@ func MeasureMP3(ctx context.Context, b []byte, maxBytes int, maxDuration time.Du
 
 // measureMP3Samples retains exact validated timing for aggregate comparisons.
 func measureMP3Samples(ctx context.Context, b []byte, maxBytes int, maxDuration time.Duration) (int64, int64, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
+	}
 	if len(b) == 0 || maxBytes <= 0 || len(b) > maxBytes || maxDuration <= 0 || maxDuration > 24*time.Hour {
 		return 0, 0, ErrInvalid
 	}
-	expectedRate, expectedSamples, err := mp3Frames(b)
+	expectedRate, expectedSamples, err := mp3Frames(ctx, b)
 	if err != nil {
 		return 0, 0, err
 	}
-	decoder, err := mp3.NewDecoder(bytes.NewReader(b))
+	// A context-aware non-seeking input covers decoder setup and avoids the
+	// decoder's eager, uncancellable seek-index pass. We never seek this decoder.
+	decoder, err := mp3.NewDecoder(contextReader{ctx, bytes.NewReader(b)})
 	if err != nil {
+		if canceled := ctx.Err(); canceled != nil {
+			return 0, 0, canceled
+		}
 		return 0, 0, ErrInvalid
 	}
 	rate := int64(decoder.SampleRate())
@@ -53,6 +63,9 @@ func measureMP3Samples(ctx context.Context, b []byte, maxBytes int, maxDuration 
 	}
 	if n == 0 || n%4 != 0 || n/4 != expectedSamples {
 		return 0, 0, ErrInvalid
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
 	}
 	return n / 4, rate, nil
 }

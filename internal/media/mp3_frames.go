@@ -2,13 +2,14 @@ package media
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 )
 
 // mp3Frames rejects incomplete frames before decoding: the decoder intentionally
 // treats some truncated frame errors as EOF. It also rejects sample-rate changes
 // so a first-frame rate cannot understate the recording duration.
-func mp3Frames(b []byte) (rate int, samples int64, err error) {
+func mp3Frames(ctx context.Context, b []byte) (rate int, samples int64, err error) {
 	offset := 0
 	if len(b) >= 10 && bytes.Equal(b[:3], []byte("ID3")) {
 		if b[3] < 2 || b[3] > 4 {
@@ -34,6 +35,9 @@ func mp3Frames(b []byte) (rate int, samples int64, err error) {
 		end -= 128
 	}
 	for offset < end {
+		if err := ctx.Err(); err != nil {
+			return 0, 0, err
+		}
 		if end-offset < 4 {
 			return 0, 0, ErrInvalid
 		}
@@ -66,6 +70,9 @@ func mp3Frames(b []byte) (rate int, samples int64, err error) {
 	}
 	if samples == 0 {
 		return 0, 0, ErrInvalid
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, 0, err
 	}
 	return rate, samples, nil
 }
