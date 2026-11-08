@@ -2530,3 +2530,19 @@ Missing/duplicate/foreign resources still refuse; source hypothesis is not a
 live-result claim. See ASC-BUILD-STATUS.md. Full RFC/reminder remain open.
 Corrected hermetic21/legacyASC17/release29 roots PASS separately, zero skips;
 exact test lease released. Independent review/hook/live result remain separate.
+
+### 2026-11-08 — Latest preview delivered; native bootstrap source
+
+Latest main127bf69 shipped as1.0.2/build42: resume run42526001942 SUCCESS, both
+linked journals ACCEPTED, exact-build read42526428033 VALID/not expired. The
+original full run42525323948 built/signed successfully but stopped at locked
+Keychain before export; no upload was attempted there. All owned release/read
+leases released. Tester availability and installed acceptance remain unverified.
+No duplicate41/42. The new native-session bootstrap source supplies a real session
+only from complete explicit release configuration; empty/default builds stay
+sign-in disabled. This newer source is not in42. Backend DNS/host/registration,
+supported AMOS composition and real device/API qualification remain open.
+See NATIVE-SESSION-BOOTSTRAP.md; full RFC/reminder remain incomplete.
+Bootstrap verification: analyzer0, focused47/fullFlutter424 named PASS0fail0skip,
+done-success-true (overlap). Initial collector failure is retained in WORK;
+full-suite success is from a fresh admitted run. Both exact test leases released.

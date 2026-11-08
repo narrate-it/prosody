@@ -2359,3 +2359,26 @@ incomplete and reminder stays.
 Corrected hermetic suites21 exact-build/17 legacy ASC/29 release roots PASS
 separately, zero skips. Exact owned verification lease released; these tests
 make no Apple requests and do not establish processing or tester availability.
+
+### 2026-11-08 — Native session entry-point composition
+
+After actual latest-code1.0.2/build42 upload acceptance and VALID/not-expired read,
+traced production main: it always omitted the session, so deploying a backend
+alone could not activate the existing native client. Added explicit origin,
+issuer-origin and resource-audience release configuration; no defaults or
+selected registration. All absent remains disabled, invalid/partial refuses,
+and complete explicit inputs construct the existing real NativeSession and API
+binding. No native/HTTP call occurs in configuration construction. Release
+workflow remains unchanged and supplies no inputs, so this is source preparation,
+not production activation or a sign-in qualification claim. Backend/AMOS shared
+interfaces remain independently gated; no preview data or fake token fallback.
+See NATIVE-SESSION-BOOTSTRAP.md for actual delivered42 and remaining prerequisites.
+Initial verification: locked offline dependencies/format/analyzer PASS; actual
+focused47 named records PASS0fail0skip/done-success-true. The collector then
+FAILED on a non-object JSON array; full suite NOT REACHED. Exact-event audit
+retains that collector failure and confirms focused membership/result without
+rerunning it. Exact owned lease released. Full-suite verification remains open.
+Fresh full-suite phase:424 named records PASS0fail0skip/done-success-true;
+this overlaps focused47, not an additive count. Collector now accepts only
+object-shaped test events. Exact owned full-suite lease released. No device,
+real issuer, live provider or deployment acceptance. Required hook remains separate.

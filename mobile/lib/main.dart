@@ -1,8 +1,11 @@
 import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+
 import 'data/api.dart';
 import 'data/session.dart';
+import 'data/service_configuration.dart';
 import 'playback/handler.dart';
 import 'ui/feed.dart';
 import 'ui/theme.dart';
@@ -18,8 +21,23 @@ Future<void> main() async {
     ),
   );
   await playback.configure();
-  final origin = Uri.tryParse(const String.fromEnvironment('PROSODY_ORIGIN'));
-  runApp(ProsodyApp(playback: playback, origin: origin));
+  ServiceConfiguration? configuration;
+  try {
+    configuration = ServiceConfiguration.parse(
+      origin: const String.fromEnvironment('PROSODY_ORIGIN'),
+      issuer: const String.fromEnvironment('PROSODY_ISSUER_ORIGIN'),
+      audience: const String.fromEnvironment('PROSODY_RESOURCE_AUDIENCE'),
+    );
+  } on FormatException {
+    // Invalid release inputs stay unavailable; never fall back to preview data.
+  }
+  runApp(
+    ProsodyApp(
+      playback: playback,
+      origin: configuration?.origin,
+      session: configuration?.createSession(),
+    ),
+  );
 }
 
 class ProsodyApp extends StatefulWidget {
