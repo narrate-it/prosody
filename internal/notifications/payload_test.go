@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
@@ -21,9 +22,13 @@ func target() notifications.ReadyTarget {
 
 // TestReadyPayloadGolden freezes the local profile independently of a transport.
 func TestReadyPayloadGolden(t *testing.T) {
-	const want = `{"aps":{"alert":"A new briefing is ready."},"prosody":{"version":1,"kind":"ready","feedId":"019a3f00-1234-7000-8000-000000000001","itemId":"019a3f00-1234-7000-8000-000000000002","renditionId":"019a3f00-1234-7000-8000-000000000003"}}`
+	fixture, err := os.ReadFile("../../testdata/notifications/ready-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := bytes.TrimSpace(fixture)
 	b, err := notifications.ReadyPayload(target())
-	if err != nil || string(b) != want {
+	if err != nil || !bytes.Equal(b, want) {
 		t.Fatalf("payload=%s error=%v", b, err)
 	}
 	if len(b) > 4096 {
