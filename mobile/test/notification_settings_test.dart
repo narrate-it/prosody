@@ -1,3 +1,5 @@
+import 'package:prosody/data/notification_preference.dart';
+
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -60,6 +62,19 @@ class _Api extends ProsodyApi {
       preferences[feed] = enabled;
     }
   }
+
+  @override
+  Future<NotificationPreferenceResult> changeNotifications(
+    String feed,
+    bool enabled, {
+    bool Function()? isCurrent,
+  }) => confirmNotificationPreference(
+    write: () => notifications(feed, enabled),
+    read: () => settings(feed),
+    // This adapter has no authenticated transport or session token.
+    checkSession: () async {},
+    isCurrent: isCurrent,
+  );
 
   @override
   Future<List<ProviderModel>> models(String kind) async {
