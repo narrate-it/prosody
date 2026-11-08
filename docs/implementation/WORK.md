@@ -1903,3 +1903,21 @@ unchanged assertions under the300s package/360s supervisor budget. The prior90s
 timeout remains historical failure, not a passing run. Owned Go process group
 absence and exact lease release were confirmed. No broader provider/native or
 wall-clock latency qualification follows from this local race result.
+
+### 2026-11-07 — Private ready-notification payload codec
+
+Added a pure notification payload encoder for RFC §4.4: fixed generic alert plus
+versioned feed/item/rendition routing hints, never title/source/script/agent text,
+URLs or delivery tokens. IDs are provider-visible metadata and confer no current
+access. Feed UUIDv7 and canonical nonzero item/rendition shapes are checked; no
+new v7 requirement on stored item/rendition IDs. No notification is sent or
+scheduled, and OS permission/device enrollment/native receipt/dedup/tap admission
+remain separate missing composition. See [NOTIFICATIONS.md](NOTIFICATIONS.md).
+
+Ordinary and race: each39 named records/four roots PASS0fail0skip (overlap).
+Compiled validation omission fails private-text and two feed negatives plus parent,
+with one golden control PASS. Initial supervisor count assertion FAILED expecting
+only two records; an exact-event audit confirms all four intended failures and
+one control, no rerun or erasure of the failed harness. Required hook/review and
+actual APNs/native/device acceptance remain separate. No keys, provider requests,
+new signing/upload, deployment, spend or AMOS pin changes. Full RFC/reminder stay.

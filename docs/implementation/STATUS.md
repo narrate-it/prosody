@@ -2101,3 +2101,15 @@ The longer explicitly admitted media race followup completed in231.247s with
 173named records/37roots PASS, zero failures/skips, package exit0; owned process
 group absence and lease release were verified. The prior90s timeout is retained.
 Required hook/commit/hosted review and native/provider/device gates are separate.
+
+### 2026-11-07 ready-notification payload preparation
+
+The new local notification codec emits only a generic alert and versioned opaque
+publication routing hints. It exposes no private briefing text or URL; hints are
+not authority and remain visible to the provider. Ordinary and race suites each
+PASS39 named records/four roots, zero failures/skips. A compiled validation omission
+fails four negative records including parent; golden control PASS. The initial
+supervisor's count assertion failed and is retained, with an exact-event audit
+rather than a test rerun. This is payload preparation, not delivery, OS permission,
+device enrollment, native deduplication or tap/current-access acceptance. Required
+hook/review gates are separate; full RFC and hourly reminder remain incomplete.
