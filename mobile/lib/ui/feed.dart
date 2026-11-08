@@ -56,7 +56,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
   String? _error, _cursor;
   FeedPagination _pagination = FeedPagination();
   bool _loading = true, _more = false;
-  bool _signingOut = false;
+  bool _signingOut = false, _sessionEnding = false;
   int _loadRevision = 0;
   final _pages = PageController(keepPage: false);
   @override
@@ -295,9 +295,11 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     ++_loadRevision;
     setState(() {
       _signingOut = true;
+      _sessionEnding = true;
       _loading = true;
     });
     try {
+      await _progress.close(discardPending: true);
       await widget.playback.stop();
       await widget.api.session.signOut();
       if (mounted) widget.onSignOut();
@@ -408,7 +410,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
       centerTitle: false,
       titleSpacing: 20,
       title: TextButton(
-        onPressed: _signingOut ? null : _spaces,
+        onPressed: _sessionEnding ? null : _spaces,
         style: TextButton.styleFrom(
           foregroundColor: Theme.of(context).colorScheme.onSurface,
           textStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
@@ -437,7 +439,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
     ),
     bottomNavigationBar: ValueListenableBuilder<String?>(
       valueListenable: _progress.failure,
-      builder: (context, failure, _) => failure == null
+      builder: (context, failure, _) => _sessionEnding || failure == null
           ? const SizedBox.shrink()
           : SafeArea(
               child: Padding(
@@ -455,7 +457,26 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver {
               ),
             ),
     ),
-    body: _loading
+    body: _sessionEnding
+        ? Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: _signingOut
+                  ? const CircularProgressIndicator()
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text('Could not finish signing out.'),
+                        const SizedBox(height: 16),
+                        OutlinedButton(
+                          onPressed: _signOut,
+                          child: const Text('Retry sign out'),
+                        ),
+                      ],
+                    ),
+            ),
+          )
+        : _loading
         ? const Center(child: CircularProgressIndicator())
         : _items.isEmpty
         ? Center(
