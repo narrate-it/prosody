@@ -71,8 +71,9 @@ closed string-keyed maps, the fixed generic alert, integer `version:1`, `kind:"r
 and the same canonical ID rules as the Go encoder. Unknown versions, extensions,
 URLs, malformed IDs and wrong types fail with a fixed diagnostic that contains
 no input. The returned value retains immutable strings, not the input maps.
-It does not parse a raw JSON body or establish byte/UTF-8/duplicate-key admission
-for a transport; that remains a separate boundary.
+It cannot recover byte or duplicate-key information already lost in a decoded
+map. The separate local `fromJsonBytes` entry point below admits serialized input;
+neither method qualifies an actual native delivery transport.
 
 The shared sample `testdata/notifications/ready-v1.json` is the former Go golden
 literal, moved verbatim. Go compares actual encoder output against it and Dart
@@ -96,3 +97,31 @@ isolated decoder copy with only its version-equality guard removed fails exactly
 the unsupported-version case; the valid shared-sample control passes. Actual
 source bytes remain unchanged. These are local code/shape checks, not actual
 notification receipt, tap, access, permission or playback acceptance.
+
+## Bounded raw JSON input
+
+`ReadyNotificationHint.fromJsonBytes(List<int>)` accepts at most4096 octets for
+this local version-one profile. Length is checked before reading or decoding;
+negative/wide integers, malformed UTF-8 and a leading BOM are refused. It parses
+only the declared root and two child objects, rejecting duplicate DECODED field
+names (including escaped aliases), unknown fields, unsupported values, missing
+separators and trailing data. The version token is the literal integer1;
+`1.0`/`1e0` are not this profile's integer version. JSON strings use the standard
+string decoder with paired-surrogate validation. Required fields and hint syntax
+still pass through the unchanged mapped-payload validator.
+
+Every invalid serialized profile produces the same fixed FormatException without
+input source or offsets. The boundary performs no IO, platform event admission,
+permission request, authentication, navigation or playback. It does not restore
+duplicate information when called after another decoder. A real native/IPC
+adapter must still qualify which representation it receives and select the
+appropriate entry point; no APNs delivery or tap route is activated here.
+
+Local byte-input checks: analysis zero issues; focused93/full349 named Flutter
+records PASS0fail0skip with done success=true (overlap). The unchanged Go producer
+golden check passes. A deliberately unsafe reference composition (ordinary JSON
+decode followed by the mapped validator) accepts a duplicate root field, failing
+that negative test; its valid golden control passes. The reference is an
+alternative implementation, not a previously deployed raw API. Actual production
+source SHA remains unchanged during that comparison. Native/IPC representation
+and delivery remain unqualified, and no platform route is activated.
