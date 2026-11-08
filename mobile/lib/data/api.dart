@@ -156,12 +156,22 @@ class ProsodyApi {
           query: cursor == null ? null : {'cursor': cursor},
         ),
       );
-  Future<FeedSettings> settings(String feed) async => FeedSettings.fromJson(
-    await request(
+
+  /// Refuses a settings result if the local credential changed during its read.
+  /// Token equality is only an observation, not current server authority.
+  Future<FeedSettings> settings(String feed) async {
+    final token = await session.accessToken();
+    final result = await _requestWithToken(
       'GET',
       '/prosody/v1/feeds/${Uri.encodeComponent(feed)}/settings',
-    ),
-  );
+      token,
+    );
+    if (await session.accessToken() != token) {
+      throw const ApiFailure(401, 'Your session has changed. Sign in again.');
+    }
+    return FeedSettings.fromJson(result);
+  }
+
   Future<List<ProviderModel>> models(String kind) async =>
       providerCatalogFromJson(
         (await request(

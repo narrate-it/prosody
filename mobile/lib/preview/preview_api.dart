@@ -220,6 +220,15 @@ class PreviewApi extends ProsodyApi {
     }
   }
 
+  /// Offline sample settings never require or fabricate a session credential.
+  @override
+  Future<FeedSettings> settings(String feed) async => FeedSettings.fromJson(
+    await request(
+      'GET',
+      '/prosody/v1/feeds/${Uri.encodeComponent(feed)}/settings',
+    ),
+  );
+
   @override
   Future<NotificationPreferenceResult> changeNotifications(
     String feed,
