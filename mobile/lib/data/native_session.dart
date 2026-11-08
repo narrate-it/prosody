@@ -286,6 +286,9 @@ class NativeSession implements InteractiveSession {
     }
     _busy = true;
     final generation = ++_generation;
+    // Failed recovery discovery must not reopen the previous in-memory grant.
+    _token = null;
+    _expires = null;
     try {
       await _loadRevocation();
       _checkGeneration(generation);

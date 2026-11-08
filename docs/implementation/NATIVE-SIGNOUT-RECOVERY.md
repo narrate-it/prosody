@@ -58,3 +58,22 @@ Final corrected test counts and hook evidence are recorded in WORK.
 
 Production sign-in remains inactive. Build42 delivery is unchanged; this source
 is newer and selects no upload, deployment, AMOS pin change or native activation.
+
+## Sign-in recovery discovery failure
+
+Initial hosted review completed without inline actionable findings but identified
+an additional pre-activation weakness: sign-in could keep an old in-memory grant
+if pending-record discovery failed before active cleanup. The new regression
+fails on that candidate with a normal sign-out control passing. Sign-in now
+invalidates its in-memory token and local expiry before any recovery I/O, so
+read errors or malformed recovery records cannot reopen that old local access
+when the busy flag clears. Active storage is not deleted before pending discovery
+and safe persistence; storage retention after a failed operation does not assert
+successful logout or remote revocation. This follow-up remains in the same PR;
+the earlier hosted SUCCESS is not approval of the new head.
+
+Older binaries that do not recognize the pending slot are not qualified for
+recovery or downgrade with simultaneous active and pending records. Before
+activation, qualify the supported rollout/downgrade set, physical interruption
+boundaries and actual issuer handling of repeated revocation. This source does
+not impose a server version policy or prove those operating properties.
