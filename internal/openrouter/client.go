@@ -116,6 +116,8 @@ func (c *Client) SpeechModels(ctx context.Context, key string) ([]Model, error) 
 	return c.models(ctx, key, "/models?output_modalities=speech")
 }
 
+// models refuses lossy Unicode throughout the bounded response before decoding.
+// Unknown metadata is not selected, but its strings must remain well formed.
 func (c *Client) models(ctx context.Context, key, path string) ([]Model, error) {
 	b, _, err := c.request(ctx, key, http.MethodGet, path, nil, 8<<20)
 	if err != nil {
@@ -124,7 +126,7 @@ func (c *Client) models(ctx context.Context, key, path string) ([]Model, error) 
 	var result struct {
 		Data []Model `json:"data"`
 	}
-	if json.Unmarshal(b, &result) != nil {
+	if strictjson.Validate(b) != nil || json.Unmarshal(b, &result) != nil {
 		return nil, errors.New("invalid model catalog")
 	}
 	return result.Data, nil
