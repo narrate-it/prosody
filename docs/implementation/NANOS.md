@@ -1,11 +1,19 @@
 # Nanos packaging and recovery contract
 
-This repository has no Go `package main` or runnable backend host. The isolated
-`integration/amos` module is an unqualified adapter, not an executable. Its
-supported host, authority, durable-job consumer and mobile identity gaps remain
-blocking. No repository IaC exists at this checkpoint. Provider, sizing and
-secret delivery are unresolved; no infrastructure resources are defined here.
-RFC 0001 confirms the deployment target while marking architecture draft.
+This repository has no composed runnable Prosody backend host. Its isolated
+`integration/amos` adapter remains unqualified for that purpose. Go `package main`
+entry points under `infra/` are Pulumi infrastructure programs, not the application
+host. Repository Go/Pulumi modules now cover Linode staging, Cloudflare DNS,
+protected ASC configuration and the self-hosted runner; the earlier no-IaC
+snapshot is superseded. Their existence does not establish a running backend,
+image provenance, durable storage or recovery acceptance.
+
+[Linode staging](../../infra/linode/README.md) declares an explicitly powered-off
+graph from an admitted existing private image. A complete total-cost plan, state
+and secret custody, backend configuration and actual image/boot/readiness remain
+separate gates. [READINESS.md](READINESS.md) distinguishes accepted preview delivery
+from usable-service and full RFC acceptance. No image build, VM boot or deployment
+is selected by this documentation reconciliation.
 
 ## Offline package inputs
 
