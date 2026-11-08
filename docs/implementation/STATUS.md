@@ -2072,3 +2072,14 @@ light/dark rendered contrast checks. All 21 iOS icon entries pass dimension and
 no-alpha audits. Native compilation, signing/upload and on-device appearance
 are not claimed by these checks; accepted TestFlight build 41 is unchanged.
 Authentication/backend gates and the full RFC acceptance remain separate.
+
+### 2026-11-07 activity timestamp validation (source lane)
+
+Activity summaries now reject impossible calendar dates, overflowing clock/offset
+fields and non-RFC-3339 shapes rather than silently normalizing them. Valid leap
+dates, explicit offsets and fractions retain existing Dart timestamp precision.
+Original-source regressions failed 16 malformed cases with six valid controls
+passing; corrected analysis is clean, focused 42 and full 235 named Flutter
+checks PASS with zero failures/skips. Independent source review is clear;
+required/hosted delivery gates remain separate. This is client decoding evidence,
+not native authority, service, device or provider acceptance. Keep the reminder.
