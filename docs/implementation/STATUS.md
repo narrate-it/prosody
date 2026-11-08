@@ -2045,3 +2045,20 @@ intended failed assertion while the owned-archive positive control passes. The
 initial added acceptance test expected a shorter display state and failed once;
 it now checks the existing qualified acceptance string rather than changing its
 meaning. Native export/upload remain NOT RUN. Final review/hook/hosted gates pending.
+
+## Current delivery: Apple accepted 1.0.1 (41)
+
+2026-11-07: [protected self-hosted run42426530316](https://github.com/narrate-it/prosody/actions/runs/42426530316)
+completed SUCCESS at23:45:56Z. It resumed the signed archive built at5bf81736
+using reviewed upload controller4a5cd77, with the same mobile inputs. Native
+export SUCCEEDED, Apple validation reported no errors, and upload reported
+UPLOAD SUCCEEDED with no errors. Both original and continuation receipts record
+ACCEPTED, with a durable attempt pointer; exact owned build lease release was
+verified. This supersedes earlier NOT RUN/NOT ATTEMPTED delivery checkpoints.
+Do not dispatch a duplicate upload of this version/build.
+
+Apple processing and availability to David's TestFlight account are NOT YET
+VERIFIED. Browser access is unavailable; tester-view confirmation is pending.
+Acceptance of bytes is not app functionality, production-backend/sign-in or full
+RFC acceptance. No additional keychain permission/default/search-list/lock-policy
+change, backend deployment or provider spending occurred. Hourly reminder remains.

@@ -1826,3 +1826,12 @@ ACCEPTED/UNKNOWN origins never replay on stale Apple inventory. 15resume rootsPA
 journal-persistence omissionRED1assertion/controlPASS1. Initial acceptance display
 expectation failure retained/corrected, no remote acceptance inferred. Final
 source review/required/hosted/native gates remain separate.
+
+## Apple upload accepted; tester availability pending
+
+Actualrun42426530316 SUCCESS23:45:56Z, version1.0.1/build41. Verified signed-archive
+resume exported successfully; Apple validation and upload both succeeded. Original
+and continuation journals both ACCEPTED; owned lease absent after release. No
+rebuild or duplicate upload selected. Processing/tester visibility remains pending
+human confirmation because browser access is unavailable. Full RFC/backend/native
+functional acceptance remain open; preserve reminder and all upload evidence.
