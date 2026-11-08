@@ -138,6 +138,8 @@ type Reconciliation interface {
 // Run performs at most one dispatch per each of the two fixed stages. Any
 // uncertainty stops immediately. Calling Run again is safe only through native
 // lookup/admission: a failed dispatch/checkpoint must NOT appear Undispatched.
+// Cancellation stops subsequent port calls, not work already handed off. Prior
+// port errors keep their classification; cancellation is never no-effect proof.
 func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 	if nilValue(execution) || !validWork(execution.Work()) {
 		return nil, ErrInvalid
@@ -166,6 +168,9 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 			if !nilValue(record.Candidate) || !nilValue(record.Receipt) {
 				return nil, ErrInvalid
 			}
+			if err := ctx.Err(); err != nil {
+				return nil, safeError(err)
+			}
 			record.Candidate, err = execution.Dispatch(ctx, stage, prior)
 			if err != nil {
 				return nil, safeError(err)
@@ -176,6 +181,9 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 				return nil, ErrInvalid
 			}
 			binding := record.Candidate.Projection()
+			if err := ctx.Err(); err != nil {
+				return nil, safeError(err)
+			}
 			record.Receipt, err = execution.Checkpoint(ctx, record.Candidate)
 			if err != nil {
 				return nil, safeError(err)
@@ -193,6 +201,9 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 		if nilValue(record.Receipt) || !validBinding(record.Receipt.Projection(), work, stage) {
 			return nil, ErrInvalid
 		}
+		if err := ctx.Err(); err != nil {
+			return nil, safeError(err)
+		}
 		if err := execution.ValidateCheckpoint(ctx, record.Receipt); err != nil {
 			return nil, safeError(err)
 		}
@@ -201,12 +212,18 @@ func Run(ctx context.Context, execution Execution) (PublicationReceipt, error) {
 			rewrite = prior
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, safeError(err)
+	}
 	receipt, err = execution.Publish(ctx, rewrite, prior)
 	if err != nil {
 		return nil, safeError(err)
 	}
 	if nilValue(receipt) || receipt.Work() != work {
 		return nil, ErrInvalid
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, safeError(err)
 	}
 	if err := execution.ValidatePublication(ctx, receipt); err != nil {
 		return nil, safeError(err)
@@ -226,6 +243,9 @@ func Reenter(ctx context.Context, reconciliation Reconciliation) (PublicationRec
 	if err != nil || done {
 		return receipt, safeError(err)
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, safeError(err)
+	}
 	execution, err := reconciliation.Resume(ctx)
 	if err != nil {
 		return nil, safeError(err)
@@ -236,7 +256,12 @@ func Reenter(ctx context.Context, reconciliation Reconciliation) (PublicationRec
 	return Run(ctx, execution)
 }
 
+// publication checks the original completion before any stage work, preserving
+// unresolved outcomes and validating known receipts through the admitted port.
 func publication(ctx context.Context, port Publications, work Work) (PublicationReceipt, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, false, safeError(err)
+	}
 	record, err := port.LookupPublication(ctx)
 	if err != nil {
 		return nil, false, safeError(err)
@@ -252,6 +277,9 @@ func publication(ctx context.Context, port Publications, work Work) (Publication
 	case PublicationCommitted:
 		if nilValue(record.Receipt) || record.Receipt.Work() != work {
 			return nil, false, ErrInvalid
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, false, safeError(err)
 		}
 		if err := port.ValidatePublication(ctx, record.Receipt); err != nil {
 			return nil, false, safeError(err)
