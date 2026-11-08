@@ -20,6 +20,9 @@ class Harness {
   final platformCalls = <String>[];
   int status = 503;
   String? failOperation;
+  String? failBinding;
+  Completer<void>? holdPendingRead;
+  Completer<void>? pendingReadStarted;
   Completer<void>? holdRevoke;
   String get pendingBinding =>
       jsonEncode([config.binding, 'pending-revocation.v1']);
@@ -46,11 +49,23 @@ class Harness {
             return '${NativeSessionConfiguration.redirect}?code=code&state=${'s' * 43}';
           }
           final binding = (call.arguments as Map)['binding'] as String;
-          if (failOperation == call.method) {
+          if (failOperation == call.method &&
+              (failBinding == null || failBinding == binding)) {
             throw PlatformException(code: 'synthetic_failure');
           }
           switch (call.method) {
             case 'read':
+              final hold = holdPendingRead;
+              if (binding == pendingBinding && hold != null) {
+                final saved = records[binding];
+                final snapshot = saved == null
+                    ? null
+                    : Map<String, dynamic>.from(saved);
+                holdPendingRead = null;
+                pendingReadStarted!.complete();
+                await hold.future;
+                return snapshot;
+              }
               return records[binding];
             case 'write':
               records[binding] = Map<String, dynamic>.from(
@@ -141,6 +156,80 @@ void main() {
       expect(h.records.containsKey(h.config.binding), isTrue);
     },
   );
+
+  test(
+    'sign-out after failed replacement read revokes original stored grant',
+    () async {
+      final session = h.session();
+      expect(await session.restore(), isTrue);
+      h.failOperation = 'read';
+      await expectLater(session.signIn(), throwsA(isA<PlatformException>()));
+      await expectLater(
+        session.accessToken(),
+        throwsA(isA<NativeSessionFailure>()),
+      );
+      h.failOperation = null;
+      h.status = 204;
+      await session.signOut();
+      expect(h.revoked, ['a' * 43]);
+      expect(h.records, isEmpty);
+    },
+  );
+
+  test(
+    'fresh client sign-out recovers stored target without restoring access',
+    () async {
+      h.status = 204;
+      final session = h.session();
+      await session.signOut();
+      expect(h.revoked, ['a' * 43]);
+      expect(h.records, isEmpty);
+      await expectLater(
+        session.accessToken(),
+        throwsA(isA<NativeSessionFailure>()),
+      );
+    },
+  );
+
+  test(
+    'active fallback read failure preserves stored target for retry',
+    () async {
+      h.failOperation = 'read';
+      h.failBinding = h.config.binding;
+      final session = h.session();
+      await expectLater(session.signOut(), throwsA(isA<PlatformException>()));
+      expect(h.records.containsKey(h.config.binding), isTrue);
+      expect(h.records.containsKey(h.pendingBinding), isFalse);
+      expect(h.revoked, isEmpty);
+      h.failOperation = null;
+      h.status = 204;
+      await session.signOut();
+      expect(h.revoked, ['a' * 43]);
+      expect(h.records, isEmpty);
+    },
+  );
+
+  test('late pending read cannot resurrect completed recovery state', () async {
+    h.records[h.pendingBinding] = Map.of(h.records[h.config.binding]!);
+    h.holdPendingRead = Completer<void>();
+    final hold = h.holdPendingRead!;
+    h.pendingReadStarted = Completer<void>();
+    final session = h.session();
+    final restoring = session.restore();
+    final refused = expectLater(
+      restoring,
+      throwsA(isA<NativeSessionFailure>()),
+    );
+    await h.pendingReadStarted!.future;
+    h.status = 204;
+    await session.signOut();
+    expect(h.revoked, ['a' * 43]);
+    hold.complete();
+    await refused;
+    await session.signOut();
+    expect(h.revoked, ['a' * 43]);
+    expect(h.records, isEmpty);
+  });
 
   test('failed revoke explicit retry keeps same original target', () async {
     final session = h.session();

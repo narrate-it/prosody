@@ -77,3 +77,25 @@ recovery or downgrade with simultaneous active and pending records. Before
 activation, qualify the supported rollout/downgrade set, physical interruption
 boundaries and actual issuer handling of repeated revocation. This source does
 not impose a server version policy or prove those operating properties.
+
+## Stored-target recovery after a failed replacement read
+
+The next hosted review found a still-valid case: after failed sign-in discovery,
+an explicit sign-out could delete the unchanged active Keychain record without
+revoking its grant, because memory no longer held it. That candidate was not
+merged. The new original-candidate regression fails with a normal sign-out
+control passing.
+
+Explicit sign-out alone may now read the exact active slot as a recovery-only
+target when pending storage is absent. It never installs that value as an active
+session, never calls current to establish access, and still persists pending
+before active deletion. Pending records take precedence; an unreadable or
+malformed pending record cannot fall through. Failed active reads preserve
+storage and fail sign-out. Generation is checked after each asynchronous read
+and before shared pending assignment, preventing stale results from resurrecting
+completed recovery. Fresh-client logout needs no successful restore first.
+
+This protects the retained original record; it does not expand the contract to
+preserve every prior grant after an unrelated login replacement has already
+completed discovery and deleted old storage. Broader replacement/restart and
+rollout semantics remain separately qualified, not inferred from this fix.

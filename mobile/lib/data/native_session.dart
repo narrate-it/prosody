@@ -140,11 +140,22 @@ class NativeSession implements InteractiveSession {
   }
 
   /// Loads a recovery target without restoring access or contacting the issuer.
-  Future<void> _loadRevocation() async {
+  Future<void> _loadRevocation(
+    int generation, {
+    bool activeFallback = false,
+  }) async {
+    _checkGeneration(generation);
     if (_pendingRevocation != null) return;
-    final saved = await bridge.invokeMapMethod<String, dynamic>('read', {
+    var saved = await bridge.invokeMapMethod<String, dynamic>('read', {
       'binding': _revocationBinding,
     });
+    _checkGeneration(generation);
+    if (saved == null && activeFallback) {
+      saved = await bridge.invokeMapMethod<String, dynamic>('read', {
+        'binding': configuration.binding,
+      });
+      _checkGeneration(generation);
+    }
     if (saved == null) return;
     final token = saved['token'];
     final expiry = DateTime.tryParse(
@@ -155,6 +166,7 @@ class NativeSession implements InteractiveSession {
         expiry == null) {
       throw const NativeSessionFailure('Invalid sign-out recovery record');
     }
+    _checkGeneration(generation);
     _pendingRevocation = (token: token, expires: expiry);
   }
 
@@ -240,7 +252,7 @@ class NativeSession implements InteractiveSession {
       _checkGeneration(generation);
       _token = null;
       _expires = null;
-      await _loadRevocation();
+      await _loadRevocation(generation);
       _checkGeneration(generation);
       if (_pendingRevocation != null) {
         await _prepareRevocation(generation);
@@ -290,7 +302,7 @@ class NativeSession implements InteractiveSession {
     _token = null;
     _expires = null;
     try {
-      await _loadRevocation();
+      await _loadRevocation(generation);
       _checkGeneration(generation);
       await _finishRevocation(generation);
       _checkGeneration(generation);
@@ -431,7 +443,7 @@ class NativeSession implements InteractiveSession {
     if (token != null && expiry != null) {
       _pendingRevocation ??= (token: token, expires: expiry);
     }
-    await _loadRevocation();
+    await _loadRevocation(generation, activeFallback: true);
     _checkGeneration(generation);
     final pending = _pendingRevocation;
     if (pending != null) {

@@ -2568,3 +2568,9 @@ before recovery I/O. Original-candidate new regression FAIL1/controlPASS1;
 corrected analyzer0/focused44/fullFlutter437 PASS0fail0skip/done-success-true
 (overlap). Fresh final review and hook remain separate; prior42/435 evidence is
 historical for this changed source. Production remains inactive.
+PR74 next hosted review found unresolved major4508308254 despite SUCCESS; no
+merge. Explicit sign-out now recovers the still-stored original grant only as
+non-authorizing fallback when pending is absent, with generation-checked reads.
+New original-candidate regression FAIL1/controlPASS1; corrected analyzer0,
+focused48/fullFlutter441 PASS0fail0skip/done-success-true (overlap). Independent
+affected source review clear; fresh hook/new-head review remain required.

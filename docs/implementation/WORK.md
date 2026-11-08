@@ -2441,3 +2441,18 @@ PASS0fail0skip/done-success-true (overlap), exactb4e7fe55 owned lease RELEASED.
 Independent affected source/test/docs review CLEAR; actual device/server and
 rollout/downgrade qualification remain separate. Earlier hostedSUCCESS is not
 approval of the new source revision; required hook/new-head review still apply.
+Second hosted review ofb7d533e also completed SUCCESS but included valid major
+inline4508308254: sign-out after failed replacement read could drop the still-
+stored original grant without revoke. Accepted before merge; no merge attempted.
+New exact original-candidate regression FAIL1/normal controlPASS1. Explicit
+sign-out now uses active storage as recovery-only fallback only when pending is
+absent, with generation checks after each read/before shared assignment. Added
+fresh-client, failed-active-read/retry and stale-read-resurrection cases. No
+restoration/current-authority claim follows from fallback. Fresh verification,
+independent affected review and new-head hosted review remain required.
+Stored-target fallback corrected verification: analyzer0/focused48/fullFlutter441
+namedPASS0fail0skip/done-success-true (overlap), exact262ca490 owned lease RELEASED.
+Independent affected source/test review CLEAR; final docs/evidence and required
+hook/new-head hosted review remain separate. Earlier44/437 and hostedb7 results
+are historical for this revision. No activation, new upload or native/server
+qualification follows from synthetic adapter tests.
