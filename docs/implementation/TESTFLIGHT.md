@@ -32,9 +32,15 @@ Keychain, print team/certificate details, connect to Apple, create profiles or
 change any settings. Signing properties supplied by external overrides are not
 resolved. Never use a passing preview preflight as a release gate.
 
-## Current source and evidence
+## Historical preparation snapshot — before build41
 
-| Area | Observed state | What remains |
+This table records the older preparation state, including its source version and
+then-unverified signing/account gates. It is not a current inventory. Build41 now
+has a signed archive and accepted upload receipt; tester installation remains
+unverified. Use [READINESS.md](READINESS.md) for current recorded delivery and
+remaining acceptance.
+
+| Area | Observed then | Gates at that snapshot |
 | --- | --- | --- |
 | App identity | Owner explicitly chose to reuse Agent Prosody. Runner Debug/Profile/Release now use `run.sire.prosody`, matching the legacy release Appfile; the device display name is Agent Prosody. | Query the actual App Store Connect record and build history before upload; owner-reported existence and source identity are not a live API receipt. |
 | Version | `mobile/pubspec.yaml` contains `0.1.0+1`; Info.plist uses Flutter build-name/build-number variables. | Pick the beta version and an unused build number after checking App Store Connect history. Local source cannot establish uniqueness. |
@@ -43,9 +49,9 @@ resolved. Never use a passing preview preflight as a release gate.
 | Preview | Simulator and physical-iPhone debug builds, hot reload, local sample feeds and RAM-only live-preview key provisioning are recorded. | Live session state and binary freshness must be checked at use time. Provider listening and production acceptance are not inferred from attachment. |
 | Human login | Production `main` supplies no human `InteractiveSession`; sign-in is visibly disabled. | AMOS must provide a supported mobile return/session and current-authority feed boundary, then Prosody must integrate and test it on iOS. No OIDC/refresh/custom-scheme assumption. |
 | Agent-to-listener path | Domain/database and adapter tests exist; synthesis uses local test fixtures. | Qualified agent submission, admitted provider work, durable results, private media delivery and successful playback in the actual app. |
-| Distribution | No signed archive, upload receipt or installed TestFlight build is claimed. | Separate signing, upload authorization, processing and tester installation evidence. |
+| Distribution | At that snapshot no signed archive or upload receipt had been recorded; no installed TestFlight build was claimed. | Separate signing, upload authorization, processing and tester installation evidence. |
 
-## Repeatable existing hot-reload preview
+## Historical simulator preview receipt
 
 The owning session successfully used this command from `mobile`:
 
@@ -80,10 +86,12 @@ a build or migrates execution to another machine. Preserve the already authorize
 internal-disk exception and current host-specific limits. A simulator artifact
 cannot be uploaded to TestFlight.
 
-## Current physical-iPhone preview
+## Physical-iPhone debug preview workflow — historical receipt
 
-Use the connected iPhone, as requested by the owner, instead of booting a
-simulator merely for preview. From the repository root:
+The owner selected the physical-device preview route below. The recorded device
+is not proof of a currently connected phone or attached session. Any new iOS
+build/signing phase must use the approved self-hosted Mac path and current gates.
+From the repository root:
 
 ```sh
 make preview FLUTTER=/path/to/flutter DEVICE=<connected-iphone-id>
@@ -112,22 +120,35 @@ The preflight only checks local artifact presence. It neither connects to the
 phone nor launches, installs, signs or spends. A standalone distributable build
 requires its own qualified composition and release gates.
 
-## Latest AMOS dependency checkpoint
+## Historical AMOS dependency checkpoint — full-service beta
 
-The AMOS owner reports no reviewed/tested bounded worker or mobile interface yet;
-both remain proposals. The local candidate beginning `809e060e` is unmerged. A
-conflict-free dry merge onto newer main is source reconciliation information,
-not service qualification. OAuth expiry across blocking writes, scoped grant
-revocation and an owned verified-TLS service fixture remain dependencies.
+This records the older `809e060e` snapshot; see [READINESS.md](READINESS.md) for
+newer scoped advances and current composition gates. The ordering below applies
+to authenticated full-service acceptance. The owner-approved
+[preview workflow](TESTFLIGHT-PREVIEW.md) permits preview distribution before
+backend completion and has already delivered the accepted build41 upload.
 
-The required order is: reconcile main and service evidence with independent review;
-qualify worker dispatch, unknown-outcome reconciliation and fenced publication
+At that checkpoint the AMOS owner reported no reviewed/tested bounded worker or
+mobile interface; both were proposals. The local candidate beginning `809e060e`
+was unmerged. A conflict-free dry merge onto newer main supplied source
+reconciliation information, not service qualification. OAuth expiry across
+blocking writes, scoped grant revocation and an owned verified-TLS service
+fixture were still dependencies at that snapshot.
+
+For full-service acceptance, the required order is: reconcile main and service
+evidence with independent review; qualify worker dispatch, unknown-outcome
+reconciliation and fenced publication
 with revocation/stale-fence tests; qualify the iOS return and current-authority
 feed boundary with actual iOS expiry/revocation tests; run the joint authorized
-submit-to-listen journey; only then consider separately authorized TestFlight
-distribution. No current source adapter or local simulator receipt skips a step.
+submit-to-listen journey; only then consider separately authorized full-service
+beta distribution. A source adapter or local simulator receipt does not establish
+those full-service predicates.
 
-## Release checklist, in execution order
+## Full-service beta acceptance checklist
+
+This checklist governs the full authenticated service, not the approved preview
+path. Preview releases follow [TESTFLIGHT-PREVIEW.md](TESTFLIGHT-PREVIEW.md), with
+its independent review, runner, capacity, signing and upload gates.
 
 1. **Close the product gates — Prosody and AMOS owners.** Qualify human login,
    current feed access, agent consent/submission and the worker's current-authority,
@@ -170,17 +191,18 @@ distribution. No current source adapter or local simulator receipt skips a step.
    documented journey. Do not claim availability from an upload receipt alone.
    [Apple TestFlight overview](https://developer.apple.com/help/app-store-connect/test-a-beta-version/testflight-overview/).
 
-## What specifically needs David
+## Historical account-preparation questions
 
-No Apple account action is assumed necessary today: account state has not been
-inspected, and engineering gates remain open. Near signing/upload, David or an
-already authorized account operator must confirm the intended Apple team and
-existing access route. Only the account holder should handle any founder-only
-membership, agreement or access decision discovered then. Do not ask him to share
-passwords/private keys, or to recreate working signing material. Upload, deployment
-and paid provider acceptance remain separate authorizations.
+This preparation snapshot predates the protected account reads and accepted
+build41 delivery; see [READINESS.md](READINESS.md) for current recorded status.
+At that time account state had not been inspected. David or an authorized
+operator was to confirm the intended Apple team and access route near signing.
+Those historical questions are not a new request to repair working signing.
+Any newly observed membership, agreement or access decision still belongs to the
+account holder. Do not request passwords/private keys or recreate working signing
+material; release and provider effects retain their own authority gates.
 
-## Verification of this preparation
+## Historical verification of this preparation
 
 This worker ran `sh -n scripts/ios-preflight.sh`, the default read-only preflight,
 and preview mode. Isolated temporary-fixture checks also verified rejection of an
@@ -191,7 +213,7 @@ existing binary only. No build, account inspection, signing or upload was perfor
 Current Apple/Flutter links above were checked while preparing this record; they
 are guidance, not evidence that Prosody satisfies the requirements.
 
-## Reused Agent Prosody account and runners
+## Reused identity and historical account/runner snapshot
 
 The owner explicitly chose to reuse the existing Agent Prosody App Store record
 and Apple account. `sirerun/prosody` redirects to `sirerun/prosody-legacy`, whose
@@ -200,15 +222,21 @@ its separate intended OAuth callback remains
 `run.prosody.prosody:/oauth/callback`. Changing a bundle ID does not register a
 client, authorize a token or qualify production sign-in.
 
-The four secret names `ASC_API_KEY`, `ASC_ISSUER_ID`, `ASC_KEY_ID` and
-`ASC_TEAM_ID` are present in `narrate-it/prosody`. Their values were not read or
-printed, and their Apple API validity has not been tested. Browser access was
-unavailable; no live app record or unused build number has been confirmed.
+The following account observations describe the earlier preparation snapshot,
+not current blockers. The four names `ASC_API_KEY`, `ASC_ISSUER_ID`, `ASC_KEY_ID`
+and `ASC_TEAM_ID` were present in the repository-owned configuration. Their
+values were not read or printed. At that stage Apple API validity had not been
+tested, browser access was unavailable, and no live app record or unused build
+number had been confirmed. Subsequent protected account reads and build41's
+accepted delivery supersede that unavailable state; current evidence and remaining
+Apple-processing/tester checks are in [READINESS.md](READINESS.md).
 
 Follow [AGENTS.md](../../AGENTS.md): iOS builds, archives, signing and uploads use
 existing approved self-hosted macOS runners, never GitHub-hosted capacity. The
 legacy workflow already selects `[self-hosted, macOS]`, but its tool installation
 and Keychain-reset steps are not adopted by copying that workflow. Runner
-registration, toolchain, stable signing identity and protected upload authority
-still need verification. No iOS build, signing retry, archive or upload is
-authorized solely by the presence of secret names or this source configuration.
+registration, toolchain, signing identity and protected upload authority
+were unverified at that historical snapshot. The later build41 delivery supplies
+its own scoped evidence, not a future reservation. New phases use the protected
+workflow's fresh gates; secret names or source configuration alone authorize no
+iOS build, signing retry, archive or upload.

@@ -41,11 +41,13 @@ reviewed release is required to deliver them; this record selects no new upload.
 | Area | Latest relevant evidence | Remaining acceptance |
 | --- | --- | --- |
 | Mobile source | PR #66: analyzer zero issues, 31 focused and 395 full Flutter named records PASS, zero failures/skips and done success=true; the mobile tree is unchanged through this snapshot | New artifact/install for later source; real browser return, expiry/revoke, interruption, lock-screen and player checks |
-| Provider and briefing | PR #68: ordinary/race each 223 named records across 30 roots PASS, zero failures/skips; scoped lint zero issues; owned TLS fixtures, not a live provider | Budgeted real provider behavior, usable output, artifact durability and native accounting/reconciliation |
+| Provider and briefing | PR #68: ordinary/race each 223 named records across 30 roots PASS, zero failures/skips; scoped lint zero issues; owned TLS fixtures, not a live provider | Complete-manifest generated narration ceiling (at most 600 seconds) and, when needed, at most one additional separately admitted shortening/synthesis cycle ([budget contract](NARRATION-BUDGET.md)); budgeted real provider behavior, usable output, artifact durability and native accounting/reconciliation |
 | Local pipeline | PR #9/#13/#21/#60: ordinary orchestration, real owned HTTP fault paths and phase-cancellation checks; native capabilities/receipts in composition tests remain synthetic | Supported generic worker composition and real accepted-work/checkpoint/completion recovery |
 | Media | Same-pass verified range helper, MP4 structural metadata checks and MP3 cancellation/measurement source | Current published-asset admission, full codec/timeline/object proof and actual device transport/playback; MP4 metadata remains unverified |
 | Notifications | Generic ready-payload encoder, mapped hint and bounded raw-JSON validators; local preferences | Native hookup, OS permission, current recipient/device/access checks, committed-publication dedup and actual delivery/tap journey |
 
+Passing provider checks or validating one synthesized part does not establish
+the complete-manifest aggregate limit or activate an additional paid cycle.
 These evidence scopes overlap and must not be added together. Root Go hook passes
 without a database do not qualify SQL or native services. The candidate buffered
 media profile does not reduce RFC supplied-media limits.
