@@ -2413,3 +2413,31 @@ PASS0fail0skip and done success=true (overlap). Independent source/test review
 CLEAR; final documentation/repository hook/hosted review are separate. These
 checks exercise injected platform/transport, not live issuer, native revocation,
 real cleanup completion or device acceptance.
+
+### 2026-11-08 — Lossless provider request Unicode
+
+Rewrite now validates model/instructions/source UTF-8 and speech validates
+model/voice/text UTF-8 before entering the transport phase. Go's JSON encoder
+otherwise silently replaces malformed string bytes. Invalid inputs return the
+existing safe errors with NotDispatched and no usable output; no repair or retry
+is added. Valid U+FFFD, non-BMP characters, NUL and literal backslash lookalikes
+retain exact decoded wire values without normalization.
+
+Owned TLS original-source checks FAIL31 named records (30 malformed leaves plus
+parent); nine valid-control records PASS (eight leaves plus parent). Cases cover
+five malformed encodings in each of six fields. Corrected verification and final
+review/hook are separately recorded. Fixture speech bytes are synthetic transport
+data, not admitted MP3. Valid Unicode/model/voice fixture values prove wire
+preservation only, not live provider catalog support or content qualification.
+
+NotDispatched is a local observation with zero fixture requests, not native
+NoEffect, billing/refund or retry permission. No live provider request, native
+accounting/current-authority, DB/device or service acceptance is claimed. No
+AMOS pin/activation, fixture provisioning, signing/upload, spend or deployment
+change is selected. Build41 is unchanged; full RFC/reminder remain active.
+
+Corrected ordinary169/race169 named records across28 roots each PASS0fail0skip
+(overlap), with both provider and briefing packages passing. Scoped lint reports
+zero issues. Independent source/test review CLEAR; final documentation, required
+repository hook and hosted review remain separately gated. No native or live
+provider acceptance follows from these local checks.

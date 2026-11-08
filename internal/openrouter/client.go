@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/narrate-it/prosody/internal/strictjson"
 )
@@ -135,7 +136,8 @@ type RewriteResult struct {
 	PromptTokens, CompletionTokens int
 }
 
-// Rewrite makes at most one bounded provider request. Malformed response Unicode
+// Rewrite makes at most one bounded provider request. Invalid request UTF-8 is
+// refused before transport. Malformed response Unicode
 // is rejected without adopting body text or accounting; header references remain
 // observations for original-attempt reconciliation, never settlement proof.
 func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source string, maxTokens int) (out RewriteResult, failure error) {
@@ -143,7 +145,7 @@ func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source s
 	defer func() {
 		out.Outcome, failure = FinishAttempt(AttemptOutcome{State: state, RequestID: out.RequestID, GenerationID: out.GenerationID, PromptTokens: out.PromptTokens, CompletionTokens: out.CompletionTokens}, failure)
 	}()
-	if model == "" || source == "" || maxTokens < 1 || maxTokens > MaxRewriteCompletionTokens {
+	if model == "" || source == "" || maxTokens < 1 || maxTokens > MaxRewriteCompletionTokens || !utf8.ValidString(model) || !utf8.ValidString(instructions) || !utf8.ValidString(source) {
 		return RewriteResult{}, errors.New("invalid rewrite request")
 	}
 	payload := struct {
@@ -200,12 +202,13 @@ type SpeechResult struct {
 
 // Speech returns the original provider bytes. Publication must separately
 // validate the codec and measured aggregate duration, never trust headers alone.
+// Invalid request UTF-8 is refused before transport rather than silently repaired.
 func (c *Client) Speech(ctx context.Context, key, model, voice, text string) (out SpeechResult, failure error) {
 	state := NotDispatched
 	defer func() {
 		out.Outcome, failure = FinishAttempt(AttemptOutcome{State: state, RequestID: out.RequestID, GenerationID: out.GenerationID}, failure)
 	}()
-	if model == "" || voice == "" || strings.TrimSpace(text) == "" || len(text) > 64000 {
+	if model == "" || voice == "" || strings.TrimSpace(text) == "" || len(text) > 64000 || !utf8.ValidString(model) || !utf8.ValidString(voice) || !utf8.ValidString(text) {
 		return SpeechResult{}, errors.New("invalid speech request")
 	}
 	state = MayHaveActed
