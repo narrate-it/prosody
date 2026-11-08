@@ -79,22 +79,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
       return;
     }
+    // Future.wait retains only the first error. Observe every catalog result
+    // so an earlier transient failure cannot mask a later authority denial.
+    var catalogDenied = false;
+    Future<List<ProviderModel>> readCatalog(String kind) async {
+      try {
+        return await api.models(kind);
+      } catch (error) {
+        if (error is ApiFailure &&
+            (error.status == 401 || error.status == 403)) {
+          catalogDenied = true;
+        }
+        rethrow;
+      }
+    }
+
     // Provider catalogs do not control a person's notification preference.
     try {
       final catalogs = await Future.wait([
-        api.models('text'),
-        api.models('speech'),
+        readCatalog('text'),
+        readCatalog('speech'),
       ]);
       if (!_current(revision)) return;
       setState(() {
         _text = catalogs[0];
         _speech = catalogs[1];
       });
-    } catch (error) {
+    } catch (_) {
       if (!_current(revision)) return;
-      if (error is ApiFailure && (error.status == 401 || error.status == 403)) {
-        _key.clear();
-      }
+      if (catalogDenied) _key.clear();
       setState(() => _catalogError = 'Model choices could not be loaded.');
     } finally {
       if (_current(revision)) setState(() => _catalogLoading = false);

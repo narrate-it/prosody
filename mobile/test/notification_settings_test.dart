@@ -121,6 +121,48 @@ Future<void> _tap(WidgetTester tester) async {
 }
 
 void main() {
+  for (final status in [401, 403]) {
+    for (final transient in [500, 0]) {
+      for (final denialFirst in [false, true]) {
+        testWidgets(
+          'mixed catalog failures clear current draft status=$status transient=$transient denialFirst=$denialFirst',
+          (tester) async {
+            final text = Completer<List<ProviderModel>>();
+            final speech = Completer<List<ProviderModel>>();
+            final api = _Api()
+              ..catalog = (kind) =>
+                  kind == 'text' ? text.future : speech.future;
+            addTearDown(api.close);
+            await _open(tester, api, feed: _admin);
+            await tester.scrollUntilVisible(
+              find.byType(TextField),
+              150,
+              scrollable: _settingsScrollable,
+            );
+            await tester.enterText(find.byType(TextField), 'synthetic-draft');
+            final controller = tester
+                .widget<TextField>(find.byType(TextField))
+                .controller!;
+            final denial = ApiFailure(status, 'private catalog denial');
+            final other = transient == 0
+                ? StateError('private transport detail')
+                : ApiFailure(transient, 'private catalog failure');
+            text.completeError(denialFirst ? denial : other);
+            await tester.pump();
+            expect(controller.text, 'synthetic-draft');
+            speech.completeError(denialFirst ? other : denial);
+            await tester.pumpAndSettle();
+            expect(controller.text, isEmpty);
+            expect(api.catalogs, ['text', 'speech']);
+            expect(api.writes, isEmpty);
+            expect(find.textContaining('private catalog'), findsNothing);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
+    }
+  }
+
   for (final status in [401, 403, 500, 0]) {
     testWidgets('catalog result handles current key draft status=$status', (
       tester,
