@@ -2083,3 +2083,21 @@ passing; corrected analysis is clean, focused 42 and full 235 named Flutter
 checks PASS with zero failures/skips. Independent source review is clear;
 required/hosted delivery gates remain separate. This is client decoding evidence,
 not native authority, service, device or provider acceptance. Keep the reminder.
+
+### 2026-11-07 MP3 validation cancellation (source lane)
+
+MP3 header preflight, compressed/PCM reads and final timing now check cancellation;
+non-seeking decoder input avoids its unused eager seek index. No partial timing
+is returned on observed cancellation. This is local validation, never remote
+NoEffect, refund, retry or publication proof, and not decoder-call preemption.
+Original-source regressions fail three leaves plus their parent; final focused
+ten records/four roots PASS, with a compiled per-frame-guard omission RED and
+structural control PASS. Initial ordinary media 172 records and scoped race nine
+records PASS; the broader 90-second race package TIMEOUT remains a failure,
+not a green verdict. A fresh longer bounded race followup is tracked separately.
+Full RFC/native/provider/device acceptance and the hourly reminder remain open.
+
+The longer explicitly admitted media race followup completed in231.247s with
+173named records/37roots PASS, zero failures/skips, package exit0; owned process
+group absence and lease release were verified. The prior90s timeout is retained.
+Required hook/commit/hosted review and native/provider/device gates are separate.

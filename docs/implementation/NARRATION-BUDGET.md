@@ -51,3 +51,14 @@ rational and mixed-rate cases while the exact-budget child and parent passed.
 Source files were not replaced by these compiler overlays. These checks do not
 qualify external provider encodings, native services, durable storage, actual
 mobile playback or a whole production submission-to-listen journey.
+
+## Cancellation scope
+
+MP3 validation checks context before validation, on every frame-header iteration,
+after scanning, during compressed-input and PCM reads, and before returning timing.
+The compressed reader deliberately does not expose seeking: measurement needs no
+seek index, and decoder construction otherwise scans it eagerly without context.
+These checkpoints do not interrupt computation inside a decoder read, establish
+wall-clock latency, or recall a completed provider effect. Cancellation retains
+its error identity and returns no partial measurement; it authorizes no paid
+retry/refund and supplies no native settlement or publication proof.

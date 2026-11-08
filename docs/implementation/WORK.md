@@ -1869,3 +1869,37 @@ PASS; full Flutter: 235 named PASS, zero failures/skips, done success=true.
 Independent two-file source/test review CLEAR; final docs/hook/hosted review are
 separate gates. No DB/native/device/provider or new upload acceptance is claimed.
 Accepted build 41 is unchanged; full RFC and hourly reminder remain incomplete.
+
+### 2026-11-07 — Cancellation-aware MP3 preflight
+
+MP3 validation now checks cancellation before validation, during each frame-header
+iteration, after scanning and before returning decoded timing. Decoder setup uses
+context-aware non-seeking compressed input, avoiding its unused eager seek index;
+PCM reads remain context-aware. This does not preempt computation inside a decoder
+read or establish a CPU-time/service-latency bound. Cancellation returns no partial
+measurement, not remote cancellation, absence, settlement or retry permission.
+Nil contexts remain unsupported; caller-owned bytes must remain unchanged.
+
+Original public regression: three malformed/deadline leaves plus their parent
+FAIL, while three controls PASS (including already-cancelled valid audio).
+Initial corrected focused and scoped-race checks: nine records/three roots PASS;
+ordinary media package: 172 records/36 roots PASS, zero failures/skips. Added a
+scan-only cancellation regression: final focused ten records/four roots PASS;
+compiled omission of only the per-frame check fails exactly that regression while
+its structural control passes. The direct compressed-reader test is an adapter
+control, not a public-path decoder-setup acceptance test.
+
+A broader media race invocation timed out at its 90-second package deadline in
+the existing ten-minute narration fixture, after 45 passing records; it is NOT
+package PASS. Its owned lease was released. A fresh admitted bounded followup
+uses the unchanged assertions and a 300-second package/360-second supervisor
+window; its final result is recorded separately. No fixture, provider, signing,
+upload, deployment, AMOS pin or authority change is selected. Full RFC remains
+incomplete and the hourly reminder remains.
+
+The explicitly re-admitted longer race run completed PASS in231.247s: all173
+named records across37roots passed, zero failures/skips, package exit0. It used
+unchanged assertions under the300s package/360s supervisor budget. The prior90s
+timeout remains historical failure, not a passing run. Owned Go process group
+absence and exact lease release were confirmed. No broader provider/native or
+wall-clock latency qualification follows from this local race result.
