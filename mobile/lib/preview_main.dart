@@ -238,7 +238,7 @@ class _ProsodyPreviewState extends State<ProsodyPreview> {
       builder: (context, _) => Banner(
         message: widget.live.configured ? 'LIVE PREVIEW' : 'OFFLINE DEMO',
         location: BannerLocation.topEnd,
-        color: blue,
+        color: ink,
         child: child!,
       ),
     ),

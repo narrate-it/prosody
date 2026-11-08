@@ -2062,3 +2062,13 @@ VERIFIED. Browser access is unavailable; tester-view confirmation is pending.
 Acceptance of bytes is not app functionality, production-backend/sign-in or full
 RFC acceptance. No additional keychain permission/default/search-list/lock-policy
 change, backend deployment or provider spending occurred. Hourly reminder remains.
+
+### 2026-11-07 owner brand update (source lane)
+
+The supplied black-and-white Prosody palette and logo replace the former blue
+accent and Flutter launcher artwork in the isolated branding lane. Analysis is
+clean; 211 named Flutter tests pass with zero failures/skips, including two
+light/dark rendered contrast checks. All 21 iOS icon entries pass dimension and
+no-alpha audits. Native compilation, signing/upload and on-device appearance
+are not claimed by these checks; accepted TestFlight build 41 is unchanged.
+Authentication/backend gates and the full RFC acceptance remain separate.
