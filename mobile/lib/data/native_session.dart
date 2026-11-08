@@ -54,6 +54,13 @@ class NativeSession implements InteractiveSession {
   DateTime? _expires;
   int _generation = 0;
   bool _busy = false;
+  ({String token, DateTime expires})? _pendingRevocation;
+  Future<void>? _ending;
+  Future<void>? _revoking;
+
+  /// Separate bounded Keychain slot; never usable as an active grant.
+  String get _revocationBinding =>
+      jsonEncode([configuration.binding, 'pending-revocation.v1']);
 
   /// Creates a candidate client with injectable platform, transport and clock.
   NativeSession(
@@ -132,6 +139,67 @@ class NativeSession implements InteractiveSession {
     });
   }
 
+  /// Loads a recovery target without restoring access or contacting the issuer.
+  Future<void> _loadRevocation() async {
+    if (_pendingRevocation != null) return;
+    final saved = await bridge.invokeMapMethod<String, dynamic>('read', {
+      'binding': _revocationBinding,
+    });
+    if (saved == null) return;
+    final token = saved['token'];
+    final expiry = DateTime.tryParse(
+      saved['expires'] is String ? saved['expires'] as String : '',
+    );
+    if (token is! String ||
+        !RegExp(r'^[A-Za-z0-9_-]{1,128}$').hasMatch(token) ||
+        expiry == null) {
+      throw const NativeSessionFailure('Invalid sign-out recovery record');
+    }
+    _pendingRevocation = (token: token, expires: expiry);
+  }
+
+  /// Persists the sole target before any path deletes active grant storage.
+  Future<void> _prepareRevocation(int generation) async {
+    final pending = _pendingRevocation;
+    if (pending == null) return;
+    _checkGeneration(generation);
+    await bridge.invokeMethod<void>('write', {
+      'binding': _revocationBinding,
+      'token': pending.token,
+      'expires': pending.expires.toUtc().toIso8601String(),
+    });
+    _checkGeneration(generation);
+    await _clear();
+    _checkGeneration(generation);
+  }
+
+  /// Coalesces overlapping recovery requests for the sole pending target.
+  Future<void> _revoke(String token) {
+    final current = _revoking;
+    if (current != null) return current;
+    late Future<void> request;
+    request = _post('/oauth/revoke', {'token': token})
+        .then<void>((_) {})
+        .whenComplete(() {
+          if (identical(_revoking, request)) _revoking = null;
+        });
+    _revoking = request;
+    return request;
+  }
+
+  /// Deletes active storage before one explicit revoke; retains pending on failure.
+  Future<void> _finishRevocation(int generation) async {
+    final pending = _pendingRevocation;
+    if (pending == null) return;
+    _checkGeneration(generation);
+    await _prepareRevocation(generation);
+    await _revoke(pending.token);
+    _checkGeneration(generation);
+    await bridge.invokeMethod<void>('delete', {'binding': _revocationBinding});
+    _checkGeneration(generation);
+    if (_pendingRevocation == pending) _pendingRevocation = null;
+  }
+
   /// Checks current personal authority and tightens the local expiry.
   Future<bool> _current(String token, int generation) async {
     final value = await _post('/oauth/current', {'token': token});
@@ -162,7 +230,7 @@ class NativeSession implements InteractiveSession {
   @override
   /// Restores a persisted unexpired grant only after issuer validation.
   Future<bool> restore() async {
-    if (_busy) {
+    if (_busy || _ending != null) {
       throw const NativeSessionFailure('Session operation in progress');
     }
     _busy = true;
@@ -172,6 +240,12 @@ class NativeSession implements InteractiveSession {
       _checkGeneration(generation);
       _token = null;
       _expires = null;
+      await _loadRevocation();
+      _checkGeneration(generation);
+      if (_pendingRevocation != null) {
+        await _prepareRevocation(generation);
+        return false;
+      }
       final saved = await bridge.invokeMapMethod<String, dynamic>('read', {
         'binding': configuration.binding,
       });
@@ -207,10 +281,16 @@ class NativeSession implements InteractiveSession {
   @override
   /// Runs private browser return with PKCE and persists a validated personal grant.
   Future<void> signIn() async {
-    if (_busy) throw const NativeSessionFailure('Sign-in already in progress');
+    if (_busy || _ending != null) {
+      throw const NativeSessionFailure('Sign-in already in progress');
+    }
     _busy = true;
     final generation = ++_generation;
     try {
+      await _loadRevocation();
+      _checkGeneration(generation);
+      await _finishRevocation(generation);
+      _checkGeneration(generation);
       await _clear();
       _checkGeneration(generation);
       final proof = await bridge.invokeMapMethod<String, dynamic>('proof');
@@ -297,7 +377,10 @@ class NativeSession implements InteractiveSession {
   Future<String> accessToken() async {
     final token = _token;
     final generation = _generation;
-    if (_busy || token == null) {
+    if (_busy ||
+        _ending != null ||
+        _pendingRevocation != null ||
+        token == null) {
       throw const NativeSessionFailure('Sign-in required');
     }
     if (_expires == null || !_expires!.isAfter(now())) {
@@ -323,16 +406,40 @@ class NativeSession implements InteractiveSession {
   }
 
   @override
-  /// Cancels browser login, clears local authority and revokes the previous grant.
-  Future<void> signOut() async {
+  /// Ends local access immediately; explicit retries preserve the original target.
+  Future<void> signOut() {
+    final current = _ending;
+    if (current != null) return current;
+    late Future<void> ending;
+    ending = _endSession().whenComplete(() {
+      if (identical(_ending, ending)) _ending = null;
+    });
+    _ending = ending;
+    return ending;
+  }
+
+  /// Persists recovery before active deletion; storage failures remain failures.
+  Future<void> _endSession() async {
     final generation = ++_generation;
     final token = _token;
+    final expiry = _expires;
     _token = null;
     _expires = null;
-    await bridge.invokeMethod<void>('cancel');
-    if (generation == _generation) {
-      await _clear();
+    if (token != null && expiry != null) {
+      _pendingRevocation ??= (token: token, expires: expiry);
     }
-    if (token != null) await _post('/oauth/revoke', {'token': token});
+    await _loadRevocation();
+    _checkGeneration(generation);
+    final pending = _pendingRevocation;
+    if (pending != null) {
+      await _prepareRevocation(generation);
+    }
+    await bridge.invokeMethod<void>('cancel');
+    _checkGeneration(generation);
+    if (pending == null) {
+      await _clear();
+    } else {
+      await _finishRevocation(generation);
+    }
   }
 }

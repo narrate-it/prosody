@@ -27,7 +27,8 @@ void main() {
     final paths = <String>[];
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(bridge, (call) async {
-          if (call.method == 'read') {
+          if (call.method == 'read' &&
+              (call.arguments as Map)['binding'] == config.binding) {
             return {
               'token': 'a' * 43,
               'expires': now.add(const Duration(minutes: 10)).toIso8601String(),
@@ -159,7 +160,8 @@ void main() {
         var calls = 0;
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(bridge, (call) async {
-              if (call.method == 'read') {
+              if (call.method == 'read' &&
+                  (call.arguments as Map)['binding'] == config.binding) {
                 return {
                   'token': 'a' * 43,
                   'expires': now
@@ -208,7 +210,8 @@ void main() {
         var calls = 0;
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(bridge, (call) async {
-              if (call.method == 'read') {
+              if (call.method == 'read' &&
+                  (call.arguments as Map)['binding'] == config.binding) {
                 return {
                   'token': 'a' * 43,
                   'expires': now

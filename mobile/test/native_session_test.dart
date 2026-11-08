@@ -12,6 +12,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const bridge = MethodChannel('native-session-test');
   final now = DateTime.utc(2026, 11, 4);
+
   /// Supplies an explicitly nonproduction issuer and audience for test fixtures.
   NativeSessionConfiguration config() => NativeSessionConfiguration(
     issuer: Uri.parse('https://identity.example.invalid'),
@@ -55,7 +56,8 @@ void main() {
       var deleted = false;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(bridge, (call) async {
-            if (call.method == 'read') {
+            if (call.method == 'read' &&
+                (call.arguments as Map)['binding'] == config().binding) {
               return {'token': 'expired', 'expires': now.toIso8601String()};
             }
             if (call.method == 'delete') deleted = true;
@@ -78,7 +80,8 @@ void main() {
     var deleted = false;
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(bridge, (call) async {
-          if (call.method == 'read') {
+          if (call.method == 'read' &&
+              (call.arguments as Map)['binding'] == config().binding) {
             return {
               'token': 'opaque',
               'expires': now.add(const Duration(minutes: 10)).toIso8601String(),
@@ -189,7 +192,7 @@ void main() {
     final name = staleCurrent
         ? 'late inactive current cannot erase a new login'
         : pendingCancel
-        ? 'sign-out awaiting cancel cannot delete a newer login'
+        ? 'sign-out awaiting cancel blocks login until cleanup completes'
         : 'personal login checks current, stores expiry, and revokes on sign-out';
     test(name, () async {
       Map<String, dynamic>? saved;
@@ -199,7 +202,6 @@ void main() {
       final cancelStarted = Completer<void>();
       final cancelResult = Completer<void>();
       var deferCancel = false;
-      var deletes = 0;
       var deferCurrent = false;
       var issued = 0;
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -233,7 +235,6 @@ void main() {
               saved = Map<String, dynamic>.from(call.arguments as Map);
             }
             if (call.method == 'delete') {
-              deletes++;
               saved = null;
             }
             return null;
@@ -317,12 +318,13 @@ void main() {
         deferCancel = true;
         final signingOut = session.signOut();
         await cancelStarted.future;
-        await session.signIn();
-        expect(saved?['token'], 'b' * 43);
-        final deletesBeforeOldCancelReturns = deletes;
+        await expectLater(
+          session.signIn(),
+          throwsA(isA<NativeSessionFailure>()),
+        );
         cancelResult.complete();
         await signingOut;
-        expect(deletes, deletesBeforeOldCancelReturns);
+        await session.signIn();
         expect(saved?['token'], 'b' * 43);
         expect(await session.accessToken(), 'b' * 43);
         final revocations = requests.where(
@@ -356,12 +358,15 @@ void main() {
       };
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
           .setMockMethodCallHandler(bridge, (call) async {
-            if ((phase == 'restore read' && call.method == 'read') ||
+            if ((phase == 'restore read' &&
+                    call.method == 'read' &&
+                    (call.arguments as Map)['binding'] == config().binding) ||
                 (phase == 'signIn write' && call.method == 'write')) {
               started.complete();
               await held.future;
             }
-            if (call.method == 'read') {
+            if (call.method == 'read' &&
+                (call.arguments as Map)['binding'] == config().binding) {
               return saved;
             }
             if (call.method == 'delete') {
@@ -466,7 +471,8 @@ void main() {
         var clock = now;
         TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
             .setMockMethodCallHandler(bridge, (call) async {
-              if (call.method == 'read') {
+              if (call.method == 'read' &&
+                  (call.arguments as Map)['binding'] == config().binding) {
                 return {
                   'token': 'a' * 43,
                   'expires': now
@@ -517,9 +523,13 @@ void main() {
           session.accessToken(),
           throwsA(isA<NativeSessionFailure>()),
         );
-        // Restore again, then advancing the clock exercises legitimate expiry cleanup.
+        // Only acknowledged sign-out permits a separately supplied active record.
+        // A failed revoke keeps pending state and must refuse restoration.
         deleted = false;
-        expect(await session.restore(), isTrue);
+        expect(
+          await session.restore(),
+          response.$1 == 200 || response.$1 == 204,
+        );
         clock = now.add(const Duration(minutes: 10));
         await expectLater(
           session.accessToken(),
