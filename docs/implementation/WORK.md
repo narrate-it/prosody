@@ -2313,3 +2313,18 @@ comparisons are checked independently; no application-code change, database
 fixture, live provider/Apple request, signing/upload, IaC apply, spend/deployment
 or AMOS pin change is selected.
 Required hook and review are separate; full acceptance/reminder remain open.
+
+### 2026-11-08 — Exact-build Apple status reader preparation
+
+Added a closed exact-build mode to the existing ASC preflight and a separate
+protected-main manual workflow. It verifies app and iOS train/build relationships,
+uses separately scoped GET JWTs and reports only processing/expiry with explicit
+unverified team/compliance/tester/device boundaries. No upload, signing, Keychain
+operation or live Apple call occurred. Sixteen new hermetic roots, seventeen
+legacy ASC roots and twenty-nine release roots PASS in separate suites.
+The first run's malformed HTTPError fixture failure is retained. Numeric overflow
+found in review is fixed and tested; no old-parser RED execution is claimed.
+The interrupted claim was reconciled and released, then fresh capacity and a
+new exact lease admitted verification; that lease was released in finally.
+Source review, unchanged mandatory hook and live read are separate next gates.
+See [ASC-BUILD-STATUS.md](ASC-BUILD-STATUS.md). Full RFC/reminder remain open.

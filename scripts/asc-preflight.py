@@ -2,6 +2,7 @@
 """Read only the existing ASC app; never configure signing or upload a build."""
 import base64
 import json
+import math
 import os
 import re
 import signal
@@ -92,12 +93,48 @@ def openssl(args, data=None):
     return result.stdout
 
 
-def token(kid, issuer, key):
-    """Create a five-minute, read-only app-list token in an ephemeral directory."""
+def build_request_path(appid, version, build):
+    """Construct one canonical, exact iOS build metadata GET selection."""
+    if (type(appid) is not str or not re.fullmatch(r'[1-9][0-9]{0,19}', appid)
+            or type(version) is not str
+            or not re.fullmatch(r'(?:0|[1-9][0-9]{0,2})(?:\.(?:0|[1-9][0-9]{0,2})){2}', version)
+            or type(build) is not str or not re.fullmatch(r'[1-9][0-9]{0,17}', build)):
+        raise Refused('Build selection missing or malformed')
+    return '/v1/builds?' + urllib.parse.urlencode({
+        'filter[app]': appid, 'filter[preReleaseVersion.version]': version,
+        'filter[preReleaseVersion.platform]': 'IOS', 'filter[version]': build,
+        'include': 'preReleaseVersion',
+        'fields[builds]': 'version,processingState,expired,preReleaseVersion,app',
+        'fields[preReleaseVersions]': 'version,platform', 'limit': '2'})
+
+
+def request_scope(path):
+    """Allow only the original app query or a canonical exact-build query."""
+    if path == APP_REQUEST_PATH:
+        return path
+    try:
+        if type(path) is not str or len(path) > 2048:
+            raise ValueError()
+        target = urllib.parse.urlsplit(path)
+        query = urllib.parse.parse_qs(target.query, keep_blank_values=True, strict_parsing=True)
+        keys = ['filter[app]', 'filter[preReleaseVersion.version]', 'filter[version]']
+        if any(len(query[k]) != 1 for k in keys):
+            raise ValueError()
+        expected = build_request_path(*(query[k][0] for k in keys))
+        if path != expected:
+            raise ValueError()
+    except (ValueError, KeyError, TypeError):
+        raise Refused('Invalid ASC request scope') from None
+    return path
+
+
+def token(kid, issuer, key, path=APP_REQUEST_PATH):
+    """Create a five-minute exact GET-scoped token in an ephemeral directory."""
+    path = request_scope(path)
     now = int(time.time())
     header = {'alg': 'ES256', 'kid': kid, 'typ': 'JWT'}
     claims = {'iss': issuer, 'iat': now, 'exp': now + 300,
-              'aud': 'appstoreconnect-v1', 'scope': ['GET ' + APP_REQUEST_PATH]}
+              'aud': 'appstoreconnect-v1', 'scope': ['GET ' + path]}
     encode = lambda value: b64(json.dumps(value, separators=(',', ':')).encode())
     message = encode(header) + b'.' + encode(claims)
     with tempfile.TemporaryDirectory(prefix='prosody-asc-') as directory:
@@ -122,9 +159,10 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise Refused('ASC redirect refused')
 
 
-def read_app(bearer):
-    """Issue one bounded TLS GET; discard all remote diagnostics and metadata."""
-    request = urllib.request.Request(ORIGIN + APP_REQUEST_PATH,
+def read_response(bearer, path):
+    """Read at most 64KiB over verified TLS once; never follow remote links."""
+    path = request_scope(path)
+    request = urllib.request.Request(ORIGIN + path,
                                     headers={'Authorization': 'Bearer ' + bearer,
                                              'Accept': 'application/json'}, method='GET')
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect(),
@@ -136,7 +174,21 @@ def read_app(bearer):
             body = response.read(65537)
             if len(body) > 65536:
                 raise Refused('ASC response exceeded bound')
-        value = json.loads(body)
+        return body
+    except urllib.error.HTTPError as error:
+        code = error.code
+        error.close()
+        if type(code) is int and 100 <= code <= 599:
+            raise Refused('ASC HTTP status ' + str(code) + '; inspect account access before retry') from None
+        raise Refused('ASC HTTP status unavailable; inspect before retry') from None
+    except (urllib.error.URLError, TimeoutError, OSError):
+        raise Refused('ASC connection failed; diagnostics suppressed') from None
+
+
+def read_app(bearer):
+    """Validate the existing bundle and return its ID privately to the caller."""
+    try:
+        value = json.loads(read_response(bearer, APP_REQUEST_PATH))
         rows = value['data']
         links = value.get('links', {})
         if not isinstance(links, dict):
@@ -146,24 +198,90 @@ def read_app(bearer):
         app = rows[0]
         if app['type'] != 'apps' or not re.fullmatch(r'[0-9]+', app['id']) or app['attributes']['bundleId'] != BUNDLE:
             raise Refused('Existing app identity mismatch')
-    except urllib.error.HTTPError as error:
-        code = error.code
-        error.close()
-        if type(code) is int and 100 <= code <= 599:
-            # Only bounded protocol status is public; never reason, URL, headers or body.
-            raise Refused('ASC HTTP status ' + str(code) + '; inspect account access before retry') from None
-        raise Refused('ASC HTTP status unavailable; inspect before retry') from None
-    except (urllib.error.URLError, TimeoutError, OSError):
-        raise Refused('ASC connection failed; diagnostics suppressed') from None
+        return app['id']
     except (ValueError, KeyError, TypeError):
         raise Refused('ASC response invalid; diagnostics suppressed') from None
 
 
-def run():
+def unique_pairs(pairs):
+    """Reject decoded duplicate JSON keys without rendering their contents."""
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError()
+        result[key] = value
+    return result
+
+
+def reject_constant(value):
+    """Refuse non-JSON NaN and infinity constants without printing them."""
+    raise ValueError()
+
+
+def finite_float(value):
+    """Reject numeric overflow without rendering response contents."""
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError()
+    return number
+
+
+def read_build(bearer, appid, version, build):
+    """Match app, iOS train and build; return only finite processing/expiry flags."""
+    path = build_request_path(appid, version, build)
+    raw = read_response(bearer, path)
+    try:
+        value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_pairs,
+                           parse_constant=reject_constant, parse_float=finite_float)
+        rows, included = value['data'], value['included']
+        links = value.get('links', {})
+        if (type(links) is not dict or links.get('next') or type(rows) is not list
+                or len(rows) != 1 or type(included) is not list or len(included) != 1):
+            raise ValueError()
+        row, train = rows[0], included[0]
+        resource_id = lambda v: type(v) is str and re.fullmatch(r'[A-Za-z0-9-]{1,128}', v)
+        if row['type'] != 'builds' or not resource_id(row['id']):
+            raise ValueError()
+        attrs, relations = row['attributes'], row['relationships']
+        if relations['app']['data'] != {'type': 'apps', 'id': appid}:
+            raise ValueError()
+        if (train['type'] != 'preReleaseVersions' or not resource_id(train['id'])
+                or relations['preReleaseVersion']['data'] != {'type': train['type'], 'id': train['id']}
+                or train['attributes']['version'] != version or train['attributes']['platform'] != 'IOS'
+                or attrs['version'] != build or type(attrs['expired']) is not bool
+                or type(attrs['processingState']) is not str
+                or attrs['processingState'] not in ('PROCESSING', 'FAILED', 'INVALID', 'VALID')):
+            raise ValueError()
+        return attrs['processingState'], attrs['expired']
+    except (ValueError, KeyError, TypeError, RecursionError):
+        raise Refused('Exact iOS build metadata unavailable; reconcile without upload') from None
+
+
+def selection(argv):
+    """Accept only bounded explicit numeric selectors; never echo bad arguments."""
+    if not argv:
+        return None
+    if (type(argv) not in (list, tuple) or len(argv) != 4
+            or argv[0] != '--build-version' or argv[2] != '--build-number'):
+        raise Refused('Build selection missing or malformed')
+    build_request_path('1', argv[1], argv[3])
+    return argv[1], argv[3]
+
+
+def run(argv=None):
     """Print only fixed evidence; failures never include key/JWT/API bodies."""
     try:
+        wanted = selection(argv)
         kid, issuer, key = credentials(os.environ)
-        read_app(token(kid, issuer, key))
+        appid = read_app(token(kid, issuer, key))
+        if wanted is not None:
+            version, build = wanted
+            path = build_request_path(appid, version, build)
+            state, expired = read_build(token(kid, issuer, key, path), appid, version, build)
+            print('OBSERVED: iOS version ' + version + ', build ' + build + '.')
+            print('Apple processing state: ' + state + '; expired: ' + ('YES' if expired else 'NO') + '.')
+            print('UNVERIFIED: Team association, export compliance, tester membership, visibility and device installation.')
+            return 0
     except Refused as error:
         print('BLOCKED: ' + str(error))
         return 1
@@ -175,16 +293,16 @@ def run():
     return 0
 
 
-def main():
+def main(argv=None):
     """Unwind normal termination through private temporary-file cleanup."""
     def terminate(signum, frame):
         raise Refused('Preflight terminated')
     previous = signal.signal(signal.SIGTERM, terminate)
     try:
-        return run()
+        return run(argv)
     finally:
         signal.signal(signal.SIGTERM, previous)
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))

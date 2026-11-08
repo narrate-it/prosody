@@ -2494,3 +2494,15 @@ comparisons are checked independently; no application-code change, database
 fixture, live provider/Apple request, signing/upload, IaC apply, spend/deployment
 or AMOS pin change is selected.
 Required hook and review are separate; full acceptance/reminder remain open.
+
+### 2026-11-08 — Exact-build Apple status reader preparation
+
+Prepared a protected-main, self-hosted read-only workflow to inspect the already
+accepted 1.0.1/build41 without signing or uploading again. Exact app/iOS train/
+build matching and independently scoped GET tokens precede status output.
+New hermetic16, existing ASC17 and release29 roots PASS separately; no live
+Apple request or processing/tester/compliance acceptance follows from them.
+Initial fixture error is retained; reviewed numeric-overflow rejection is now
+covered in the corrected suite, without a pre-fix RED claim. Verification lease
+released. See [ASC-BUILD-STATUS.md](ASC-BUILD-STATUS.md). Hook/review/merge and
+live read remain pending; full RFC acceptance and reminder remain open.

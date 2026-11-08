@@ -1,0 +1,63 @@
+{
+  "name": "ASC read-only build status",
+  "on": {
+    "workflow_dispatch": {
+      "inputs": {
+        "version": {
+          "description": "Exact marketing version to inspect",
+          "required": true,
+          "default": "1.0.1",
+          "type": "string"
+        },
+        "build": {
+          "description": "Exact integer build number to inspect",
+          "required": true,
+          "default": "41",
+          "type": "string"
+        }
+      }
+    }
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "prosody-asc-preflight",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "read-existing-build": {
+      "if": "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'",
+      "runs-on": [
+        "self-hosted",
+        "macOS",
+        "prosody"
+      ],
+      "timeout-minutes": 3,
+      "steps": [
+        {
+          "name": "Check out trusted dispatched main revision",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false,
+            "clean": false
+          }
+        },
+        {
+          "name": "Read existing app and exact build metadata only",
+          "env": {
+            "ASC_API_KEY": "${{ secrets.ASC_API_KEY }}",
+            "ASC_ISSUER_ID": "${{ secrets.ASC_ISSUER_ID }}",
+            "ASC_KEY_ID": "${{ secrets.ASC_KEY_ID }}",
+            "ASC_TEAM_ID": "${{ secrets.ASC_TEAM_ID }}",
+            "READ_VERSION": "${{ inputs.version }}",
+            "READ_BUILD": "${{ inputs.build }}"
+          },
+          "run": "/usr/bin/python3 -I scripts/asc-preflight.py --build-version \"$READ_VERSION\" --build-number \"$READ_BUILD\""
+        }
+      ],
+      "environment": "prosody-asc"
+    }
+  }
+}
