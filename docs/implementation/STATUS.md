@@ -2256,3 +2256,27 @@ entry point. Original mapped dictionaries cannot recover erased duplicates.
 Independent source/test review CLEAR; final docs/hook/hosted gates remain separate.
 No DB/native/device/provider/delivery, signing/upload, spend/deploy or AMOS pin
 acceptance follows. Build41 is unchanged; full RFC and reminder remain active.
+
+### 2026-11-08 — Lossless provider rewrite Unicode
+
+The OpenRouter rewrite client now applies the existing strict Unicode JSON
+validator before unmarshalling a complete response. Invalid UTF-8, lone UTF-16
+escapes and malformed Unicode metadata cannot be silently replaced and admitted
+as usable narration text. Legitimate literal/escaped U+FFFD, surrogate pairs and
+escaped lookalike text remain accepted without normalization.
+
+A rejected envelope retains transport-header request/generation references and
+its complete-response observation, but contributes no body ID, text or usage.
+Default absent usage remains unknown, never zero-cost/refund/no-effect proof.
+ResponseReceived is a raw observation, not native settlement, accepted output
+or authority to retry. No repair/rewrite retry was added.
+
+Actual original-source RED17 named records (14 malformed leaves plus3parents),
+with10 valid controls PASS. Corrected ordinary129/race129 records across26roots
+in provider+briefing packages each PASS0fail0skip (overlap); scopedlint0. New cases
+exercise the real owned TLS client directly and through briefing, asserting one
+request, retained typed references, unusable rejected text and fixed diagnostics.
+No live OpenRouter request, native accounting/authority, DB/device/service or
+provider-acceptance qualification follows. Final docs/hook/hosted gates remain
+separate. AMOS source/pin, signing/upload, spend and deployment are unchanged;
+full RFC/reminder stay active and accepted TestFlight build41 is unchanged.
