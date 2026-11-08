@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/narrate-it/prosody/internal/strictjson"
 )
 
 const endpoint = "https://openrouter.ai/api/v1"
@@ -133,6 +135,9 @@ type RewriteResult struct {
 	PromptTokens, CompletionTokens int
 }
 
+// Rewrite makes at most one bounded provider request. Malformed response Unicode
+// is rejected without adopting body text or accounting; header references remain
+// observations for original-attempt reconciliation, never settlement proof.
 func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source string, maxTokens int) (out RewriteResult, failure error) {
 	state := NotDispatched
 	defer func() {
@@ -167,7 +172,10 @@ func (c *Client) Rewrite(ctx context.Context, key, model, instructions, source s
 			Completion int `json:"completion_tokens"`
 		} `json:"usage"`
 	}
-	if json.Unmarshal(b, &result) != nil {
+	// Refuse Unicode that encoding/json would silently replace. A rejected
+	// envelope contributes no body metadata; transport references remain usable
+	// as observations, while missing usage is unknown rather than zero cost.
+	if strictjson.Validate(b) != nil || json.Unmarshal(b, &result) != nil {
 		return receipt, errors.New("invalid rewrite response")
 	}
 	if result.ID != "" {
