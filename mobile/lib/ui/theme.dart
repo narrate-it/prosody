@@ -1,21 +1,57 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
-const ink = Color(0xFF161A24),
-    paper = Color(0xFFF5F6F8),
-    blue = Color(0xFF3154D9),
-    muted = Color(0xFFA8B2C4);
+// Owner-supplied Prosody black & white brand palette.
+const ink = Color(0xFF0A0A0A),
+    paper = Color(0xFFFFFFFF),
+    fog = Color(0xFFF5F6F8),
+    graphite = Color(0xFF5C5C62),
+    signal = Color(0xFFFF4F1A);
+
 ThemeData prosodyTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
+  final foreground = dark ? paper : ink;
+  final background = dark ? ink : fog;
+  final surface = dark ? const Color(0xFF1C1C1E) : paper;
+  final secondaryText = dark ? const Color(0xFFB9B9BF) : graphite;
+  final scheme =
+      ColorScheme.fromSeed(
+        seedColor: ink,
+        brightness: brightness,
+        dynamicSchemeVariant: DynamicSchemeVariant.monochrome,
+      ).copyWith(
+        primary: foreground,
+        onPrimary: dark ? ink : paper,
+        primaryContainer: dark ? graphite : fog,
+        onPrimaryContainer: foreground,
+        secondary: foreground,
+        onSecondary: dark ? ink : paper,
+        secondaryContainer: dark ? graphite : fog,
+        onSecondaryContainer: foreground,
+        tertiary: foreground,
+        onTertiary: dark ? ink : paper,
+        tertiaryContainer: dark ? graphite : fog,
+        onTertiaryContainer: foreground,
+        surface: surface,
+        onSurface: foreground,
+        onSurfaceVariant: secondaryText,
+        surfaceContainerLowest: background,
+        surfaceContainerLow: surface,
+        surfaceContainer: surface,
+        surfaceContainerHigh: dark ? const Color(0xFF29292C) : fog,
+        surfaceContainerHighest: dark ? const Color(0xFF353538) : fog,
+        outline: secondaryText,
+        outlineVariant: dark ? graphite : const Color(0xFFD6D6DA),
+        // Errors remain distinct from the brand's unread-only orange signal.
+        error: dark ? const Color(0xFFFFB4AB) : const Color(0xFFBA1A1A),
+        onError: dark ? const Color(0xFF690005) : paper,
+      );
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    scaffoldBackgroundColor: dark ? ink : paper,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: blue,
-      brightness: brightness,
-      surface: dark ? ink : paper,
-    ),
+    scaffoldBackgroundColor: background,
+    colorScheme: scheme,
     appBarTheme: const AppBarTheme(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -23,14 +59,15 @@ ThemeData prosodyTheme(Brightness brightness) {
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: blue,
-        foregroundColor: Colors.white,
+        backgroundColor: foreground,
+        foregroundColor: scheme.onPrimary,
         minimumSize: const Size(48, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
+      fillColor: scheme.surfaceContainerHighest,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -58,42 +95,41 @@ class ProsodyMark extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
     label: 'Prosody',
-    child: CustomPaint(size: Size.square(size), painter: _MarkPainter()),
+    child: CustomPaint(
+      size: Size.square(size),
+      painter: _MarkPainter(Theme.of(context).colorScheme.onSurface),
+    ),
   );
 }
 
 class _MarkPainter extends CustomPainter {
+  final Color color;
+  _MarkPainter(this.color);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = blue
+    canvas.save();
+    canvas.scale(size.width / 100, size.height / 100);
+    final paint = Paint()
+      ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.width * .13
-      ..strokeCap = StrokeCap.round;
+      ..strokeWidth = 12
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    // Exact owner-supplied prosody-mark.svg path, in its 100x100 viewBox.
     final path = Path()
-      ..moveTo(size.width * .28, size.height * .87)
-      ..lineTo(size.width * .28, size.height * .39)
-      ..cubicTo(
-        size.width * .28,
-        size.height * .07,
-        size.width * .85,
-        size.height * .07,
-        size.width * .82,
-        size.height * .43,
-      )
-      ..cubicTo(
-        size.width * .80,
-        size.height * .68,
-        size.width * .43,
-        size.height * .72,
-        size.width * .43,
-        size.height * .43,
-      );
-    canvas.drawPath(path, p);
+      ..moveTo(31, 85)
+      ..cubicTo(37, 67, 45, 47, 53, 29)
+      ..cubicTo(57, 19, 65, 13, 73, 15)
+      ..cubicTo(83, 18, 87, 29, 83, 39)
+      ..cubicTo(79, 49, 67, 55, 53, 53)
+      ..cubicTo(41, 52, 29, 49, 17, 51);
+    canvas.drawPath(path, paint);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => false;
+  bool shouldRepaint(_MarkPainter old) => old.color != color;
 }
 
 // Decorative playback activity, deliberately not represented as an audio meter.
@@ -143,7 +179,11 @@ class _ListeningWaveState extends State<ListeningWave>
       child: AnimatedBuilder(
         animation: _motion,
         builder: (context, _) => CustomPaint(
-          painter: _WavePainter(_motion.value, widget.playing),
+          painter: _WavePainter(
+            _motion.value,
+            widget.playing,
+            Theme.of(context).colorScheme.primary,
+          ),
           size: const Size(double.infinity, 220),
         ),
       ),
@@ -154,11 +194,12 @@ class _ListeningWaveState extends State<ListeningWave>
 class _WavePainter extends CustomPainter {
   final double phase;
   final bool playing;
-  _WavePainter(this.phase, this.playing);
+  final Color color;
+  _WavePainter(this.phase, this.playing, this.color);
   @override
   void paint(Canvas canvas, Size s) {
     final paint = Paint()
-      ..color = blue
+      ..color = color
       ..strokeWidth = 4
       ..strokeCap = StrokeCap.round;
     for (int i = 0; i < 43; i++) {
@@ -178,5 +219,5 @@ class _WavePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_WavePainter old) =>
-      old.phase != phase || old.playing != playing;
+      old.phase != phase || old.playing != playing || old.color != color;
 }

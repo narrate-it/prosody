@@ -1835,3 +1835,20 @@ and continuation journals both ACCEPTED; owned lease absent after release. No
 rebuild or duplicate upload selected. Processing/tester visibility remains pending
 human confirmation because browser access is unavailable. Full RFC/backend/native
 functional acceptance remain open; preserve reminder and all upload evidence.
+
+### 2026-11-07 — Owner-selected monochrome branding
+
+- Replaced blue-accent theme with the supplied Ink/Paper/Fog/Graphite palette,
+  explicit neutral light/dark surfaces and accessible secondary text. Reserved
+  orange Signal for unread indicators; errors retain semantic red.
+- Replaced in-app mark with the exact supplied SVG path and generated native
+  launcher artwork, including iOS dark/tinted appearances and Android densities.
+  Retained vector source and reproducible generator; typography is unchanged.
+- Flutter analysis: no issues. Two light/dark rendered contrast checks PASS;
+  full Flutter suite: 211 named PASS, zero failure/skip, done success=true.
+  Static icon audit: 21 iOS catalog entries match declared square dimensions,
+  RGB/no alpha. Earlier initial analysis failure (preview banner's removed blue
+  constant) and short-canvas render failures were corrected before these runs.
+- Required hook/independent/hosted review are separate delivery gates. This is
+  source verification, not a new signed build or device/TestFlight acceptance.
+  Already accepted build 41 is unchanged. Full RFC/reminder remain incomplete.
