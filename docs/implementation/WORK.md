@@ -2120,3 +2120,26 @@ Corrected analysis: zero issues. Focused 32/full 357 named Flutter records PASS,
 zero failures/skips and done success=true (overlap). Independent source/test
 review CLEAR. Final documentation/repository hook/hosted gates are separate;
 no DB/native/device/provider or credential-revocation acceptance is implied.
+
+### 2026-11-08 — Mixed catalog-error followup in PR63
+
+Hosted review of869de7e pointed out that Future.wait remembers only its first
+error: a transient first failure could hide a later catalog401/403. That head
+was not merged. New ordered public UI cases reproduced four transient-first
+failures with four denial-first controls passing.
+
+Each catalog future now records denial in a batch-local flag before rethrowing.
+After both futures settle, the original current-revision guard precedes clearing.
+The draft remains while the batch is pending and clears if either completed
+catalog denied access, regardless of first-error order. Generic diagnostics,
+request count, stale/unmounted protection and independent preferences remain.
+No shared denial state, extra request or credential/revocation authority is added.
+Corrected verification/final review are recorded separately; earlier32/357 counts
+remain evidence only for their previous source revision.
+
+Corrected mixed-order source: analysis0, focused40/full365 named Flutter records
+PASS0fail0skip/done success=true (overlap), including the retained single-error,
+transient, stale and unmounted controls. Earlier candidate failures remain failed
+runs; no merge or hosted approval of this new revision is implied. Local field
+cleanup still supplies no server-key revoke, memory zeroization, native authority
+or delivery acceptance. Full RFC/reminder stay active and build41 is unchanged.
