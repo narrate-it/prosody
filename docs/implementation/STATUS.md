@@ -2506,3 +2506,15 @@ Initial fixture error is retained; reviewed numeric-overflow rejection is now
 covered in the corrected suite, without a pre-fix RED claim. Verification lease
 released. See [ASC-BUILD-STATUS.md](ASC-BUILD-STATUS.md). Hook/review/merge and
 live read remain pending; full RFC acceptance and reminder remain open.
+
+### 2026-11-08 — Apple metadata diagnostic follow-up
+
+PR70 landed213e205 with verified full-tree equality/reachability and hosted
+SUCCESS/100% docstring coverage/no findings. One read-only run42513773221 failed
+at build metadata validation; no Apple processing/expiry/tester verdict or new
+upload followed. Exact live-read lease released. A bounded source follow-up adds
+fixed stage-only refusal labels while preserving exact query/identity predicates;
+provider fields/bodies/raw errors remain private. See ASC-BUILD-STATUS.md.
+Verification/review for that follow-up remain separate; full RFC/reminder open.
+Corrected diagnostic suites18/legacyASC17/release29 roots PASS separately,
+zero skips; independent final five-file review CLEAR, exact test lease released.

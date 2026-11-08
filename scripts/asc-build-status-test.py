@@ -59,6 +59,44 @@ class Tests(unittest.TestCase):
         read.assert_called_once_with('SYNTHETIC_TOKEN', asc.build_request_path('123', '1.0.1', '41'))
         return result
 
+    def test_fixed_refusal_stages(self):
+        """Classify failures without rendering provider fields or response bytes."""
+        cases = [
+            ('json', b'PRIVATE_BAD_JSON'),
+            ('envelope', {'data': []}),
+            ('build-count', dict(document(), data=[])),
+            ('train-count', dict(document(), included=[])),
+        ]
+        value = document()
+        value['data'][0]['relationships']['app']['data']['id'] = 'PRIVATE_OTHER_APP'
+        cases.append(('app-binding', value))
+        value = document()
+        value['included'][0]['attributes']['version'] = 'PRIVATE_OTHER_VERSION'
+        cases.append(('train-binding', value))
+        value = document()
+        value['data'][0]['attributes']['version'] = 'PRIVATE_OTHER_BUILD'
+        cases.append(('build-version', value))
+        value = document()
+        value['data'][0]['attributes']['processingState'] = 'PRIVATE_UNKNOWN_STATE'
+        cases.append(('status', value))
+        for stage, value in cases:
+            with self.subTest(stage=stage):
+                with self.assertRaises(asc.Refused) as caught:
+                    self.read(value)
+                self.assertEqual(str(caught.exception),
+                                 'Exact iOS build metadata unavailable [' + stage + ']; reconcile without upload')
+
+    def test_malformed_stage_shapes_safe(self):
+        """Malformed structural containers retain a fixed stage-only refusal."""
+        for field in ['attributes', 'relationships']:
+            value = document()
+            value['data'][0][field] = 'PRIVATE_BAD_SHAPE'
+            with self.subTest(field=field):
+                with self.assertRaises(asc.Refused) as caught:
+                    self.read(value)
+                self.assertNotIn('PRIVATE', str(caught.exception))
+                self.assertIn('metadata unavailable [', str(caught.exception))
+
     def test_valid_exact_build(self):
         """Accept a correctly bound build and expose only finite status flags."""
         self.assertEqual(self.read(document()), ('VALID', False))

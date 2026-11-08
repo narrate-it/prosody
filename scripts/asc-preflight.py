@@ -230,31 +230,44 @@ def read_build(bearer, appid, version, build):
     """Match app, iOS train and build; return only finite processing/expiry flags."""
     path = build_request_path(appid, version, build)
     raw = read_response(bearer, path)
+    stage = 'json'
     try:
         value = json.loads(raw.decode('utf-8'), object_pairs_hook=unique_pairs,
                            parse_constant=reject_constant, parse_float=finite_float)
+        stage = 'envelope'
         rows, included = value['data'], value['included']
         links = value.get('links', {})
+        stage = 'build-count'
         if (type(links) is not dict or links.get('next') or type(rows) is not list
-                or len(rows) != 1 or type(included) is not list or len(included) != 1):
+                or len(rows) != 1):
             raise ValueError()
+        stage = 'train-count'
+        if type(included) is not list or len(included) != 1:
+            raise ValueError()
+        stage = 'build-resource'
         row, train = rows[0], included[0]
         resource_id = lambda v: type(v) is str and re.fullmatch(r'[A-Za-z0-9-]{1,128}', v)
         if row['type'] != 'builds' or not resource_id(row['id']):
             raise ValueError()
         attrs, relations = row['attributes'], row['relationships']
+        stage = 'app-binding'
         if relations['app']['data'] != {'type': 'apps', 'id': appid}:
             raise ValueError()
+        stage = 'train-binding'
         if (train['type'] != 'preReleaseVersions' or not resource_id(train['id'])
                 or relations['preReleaseVersion']['data'] != {'type': train['type'], 'id': train['id']}
-                or train['attributes']['version'] != version or train['attributes']['platform'] != 'IOS'
-                or attrs['version'] != build or type(attrs['expired']) is not bool
-                or type(attrs['processingState']) is not str
+                or train['attributes']['version'] != version or train['attributes']['platform'] != 'IOS'):
+            raise ValueError()
+        stage = 'build-version'
+        if attrs['version'] != build:
+            raise ValueError()
+        stage = 'status'
+        if (type(attrs['expired']) is not bool or type(attrs['processingState']) is not str
                 or attrs['processingState'] not in ('PROCESSING', 'FAILED', 'INVALID', 'VALID')):
             raise ValueError()
         return attrs['processingState'], attrs['expired']
-    except (ValueError, KeyError, TypeError, RecursionError):
-        raise Refused('Exact iOS build metadata unavailable; reconcile without upload') from None
+    except (ValueError, KeyError, TypeError, RecursionError, AttributeError):
+        raise Refused('Exact iOS build metadata unavailable [' + stage + ']; reconcile without upload') from None
 
 
 def selection(argv):
