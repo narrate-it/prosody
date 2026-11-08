@@ -62,3 +62,37 @@ four intended negative failures and the one control without rerunning or erasing
 that harness failure. No live Apple request, provider credentials, device dialog,
 DB/native receipt or notification delivery ran. Required repository hook,
 independent/hosted review and integrated acceptance remain separate gates.
+
+## Client hint decoder and shared fixture
+
+`ReadyNotificationHint.fromPayload` in `mobile/lib/data/notification_hint.dart`
+accepts a decoded dictionary for this exact version-one profile. It requires
+closed string-keyed maps, the fixed generic alert, integer `version:1`, `kind:"ready"`
+and the same canonical ID rules as the Go encoder. Unknown versions, extensions,
+URLs, malformed IDs and wrong types fail with a fixed diagnostic that contains
+no input. The returned value retains immutable strings, not the input maps.
+It does not parse a raw JSON body or establish byte/UTF-8/duplicate-key admission
+for a transport; that remains a separate boundary.
+
+The shared sample `testdata/notifications/ready-v1.json` is the former Go golden
+literal, moved verbatim. Go compares actual encoder output against it and Dart
+consumes the same file. This checks local cross-language field compatibility;
+it is not an actual APNs/UNNotification/MethodChannel delivery receipt. The native
+adapter must still qualify the real received dictionary representation.
+
+A decoded hint is not current ready-state or access proof. This decoder performs
+no IO, cache lookup, authentication, permission request, navigation or playback.
+The future tap action must obtain current authenticated data, verify the exact
+feed/item/rendition and current session/feed generation after asynchronous work,
+and refuse stale or denied results instead of falling back to cached private
+content. Notification registration, permission and tap actions remain unmounted.
+Validation cannot retract data already delivered or displayed; outgoing privacy
+belongs to the encoder and qualified dispatcher, not this hint decoder.
+
+The new client checks execute52 focused and287 full Flutter named records, with
+zero failures/skips and done success=true (focused is included in full). Analysis
+is clean. The Go producer golden check passes using the shared sample. A compiled
+isolated decoder copy with only its version-equality guard removed fails exactly
+the unsupported-version case; the valid shared-sample control passes. Actual
+source bytes remain unchanged. These are local code/shape checks, not actual
+notification receipt, tap, access, permission or playback acceptance.

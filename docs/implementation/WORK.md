@@ -1921,3 +1921,24 @@ only two records; an exact-event audit confirms all four intended failures and
 one control, no rerun or erasure of the failed harness. Required hook/review and
 actual APNs/native/device acceptance remain separate. No keys, provider requests,
 new signing/upload, deployment, spend or AMOS pin changes. Full RFC/reminder stay.
+
+### 2026-11-07 — Client notification hint decoding
+
+Added a pure immutable Dart hint decoder for the landed local version-one ready
+payload. It checks the exact envelope, generic alert, integer version, kind and
+Go-compatible IDs without IO, cache/nav/playback, permission or session behavior.
+Routing hints remain untrusted until current authenticated resolution; raw JSON
+transport and actual native event delivery are separate. Moved the Go golden
+literal verbatim into one shared JSON sample consumed by both Go and Dart.
+
+Actual Go producer/golden check PASS; Flutter analysis no issues, focused52 and
+full287 named records PASS, zero failures/skips and done success=true. Full includes
+focused records, not additive. Four-file source review CLEAR. The version-guard
+mutation and final documentation/hook/review results are tracked separately.
+No APNs send, native registration/tap, current-access, device or new upload
+acceptance follows from these local checks. Full RFC/reminder remain incomplete.
+
+The isolated decoder-copy mutation (version-equality guard omitted) fails exactly
+one unsupported-version test; its shared-sample positive control passes. Source
+SHA-256 was unchanged before/after the run. Copies are generated test artifacts,
+not production-source replacement. Final docs/hook/hosted gates remain separate.

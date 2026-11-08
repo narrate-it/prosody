@@ -2113,3 +2113,13 @@ supervisor's count assertion failed and is retained, with an exact-event audit
 rather than a test rerun. This is payload preparation, not delivery, OS permission,
 device enrollment, native deduplication or tap/current-access acceptance. Required
 hook/review gates are separate; full RFC and hourly reminder remain incomplete.
+
+### 2026-11-07 client notification hint preparation
+
+The client now has a pure decoded-map validator for the local version-one ready
+notification profile. It returns immutable routing hints, never ready-state or
+access authority, and performs no navigation/session/playback or permission work.
+One shared JSON sample now verifies Go encoder/Dart decoder compatibility.
+Actual producer-golden PASS, analysis0, focused52/full287 named Flutter records
+PASS0fail0skip/done success=true. Native event hookup, tap/current-access, device,
+provider and new upload acceptance remain unqualified; preserve the reminder.
