@@ -2518,3 +2518,15 @@ provider fields/bodies/raw errors remain private. See ASC-BUILD-STATUS.md.
 Verification/review for that follow-up remain separate; full RFC/reminder open.
 Corrected diagnostic suites18/legacyASC17/release29 roots PASS separately,
 zero skips; independent final five-file review CLEAR, exact test lease released.
+
+### 2026-11-08 — Explicit build-app inclusion
+
+PR71 landedd5804bf with verified full-tree/reachability and hostedSUCCESS/100%
+docstrings/no findings. Its one live read42518668182 refused at`app-binding`;
+exact owned lease released, no upload or Apple-status acceptance. Follow-up
+source explicitly requests app relationship inclusion plus minimal bundleId,
+then binds the included app to the verified ID/bundle and build linkage.
+Missing/duplicate/foreign resources still refuse; source hypothesis is not a
+live-result claim. See ASC-BUILD-STATUS.md. Full RFC/reminder remain open.
+Corrected hermetic21/legacyASC17/release29 roots PASS separately, zero skips;
+exact test lease released. Independent review/hook/live result remain separate.

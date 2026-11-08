@@ -24,7 +24,8 @@ def document():
                      'relationships': {'app': {'data': {'type': 'apps', 'id': '123'}},
                                        'preReleaseVersion': {'data': {'type': 'preReleaseVersions', 'id': 'train-id'}}}}],
             'included': [{'type': 'preReleaseVersions', 'id': 'train-id',
-                          'attributes': {'version': '1.0.1', 'platform': 'IOS'}}]}
+                          'attributes': {'version': '1.0.1', 'platform': 'IOS'}},
+                         {'type': 'apps', 'id': '123', 'attributes': {'bundleId': asc.BUNDLE}}]}
 
 
 class Response:
@@ -96,6 +97,33 @@ class Tests(unittest.TestCase):
                     self.read(value)
                 self.assertNotIn('PRIVATE', str(caught.exception))
                 self.assertIn('metadata unavailable [', str(caught.exception))
+
+    def test_included_app_binding_refused(self):
+        """Included app identity and bundle must match the verified app."""
+        changes = [lambda d: d['included'][1].update(id='999'),
+                   lambda d: d['included'][1]['attributes'].update(bundleId='other.private.app'),
+                   lambda d: d['included'][1].pop('attributes'),
+                   lambda d: d['included'][1].update(type='preReleaseVersions'),
+                   lambda d: d['included'].pop(),
+                   lambda d: d['included'].append(copy.deepcopy(d['included'][1]))]
+        for change in changes:
+            value = document()
+            change(value)
+            with self.assertRaises(asc.Refused):
+                self.read(value)
+
+    def test_included_order_independent(self):
+        """Included resource ordering cannot change identity binding."""
+        value = document()
+        value['included'].reverse()
+        self.assertEqual(self.read(value), ('VALID', False))
+
+    def test_request_explicitly_includes_app(self):
+        """Request app linkage and minimal bundle identity explicitly."""
+        query = asc.urllib.parse.parse_qs(asc.urllib.parse.urlsplit(
+            asc.build_request_path('123', '1.0.1', '41')).query)
+        self.assertEqual(query['include'], ['preReleaseVersion,app'])
+        self.assertEqual(query['fields[apps]'], ['bundleId'])
 
     def test_valid_exact_build(self):
         """Accept a correctly bound build and expose only finite status flags."""

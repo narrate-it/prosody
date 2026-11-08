@@ -2343,3 +2343,19 @@ landing. Full RFC/reminder remain open.
 Corrected hermetic suites:18 exact-build roots,17 existing ASC roots and29
 release roots PASS separately, zero skips; no live Apple request. Exact owned
 verification lease released. Independent final five-file review CLEAR.
+
+### 2026-11-08 — Explicit build-app inclusion
+
+Reconciled PR71 landing and its actual read-only42518668182 app-binding refusal.
+Consulted Apple's build-list contract: include independently permits app;
+fields alone had not explicitly requested its relationship data. Follow-up
+source adds app to include, requests only its bundleId, and requires exactly
+one matching app plus one prerelease resource, independent of array order.
+All previous identity/transport/status predicates remain; exact JWT query scope
+changes with this request. Original source fails the explicit-inclusion root,
+while the existing valid-build control passes. No proof of live root cause,
+new Apple request, signing or upload from this source phase. Full RFC remains
+incomplete and reminder stays.
+Corrected hermetic suites21 exact-build/17 legacy ASC/29 release roots PASS
+separately, zero skips. Exact owned verification lease released; these tests
+make no Apple requests and do not establish processing or tester availability.
