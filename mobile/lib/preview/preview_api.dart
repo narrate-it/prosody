@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../data/api.dart';
+import '../data/feed_directory.dart';
 import '../data/mark_read.dart';
 import '../data/models.dart';
 
@@ -187,6 +188,16 @@ class PreviewApi extends ProsodyApi {
       throw const ApiFailure(400, 'This preview request is not supported.');
     }
   }
+
+  // Local sample discovery has no session credential or network fallback.
+  @override
+  Future<List<Feed>> feeds() => loadFeedDirectory(
+    (cursor) => request(
+      'GET',
+      '/prosody/v1/feeds',
+      query: cursor == null ? null : {'cursor': cursor},
+    ),
+  );
 
   // The offline preview has no credential. Keep this local-only operation
   // separate from the production action's captured-session transport.

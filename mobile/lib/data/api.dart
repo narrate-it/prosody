@@ -115,13 +115,29 @@ class ProsodyApi {
         : objectFromJson(utf8.decode(bytes));
   }
 
-  Future<List<Feed>> feeds() => loadFeedDirectory(
-    (cursor) => request(
-      'GET',
-      '/prosody/v1/feeds',
-      query: cursor == null ? null : {'cursor': cursor},
-    ),
-  );
+  Future<List<Feed>> feeds() async {
+    final token = await session.accessToken();
+    final feeds = await loadFeedDirectory((cursor) async {
+      if (cursor != null) await _checkDirectorySession(token);
+      return _requestWithToken(
+        'GET',
+        '/prosody/v1/feeds',
+        token,
+        query: cursor == null ? null : {'cursor': cursor},
+      );
+    });
+    // Do not return an assembled directory after an observed credential change.
+    // This local check is not an atomic session lock or server authority proof.
+    await _checkDirectorySession(token);
+    return feeds;
+  }
+
+  Future<void> _checkDirectorySession(String token) async {
+    if (await session.accessToken() != token) {
+      throw const ApiFailure(401, 'Your session changed. Reload your spaces.');
+    }
+  }
+
   Future<FeedPage> items(String feed, {String? cursor}) async =>
       FeedPage.fromJson(
         await request(

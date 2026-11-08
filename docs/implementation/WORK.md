@@ -1998,3 +1998,35 @@ post-check race assertion exactly once (it sends the later token); the stable
 session control passes. Production source SHA-256 is unchanged. This is a local
 transport/session control, not native person/grant or remote rollback proof.
 Full RFC acceptance and the hourly reminder remain incomplete; build41 is unchanged.
+
+### 2026-11-07 — Feed-directory session binding
+
+Production feed discovery now captures one credential for the entire bounded
+paginated directory read. It refuses observed credential changes before later
+pages and rechecks before returning the complete immutable list. Every page uses
+the original token; no partial directory is returned after a detected session
+change or page failure. Existing page/count/cursor/duplicate validation remains.
+The offline preview explicitly retains credential-free local discovery, with no
+fake token, production fallback or network access.
+
+Token rotation, including for the same person, conservatively requires a fresh
+read. The final check is a local credential observation, not an atomic session
+lock, native authority/revocation proof or promise of currentness during delivery.
+It cannot recall data already delivered; UI generation fencing remains necessary.
+Original-source regressions FAIL3 (changed first/final page and expired final
+page), five controls PASS. The first corrected-source analysis stopped on one
+test-style finding before tests; that failed run is retained and was corrected.
+
+AMOS boundary reconciliation at main8d6320ed still finds an unfinished generic
+worker contract; no adapter/pin activation is inferred. The owner-authorized
+coordination request on AMOS PR514 asks only for exact generic admission/fencing,
+transactional application completion/effects/receipts and same-identity recovery.
+Prosody retains generation, feed/media handlers and domain publication behavior.
+No provider, fixture, signing/upload, deployment or spend was selected. Build41 is unchanged.
+Full RFC acceptance remains incomplete; the owned hourly reminder stays.
+
+Corrected analysis: zero issues. Focused23/full308 named Flutter records PASS,
+zero failures/skips and done success=true (overlap), including existing directory
+transport, response-safety and credential-free preview controls. Independent
+three-file source/test review CLEAR. Final docs/repository-hook/hosted gates are
+separate; these local checks do not qualify deployed/native/device behavior.
