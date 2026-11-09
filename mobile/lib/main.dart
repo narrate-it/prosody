@@ -21,21 +21,12 @@ Future<void> main() async {
     ),
   );
   await playback.configure();
-  ServiceConfiguration? configuration;
-  try {
-    configuration = ServiceConfiguration.parse(
+  runApp(
+    ProsodyApp.fromReleaseInputs(
+      playback: playback,
       origin: const String.fromEnvironment('PROSODY_ORIGIN'),
       issuer: const String.fromEnvironment('PROSODY_ISSUER_ORIGIN'),
       audience: const String.fromEnvironment('PROSODY_RESOURCE_AUDIENCE'),
-    );
-  } on FormatException {
-    // Invalid release inputs stay unavailable; never fall back to preview data.
-  }
-  runApp(
-    ProsodyApp(
-      playback: playback,
-      origin: configuration?.origin,
-      session: configuration?.createSession(),
     ),
   );
 }
@@ -50,6 +41,33 @@ class ProsodyApp extends StatefulWidget {
     required this.playback,
     this.origin,
   });
+
+  /// Composes the actual entry-point binding; invalid inputs stay unavailable.
+  factory ProsodyApp.fromReleaseInputs({
+    Key? key,
+    required ProsodyPlayback playback,
+    String origin = '',
+    String issuer = '',
+    String audience = '',
+  }) {
+    ServiceConfiguration? configuration;
+    try {
+      configuration = ServiceConfiguration.parse(
+        origin: origin,
+        issuer: issuer,
+        audience: audience,
+      );
+    } on FormatException {
+      // Never activate a partial binding or fall back to preview data.
+    }
+    return ProsodyApp(
+      key: key,
+      playback: playback,
+      origin: configuration?.origin,
+      session: configuration?.createSession(),
+    );
+  }
+
   @override
   State<ProsodyApp> createState() => _ProsodyAppState();
 }

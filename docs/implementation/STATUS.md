@@ -2574,3 +2574,15 @@ non-authorizing fallback when pending is absent, with generation-checked reads.
 New original-candidate regression FAIL1/controlPASS1; corrected analyzer0,
 focused48/fullFlutter441 PASS0fail0skip/done-success-true (overlap). Independent
 affected source review clear; fresh hook/new-head review remain required.
+
+### 2026-11-08 — Configured Dart bootstrap journey
+
+PR74 landed2c5d737 with exact final-tree/main reachability verification; its major
+finding is resolved. Remaining native/server/downgrade qualification is preserved.
+New source refactors unchanged release-input composition into the factory used
+by main and widget tests. Nine mocked-platform widget cases exercise the real
+Dart client and app startup/cancel/retry/disabled/pending states. Analyzer0,
+focused56/fullFlutter450 namedPASS0fail0skip/done-success-true (overlap); exact
+owned verification lease released. See BOOTSTRAP-JOURNEY.md for scope. No actual
+native entrypoint/device/backend or release acceptance follows; production stays
+inactive, build42 unchanged. Full RFC/reminder remain open.
