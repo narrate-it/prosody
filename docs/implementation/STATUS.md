@@ -2589,14 +2589,14 @@ inactive, build42 unchanged. Full RFC/reminder remain open.
 
 ### 2026-11-08 — Configured Dart sign-in-to-feed composition
 
-PR75 landed9f27dad with verified full tree/reachability and hosted clear review.
+PR75 landed 9f27dad with verified full tree/reachability and hosted clear review.
 The next test-only lane exercises accepted sign-in through real Dart client
 composition into an empty inbox, plus token-denial/wrong-audience refusals.
-Initial analyzer0/focused59/fullFlutter453 namedPASS0fail0skip (overlap), exact
+Initial analyzer 0/focused 59/full Flutter 453 namedPASS / 0 fail / 0 skip (overlap), exact
 lease released. Review strengthened the successful empty-inbox assertion; final
 affected checks/review/hook remain separate. See BOOTSTRAP-AUTH-FLOW.md. No
-production activation, real issuer/Keychain/browser/backend/device qualification
-or new upload follows; build42/fullRFC/reminder state unchanged.
-Final stronger assertions: analyzer0/focused59 PASS0fail0skip/done-success-true;
-prior full453 predates only this test delta. Exact final-test lease released;
+production activation, real issuer/Keychain, browser, backend or device qualification
+or new upload follows; build 42/full RFC/reminder state unchanged.
+Final stronger assertions: analyzer 0/focused 59 PASS / 0 fail / 0 skip/done-success-true;
+prior full 453 predates only this test delta. Exact final-test lease released;
 independent source review clear, hook/hosted review remain separate.
