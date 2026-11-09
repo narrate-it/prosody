@@ -2483,22 +2483,22 @@ new omission control, not an old-production bug claim. Exact lease released.
 
 ### 2026-11-08 — Configured authentication-to-feed Dart journey
 
-PR75 landed9f27dad with exact tree/main reachability and hosted SUCCESS/no
+PR75 landed 9f27dad with exact tree/main reachability and hosted SUCCESS/no
 actionable findings; coverage N/A, zero eligible supported functions. New lane
 adds only test/documentation source: real release factory/session/API clients
 with synthetic platform and zone-local HTTP transport. Three widget cases cover
-accepted browser/code exchange/current validation/storage/feed, token403 denial
+accepted browser/code exchange/current validation/storage/feed, token 403 denial
 and wrong-audience current response. Production/workflow bytes unchanged.
-Initial analyzer0/focused59/fullFlutter453 namedPASS0fail0skip/done-success-true
-(overlap); exacta236 owned build lease RELEASED. Independent review requested
+Initial analyzer 0/focused 59/full Flutter 453 namedPASS / 0 fail / 0 skip/done-success-true
+(overlap); exact a236 owned build lease RELEASED. Independent review requested
 explicit empty-inbox success and absent error-state text because FeedScreen alone
 can render errors. That test-only correction is included; the initial evidence
 is retained separately and final affected verification remains separate. No old
 production bug/RED claim or real issuer/native/backend/device proof follows.
 See BOOTSTRAP-AUTH-FLOW.md. Build42 unchanged, sign-in inactive.
 
-Final strengthened-assertion revision: analyzer zero issues and focused59 named
-PASS0fail0skip/done-success-true; exactdf76 owned lease RELEASED. Prior full453
+Final strengthened-assertion revision: analyzer zero issues and focused 59 named
+PASS / 0 fail / 0 skip/done-success-true; exact df76 owned lease RELEASED. Prior full 453
 passed before this test-only assertion delta, not a fresh full-suite verdict for
 the final revision. Production bytes remain unchanged; focused rerun covers all
 changed widget cases. Independent affected source review CLEAR. Hook and hosted
