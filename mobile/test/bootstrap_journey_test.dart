@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:just_audio/just_audio.dart' as audio;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:prosody/data/native_session.dart';
 import 'package:prosody/main.dart' as app;
 import 'package:prosody/playback/handler.dart';
@@ -276,4 +278,141 @@ void main() {
       );
     },
   );
+
+  for (final outcome in ['accepted', 'token denied', 'wrong audience']) {
+    testWidgets('configured sign-in $outcome gates the feed journey', (
+      tester,
+    ) async {
+      portrait(tester);
+      final requests = <http.Request>[];
+      final writes = <Map<dynamic, dynamic>>[];
+      final token = 'a' * 43;
+      final expiry = DateTime.now().toUtc().add(const Duration(minutes: 5));
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(bridge, (call) async {
+            calls.add(call);
+            switch (call.method) {
+              case 'proof':
+                return {
+                  'verifier': 'fixture-verifier',
+                  'state': 'fixture-state',
+                  'challenge': 'fixture-challenge',
+                };
+              case 'authenticate':
+                final url = Uri.parse((call.arguments as Map)['url'] as String);
+                expect(url.origin, issuer);
+                expect(url.path, '/oauth/authorize');
+                expect(url.queryParameters['state'], 'fixture-state');
+                expect(url.queryParameters['code_challenge_method'], 'S256');
+                return '${NativeSessionConfiguration.redirect}?state=fixture-state&code=fixture-code';
+              case 'write':
+                writes.add(Map<dynamic, dynamic>.from(call.arguments as Map));
+            }
+            return null;
+          });
+      final transport = MockClient((request) async {
+        requests.add(request);
+        expect(request.followRedirects, isFalse);
+        if (request.url.origin == issuer) {
+          expect(request.method, 'POST');
+          expect(request.bodyFields['client_id'], 'prosody-ios');
+          if (request.url.path == '/oauth/token') {
+            expect(request.bodyFields, {
+              'client_id': 'prosody-ios',
+              'grant_type': 'authorization_code',
+              'code': 'fixture-code',
+              'code_verifier': 'fixture-verifier',
+              'redirect_uri': NativeSessionConfiguration.redirect,
+            });
+            if (outcome == 'token denied') {
+              return http.Response('PRIVATE issuer refusal', 403);
+            }
+            return http.Response(
+              jsonEncode({
+                'access_token': token,
+                'token_type': 'Bearer',
+                'scope': 'personal',
+                'expires_in': 300,
+              }),
+              200,
+            );
+          }
+          expect(request.url.path, '/oauth/current');
+          expect(request.bodyFields['token'], token);
+          return http.Response(
+            jsonEncode({
+              'active': true,
+              'version': 'identity.issuer.v1',
+              'issuer': issuer,
+              'audience': outcome == 'wrong audience'
+                  ? '$origin/other'
+                  : audience,
+              'client_id': 'prosody-ios',
+              'expires_at': expiry.toIso8601String(),
+            }),
+            200,
+          );
+        }
+        expect(outcome, 'accepted');
+        expect(request.url.toString(), '$origin/prosody/v1/feeds');
+        expect(request.method, 'GET');
+        expect(request.headers['Authorization'], 'Bearer $token');
+        return http.Response('{"feeds":[],"nextCursor":null}', 200);
+      });
+      await http.runWithClient(() async {
+        final widget = configured(_Playback());
+        await tester.pumpWidget(widget);
+        await tester.pumpAndSettle();
+        expect(requests, isEmpty);
+        expect(find.byType(FeedScreen), findsNothing);
+        await tester.tap(find.byType(FilledButton));
+        await tester.pumpAndSettle();
+        expect(calls.where((c) => c.method == 'authenticate'), hasLength(1));
+        expect(
+          requests.where((r) => r.url.path == '/oauth/token'),
+          hasLength(1),
+        );
+        if (outcome == 'accepted') {
+          expect(find.byType(FeedScreen), findsOneWidget);
+          expect(find.text('A little quiet, for now.'), findsOneWidget);
+          expect(find.text('Could not load your inbox.'), findsNothing);
+          expect(
+            find.text('Your place is safe. Try loading this space again.'),
+            findsNothing,
+          );
+          expect(writes, hasLength(1));
+          expect(
+            writes.single['binding'],
+            (widget.session! as NativeSession).configuration.binding,
+          );
+          expect(writes.single['token'], token);
+          expect(requests.map((r) => r.url.path), [
+            '/oauth/token',
+            '/oauth/current',
+            '/oauth/current',
+            '/prosody/v1/feeds',
+            '/oauth/current',
+          ]);
+        } else {
+          expect(find.byType(FeedScreen), findsNothing);
+          expect(
+            find.text('Sign-in did not finish. Please try again.'),
+            findsOneWidget,
+          );
+          expect(find.textContaining('PRIVATE'), findsNothing);
+          expect(writes, isEmpty);
+          expect(requests.map((r) => r.url.path), [
+            '/oauth/token',
+            if (outcome == 'wrong audience') '/oauth/current',
+          ]);
+          await expectLater(
+            (widget.session! as NativeSession).accessToken(),
+            throwsA(isA<NativeSessionFailure>()),
+          );
+        }
+        await tester.pumpWidget(const SizedBox());
+        await tester.pumpAndSettle();
+      }, () => transport);
+    });
+  }
 }
