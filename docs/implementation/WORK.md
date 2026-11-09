@@ -2456,3 +2456,27 @@ Independent affected source/test review CLEAR; final docs/evidence and required
 hook/new-head hosted review remain separate. Earlier44/437 and hostedb7 results
 are historical for this revision. No activation, new upload or native/server
 qualification follows from synthetic adapter tests.
+
+### 2026-11-08 — Exercise the configured app bootstrap boundary
+
+Shared the existing release-input parse/session composition through
+ProsodyApp.fromReleaseInputs, called by main with the same constants. New nine
+widget cases use the real Dart session client with mocked platform/playback IO
+and synthetic bindings, not a provider identity or usable backend grant. They
+verify disabled/default/partial/malformed inputs, signed-out readiness, pending
+recovery refusal, safe read errors and cancelled-browser explicit retry.
+
+Actual analyzer0/focused56/fullFlutter450 named PASS0fail0skip/done-success-true,
+counts overlap. Exact owned verification lease released. No OS AudioService
+startup, Swift crypto, actual Keychain/browser, successful backend exchange,
+AOT/signing or device install is qualified. This refactors existing composition;
+no old-production RED bug is claimed. Independent source/test review CLEAR;
+docs, isolated omission control and unchanged required hook remain separate.
+Shipping workflow remains unconfigured/sign-in inactive; no new upload selected.
+Isolated compiled session-wiring omission: configured browser-cancel journey
+fails its exact urls.length assertion (expected1/actual0), disabled-build control
+PASS1; production main SHA unchanged. The first supervisor audit FAILED because
+Flutter placed TestFailure details in a print event, not its generic error event.
+That failure is retained. A separate exact-event/line audit confirms the intended
+one assertion failure and one control without rerunning the phase. This is a
+new omission control, not an old-production bug claim. Exact lease released.
