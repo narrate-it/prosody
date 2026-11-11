@@ -2600,3 +2600,116 @@ or new upload follows; build 42/full RFC/reminder state unchanged.
 Final stronger assertions: analyzer 0/focused 59 PASS / 0 fail / 0 skip/done-success-true;
 prior full 453 predates only this test delta. Exact final-test lease released;
 independent source review clear, hook/hosted review remain separate.
+
+### 2026-11-09 — Company18 authentication-host source composition
+
+AMOS answered the exact installation question in PR514 comment 6745223644 at
+source 845a8042ee6c1ba0b06731811303b7337fba9c85. The public fresh installer
+selects company18; its matching host selects issuer, directory and organization,
+retains the native recovery binding and supplies the directory cursor key.
+NativeMethods, OrganizationCreation and unrelated extensions remain unset.
+There is no public fresh personal15 installer; mixing its host with an18 ledger
+is unsupported. This closes the recipe question at source level, not actual
+installation, enrollment, email, device or deployment acceptance. Founder/label
+operations stay separately authorized. The reply's queue-write witness is only
+provisional storage evidence; native worker commit/finality/recovery and complete
+published feed/media remain separate, with no adapter migration inferred.
+
+New isolated `backend/authhost` source uses the exact public NewProduction/Serve/
+Close APIs with the company18 field selection, the owner-approved origin, audience
+and sender, and the intended native client/private return. It accepts a concrete
+SES sender, retained NativeSet, runtime DB/TLS and directory key from separately
+admitted custody. It creates no owner, role, schema, key, sender credential,
+application scheduler or fake feed/media route. The module is a composition
+library candidate, not a complete executable or deployable Nanos image. Existing
+integration/amos remains pinned unchanged; only this new source candidate names
+the handoff revision. See backend/authhost/README.md for configuration/lifetimes.
+
+Profile projection, account-only GET/HEAD/path and missing-listener/context tests
+are authored but NOT EXECUTED. No module dependency resolution, compile, test,
+lint, hook, build lease, capacity probe, fixture, signer, email request, provider
+mutation, commit or PR has run for this lane. The prior capacity hold remains in
+effect. Source formatting is not compilation or behavior acceptance. AWS access,
+actual native installation/TLS/DB/recovery custody, private Nanos image and real
+browser/iPhone qualification remain required. Build42 and reminder remain unchanged.
+
+### 2026-11-10 — Ownership transferred to Claude Code session
+
+David moved ownership from Codex session 01a1906b-000a-73d0-ae3c-07cd0f363566 to a
+Claude Code session. That Codex session has been inert since 2026-11-09 21:01 UTC:
+hourly reminders complete in seconds with no assistant work. The tagged
+`prosody-rfc-hourly-refocus` crontab still queues the old thread; it is unchanged
+and completion remains false.
+
+Staged checkpoint verified intact at takeover: head d270866, index tree
+3de38672 and binary-patch SHA-256 equal the recorded checkpoint values. Fresh
+takeover admission sample REFUSED heavy work: one-minute load 36.82 (above the
+MBP load<=10 gate and the shared hold>20), average last-two interval idle 31.92%,
+pressure 1, swap 49.5/100.3 KB/s, no thermal/performance warning. Load reflects
+active desktop use including an in-progress `brew install awscli`. No lease,
+dependency resolution, compile, test, hook or automatic retry ran. authhost
+compile/tests remain NOT RUN. Sample: prosody/.local/capacity-takeover-*.txt.
+
+### 2026-11-10 — Owner removed the hourly reminder
+
+David instructed removal of the tagged `prosody-rfc-hourly-refocus` crontab entry
+because the Codex session is closed. Only that tagged line was removed; the
+crontab is now empty and no refocus process remains. This supersedes the takeover
+note's "unchanged" statement. Completion remains false: no COMPLETE sentinel was
+written, and authhost compile/tests plus all RFC gates stand. Continuation now
+happens only when David prompts the owning Claude session.
+
+### 2026-11-11 — authhost COMPILED and tests PASS at exact 845a8042 (Track B)
+
+Under the same admitted phase and owned lease d7992888608ed10a684214dc95f83128d864fb0e:
+fetched the exact AMOS source 845a8042ee6c1ba0b06731811303b7337fba9c85 via gh tarball
+into isolated .local/amos-845a8042 (no owner branch/claim changed). Created
+.local/amos.work workspace with replace amos => ./amos-845a8042.
+
+go list -m confirms dir=.local/amos-845a8042 (local pinned source, not a proxy
+version). GOWORK=.local/amos.work GOPRIVATE=github.com/ajent-social/* GOMAXPROCS=2
+go test -p 1 -count=1 -v ./... in backend/authhost: 7 named PASS across 3 roots
+(TestCompanyRecipe, TestHome get/head/method/missing_feed, TestRunRejectsMissingListener),
+zero failures/skips, package ok. go vet ./... exit 0. go mod tidy resolved a complete
+go.mod/go.sum (now staged). This is the first executed compile/test of the company18
+composition; it remains a composition library, not an installed/deployed host.
+
+No installation, DB/role/key/TLS custody, SES send, DNS/VM mutation, provider call,
+deployment or app activation ran. Commit/PR still awaits the package-aware required
+hook (root pre-commit does not cover this nested module) and independent review of
+the final diff; no improvised commit was made. Real native startup, HTTPS
+enrollment/email/PKCE, iPhone/Keychain and deployment acceptance remain required.
+
+### 2026-11-11 — Preview 1.0.3 (build 43) uploaded ACCEPTED (Track A)
+
+David authorized "both" (preview delivery + backend verification). Dispatched the
+approved `TestFlight preview upload` workflow on trusted main d270866 with
+upload=true; self-hosted prosody-laptop-runner, prosody-asc environment. Run
+43102956670 completed SUCCESS in 6m55s. Phase chain: signing-probe PASS,
+flutter-release, signed-archive, archive-metadata (run.sire.prosody ARM64),
+archive-signature, export-ipa, apple-validation, apple-upload.
+
+Receipt (private cache prosody-testflight-1k6lt0tx): version 1.0.3, build 43,
+revision d270866, uploadState ACCEPTED (processing/tester availability unverified),
+Apple UPLOAD SUCCEEDED, Delivery UUID 3fa4cec0-8a8f-44a8-8acb-776a2eecfb33,
+ipaSHA256 8fef02008cea5e8bb509afe04ee6d6da9c36a18217ae96090f9662ea8f364ab8,
+identity 2F003FD3D3D31AE27A4B6909772ACD02DC1BA33C, profile
+2ca1b7ac-76b6-4ff9-a9ae-b4467eaba4c1, owned workflow lease 99c61b4a (released by
+the workflow). Includes the native-session bootstrap + sign-out recovery source
+(PRs #73-75) newer than build 42. Sign-in remains DISABLED; sample feeds only.
+
+A read-only ASC status read (run 43104236643, version 1.0.3 build 43) refused at
+build-count: Apple processing not yet queryable ~2 min after upload. No retry loop;
+processing/export-compliance/tester installation remain to be verified once Apple
+finishes. This preview does not qualify the unfinished backend/provider/device
+journey. READINESS.md update follows via the governed commit path.
+
+### 2026-11-11 — Build 43 Apple processing VALID (Track A follow-up)
+
+Read-only ASC status run 43112230433 (version 1.0.3, build 43) PASSED: OBSERVED iOS
+1.0.3 build 43; Apple processing state VALID, expired NO. Earlier build-count
+refusals (runs 43104236643 / 43105758460) were Apple processing latency, resolved
+without retry-loop or re-upload. Still UNVERIFIED: team association, export
+compliance disposition, tester membership/visibility and device installation
+(owner-managed; no legal declaration made here). David can install from TestFlight
+once tester access/export compliance allow. Preview remains sign-in disabled.
