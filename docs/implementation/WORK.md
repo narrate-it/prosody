@@ -2503,3 +2503,100 @@ passed before this test-only assertion delta, not a fresh full-suite verdict for
 the final revision. Production bytes remain unchanged; focused rerun covers all
 changed widget cases. Independent affected source review CLEAR. Hook and hosted
 review remain separate.
+
+### 2026-11-08 — SES selection and Linode deployment prerequisites
+
+David selected AWS SES and explicitly approved sender `noreply@prosody.chat` and
+resource audience `https://api.prosody.chat/` (trailing slash included), then
+requested Linode deployment. These choices do not establish issuer registration
+or sender/domain verification. Approved hosting remains Fremont within the
+existing total $50/month budget. Read-only Linode inventory returned zero
+instances and zero private images, with both existing SSH keys present. Pulumi
+login is available but no Linode project stack exists. No live infrastructure
+was created or changed. AWS credentials/profile are absent locally.
+
+New `infra/ses` source declares account-bound SES identity, DKIM and configuration
+set prerequisites; no email, DNS, IAM credentials or server is mutated by source
+tests. Initial nested tests: 19 named records across 4 roots, zero failure/skip,
+package PASS; vet PASS and lint zero issues. Exact verification lease RELEASED.
+Independent review found a regional DKIM-suffix mismatch before commit. Corrected
+source now requires an explicit `us-west-2` profile and rejects other regions;
+there is no implicit region selection. New negative cases and additional secret-
+output assertions are authored but NOT EXECUTED. Initial 19 passes do not qualify
+this corrected revision. No old-source RED result is claimed.
+
+Final verification admission HOLD: MacBook one-minute load 12.17/11.60/11.15
+exceeded its load<=10 gate despite normal pressure, zero swap churn, no warnings
+and average last-two interval idle 45.695%. No new lease, corrected test/lint,
+required hook, commit or PR; no automatic retry. Safe source checkpoint retained.
+Actual deployment still requires the composed authentication backend, admitted
+native DB/schema/roles/keys/TLS, reviewed private Nanos image and boot/runtime
+qualification. Existing Linode IaC only defines powered-off staging, not that
+service. `api.prosody.chat` still returned NXDOMAIN at this read boundary.
+SES account/region/credentials, DNS verification, sandbox/sending access and
+verified event/reconciliation custody remain open. No AWS account inferred,
+provider message sent, AMOS pin changed or TestFlight upload performed. Build42
+and full RFC/reminder remain unchanged.
+
+### 2026-11-10 — Ownership transferred to Claude Code session
+
+David moved ownership from Codex session 01a1906b-000a-73d0-ae3c-07cd0f363566 to a
+Claude Code session. That Codex session has been inert since 2026-11-09 21:01 UTC:
+hourly reminders complete in seconds with no assistant work. The tagged
+`prosody-rfc-hourly-refocus` crontab still queues the old thread; it is unchanged
+and completion remains false.
+
+Staged checkpoint verified intact at takeover: head d270866, index tree and
+binary-patch SHA-256 equal the recorded checkpoint values. Fresh takeover
+admission sample REFUSED heavy work: one-minute load 36.82 (above the MBP
+load<=10 gate and the shared hold>20), average last-two interval idle 31.92%,
+pressure 1, swap 49.5/100.3 KB/s, no thermal/performance warning. Load reflects
+active desktop use including an in-progress `brew install awscli`. No lease,
+fixture, test or automatic retry ran. Corrected SES tests remain NOT RUN; AWS
+credentials/profile remain absent. Sample: prosody/.local/capacity-takeover-*.txt.
+
+### 2026-11-10 — Owner removed the hourly reminder
+
+David instructed removal of the tagged `prosody-rfc-hourly-refocus` crontab entry
+because the Codex session is closed. Only that tagged line was removed; the
+crontab is now empty and no refocus process remains. This supersedes the takeover
+note's "unchanged" statement. Completion remains false: no COMPLETE sentinel was
+written, and the pending corrected SES verification and all RFC gates stand.
+Continuation now happens only when David prompts the owning Claude session.
+
+### 2026-11-11 — Corrected SES tests EXECUTED and PASS (Track B)
+
+Fresh admission passed (load 4.41, last-two interval idle 88.12/90.78%, pressure 1,
+zero swap, no thermal/performance warning). Owned build lease
+d7992888608ed10a684214dc95f83128d864fb0e acquired for the phase.
+
+Ran in infra/ses: GOMAXPROCS=2 GOCACHE=.local/gocache go test -p 1 -count=1 -v .
+Result: 21 named PASS records across 4 roots (TestTarget, TestDKIM, TestEmailGraph,
+TestForeignAccount), zero failures/skips, package ok. go vet . exit 0. These are
+hermetic Pulumi-mock tests (pulumi.RunErr + WithMocks); no AWS resource, mail, DNS
+or credential effect. The corrected explicit us-west-2/account-allowlist revision
+is now executed-verified, superseding the prior NOT RUN hold for these tests.
+
+AWS login is present (account 394824061124) but uses ROOT credentials; a scoped
+IAM profile remains recommended. No SES identity/DKIM/sandbox verification, stack
+apply, or deployment ran. Commit/PR still awaits the package-aware required hook
+and independent review of the final diff; the root pre-commit hook does not cover
+this nested module, so no improvised commit was made. Source remains staged.
+
+### 2026-11-11 — Scoped IAM profile created for SES (owner-authorized)
+
+David authorized replacing root usage with a scoped profile. Created IAM user
+`prosody-ses` and customer policy `prosody-ses-boundary`
+(arn:aws:iam::394824061124:policy/prosody-ses-boundary); attached; created one access
+key (AccessKeyId AKIAVX3KZCDCG4BIX6DV; secret only in ~/.aws/credentials mode 600,
+never printed). Named profile `prosody-ses` set to us-west-2. Policy document
+reconciled into infra/ses/iam-policy.json; README documents the bootstrap.
+
+Verified: sts:GetCallerIdentity returns user/prosody-ses (not root); ses list-identities
+us-west-2 succeeds; iam:ListUsers and ec2:DescribeInstances are AccessDenied (scoped).
+Scope: SES identity/DKIM/config-set + send on prosody.chat / prosody-identity in
+us-west-2, sts:GetCallerIdentity, SES list reads. No SES resource was created/verified
+and no mail sent; the stack apply still needs qualified state-backend custody and
+Cloudflare DNS ownership. Root login session left untouched (no root static keys exist).
+CLI bootstrap is a recorded hand change; adopt the user into an admin-managed IAM
+stack before production.

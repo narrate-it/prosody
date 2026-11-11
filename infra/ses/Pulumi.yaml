@@ -1,0 +1,8 @@
+name: prosody-email
+runtime: go
+description: Account-bound SES identity prerequisites; no email delivery or DNS mutation.
+config:
+  prosody-email:accountId:
+    description: Exact operator-selected AWS account ID.
+  prosody-email:region:
+    description: Explicit us-west-2 selection for this reviewed DKIM profile; no default.
