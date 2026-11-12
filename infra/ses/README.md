@@ -42,26 +42,40 @@ DNS propagation, mail delivery, backend readiness or Nanos compatibility.
 
 ## Current source checkpoint
 
-Initial nested mock tests passed 19 named records across four roots with zero
-failures/skips; vet passed and lint reported zero issues. Independent review then
-identified the regional DKIM-suffix issue. Corrected source restricts the profile
-to an explicitly selected us-west-2 and adds refusal/secret-output assertions.
-Those corrected checks remain unexecuted because final capacity admission held.
-The initial result is not a verdict on this corrected revision. No live preview,
-apply, sender verification or email delivery has run. The root hook is also
-unexecuted for this lane. Retain the checkpoint; do not bypass the hook to commit.
+Executed: the corrected hermetic mock suite passes (now 23 named records across
+four roots, including bad-target zero-registration and root-principal refusal),
+`go vet` clean and `golangci-lint` 0 issues (Go 1.27.0 toolchain). Committed through
+a package-aware hook that runs this nested module's lint+test (the root hook skips
+nested modules); draft PR #77. No live preview, apply, sender verification or email
+delivery has run.
+
+Independent headless review (PR #77) returned CLEAR with hardening findings, since
+addressed: a `.gitignore` matching sibling modules; hoisted regexps; a non-root
+principal refusal (the account check alone admitted root in the same account);
+bad-target and DKIM-dependency-type assertions; and the IAM policy revision below.
+Not implementable with the current Pulumi mock: asserting the `getCallerIdentity`
+Invoke version (MockCallArgs carries no version) and capturing export secrecy
+directly (resource-side AdditionalSecretOutputs and pulumi.ToSecret are checked).
 
 ## Scoped runtime profile (bootstrap)
 
 SES work uses the named AWS profile `prosody-ses` (region `us-west-2`), not root.
 The IAM user `prosody-ses` carries the customer-managed policy
 `prosody-ses-boundary` (ARN `arn:aws:iam::394824061124:policy/prosody-ses-boundary`),
-whose exact document is checked in as [`iam-policy.json`](iam-policy.json): SES
-identity/DKIM/configuration-set management and sending scoped to `prosody.chat` and
-`prosody-identity` in us-west-2, plus `sts:GetCallerIdentity` and SES list reads.
-IAM/EC2 and all other services are denied.
+whose exact document is checked in as [`iam-policy.json`](iam-policy.json). It is
+SES-only: management/list actions are action-scoped with an `aws:RequestedRegion =
+us-west-2` condition (verified to deny out-of-region calls), sending is scoped to the
+`prosody.chat` identity ARN, plus `sts:GetCallerIdentity`. IAM/EC2 and all other
+services are denied. Management actions use `Resource:"*"` because SES classic
+create/verify actions may not support resource-level permissions; confirm exact
+support at the gated apply and tighten if possible.
+
+Note: `prosody-ses-boundary` is an identity policy (it grants), not an IAM permissions
+boundary; the denials hold because no other policy is attached. Before production,
+split the IaC-apply principal from the runtime-send principal (drop notification/list
+actions from apply; scope send to identity + configuration set in a distinct runtime
+role) and adopt the bootstrap user into an admin-managed IAM stack.
 
 The user and an access key were created as a CLI bootstrap (the stack runs as this
-user and cannot create itself); the policy is reconciled into code here. Rotate or
-adopt the user into a dedicated admin-managed IAM stack before production. The
-secret access key lives only in `~/.aws/credentials` (mode 600), never in source.
+user and cannot create itself); the policy is reconciled into code here. The secret
+access key lives only in `~/.aws/credentials` (mode 600), never in source.

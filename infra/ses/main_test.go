@@ -14,6 +14,7 @@ import (
 type emailMonitor struct {
 	mu       sync.Mutex
 	account  string
+	arn      string
 	sesCount int
 	calls    int
 }
@@ -26,7 +27,7 @@ func (m *emailMonitor) Call(a pulumi.MockCallArgs) (resource.PropertyMap, error)
 	m.mu.Lock()
 	m.calls++
 	m.mu.Unlock()
-	return resource.NewPropertyMapFromMap(map[string]any{"accountId": m.account}), nil
+	return resource.NewPropertyMapFromMap(map[string]any{"accountId": m.account, "arn": m.arn}), nil
 }
 
 // NewResource rejects unexpected side effects and checks the protected scoped SES graph.
@@ -62,6 +63,9 @@ func (m *emailMonitor) NewResource(a pulumi.MockResourceArgs) (string, resource.
 		}
 		if a.Inputs["domain"].StringValue() != domain || len(a.RegisterRPC.GetDependencies()) != 1 {
 			return "", nil, fmt.Errorf("DKIM domain or identity ordering missing")
+		}
+		if !strings.Contains(a.RegisterRPC.GetDependencies()[0], "domainIdentity") {
+			return "", nil, fmt.Errorf("DKIM dependency is not the domain identity")
 		}
 		out["dkimTokens"] = resource.NewArrayProperty([]resource.PropertyValue{resource.NewStringProperty("first"), resource.NewStringProperty("second"), resource.NewStringProperty("third")})
 	case "aws:ses/configurationSet:ConfigurationSet":
@@ -150,5 +154,35 @@ func TestForeignAccount(t *testing.T) {
 	defer m.mu.Unlock()
 	if m.sesCount != 0 || m.calls != 1 {
 		t.Fatal("mismatch reached SES resources or skipped account read")
+	}
+}
+
+// TestBadTargetRegistersNothing proves an invalid target stops before any provider
+// registration or account read, not merely inside validateTarget.
+func TestBadTargetRegistersNothing(t *testing.T) {
+	m := &emailMonitor{account: "123456789012"}
+	err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerEmail(ctx, "123456789012", "us-east-1") }, pulumi.WithMocks("email", "test", m))
+	if err == nil {
+		t.Fatal("invalid region accepted")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sesCount != 0 || m.calls != 0 {
+		t.Fatalf("bad target registered resources=%d calls=%d", m.sesCount, m.calls)
+	}
+}
+
+// TestRootPrincipal proves the account check alone is insufficient: a root caller
+// in the same account is refused before any SES resource.
+func TestRootPrincipal(t *testing.T) {
+	m := &emailMonitor{account: "123456789012", arn: "arn:aws:iam::123456789012:root"}
+	err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerEmail(ctx, "123456789012", "us-west-2") }, pulumi.WithMocks("email", "test", m))
+	if err == nil || !strings.Contains(err.Error(), "not root") {
+		t.Fatalf("root principal refusal: %v", err)
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.sesCount != 0 || m.calls != 1 {
+		t.Fatal("root reached SES resources or skipped account read")
 	}
 }

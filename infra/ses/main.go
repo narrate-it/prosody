@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
@@ -14,6 +15,11 @@ const (
 	domain           = "prosody.chat"
 	sender           = "noreply@prosody.chat"
 	configurationSet = "prosody-identity"
+)
+
+var (
+	accountPattern   = regexp.MustCompile(`^[0-9]{12}$`)
+	dkimTokenPattern = regexp.MustCompile(`^[a-z0-9]{1,63}$`)
 )
 
 type awsProvider struct{ pulumi.ProviderResourceState }
@@ -37,7 +43,7 @@ func main() {
 
 // validateTarget rejects absent or noncanonical account/region selections before registration.
 func validateTarget(account, region string) error {
-	if !regexp.MustCompile(`^[0-9]{12}$`).MatchString(account) || region != supportedRegion {
+	if !accountPattern.MatchString(account) || region != supportedRegion {
 		return fmt.Errorf("an explicit AWS account and supported us-west-2 region are required")
 	}
 	return nil
@@ -51,7 +57,7 @@ func dkimRecords(tokens []string) ([]dnsRecord, error) {
 	seen := map[string]bool{}
 	out := make([]dnsRecord, 0, 3)
 	for _, token := range tokens {
-		if !regexp.MustCompile(`^[a-z0-9]{1,63}$`).MatchString(token) || seen[token] {
+		if !dkimTokenPattern.MatchString(token) || seen[token] {
 			return nil, fmt.Errorf("invalid or duplicate DKIM token")
 		}
 		seen[token] = true
@@ -74,12 +80,16 @@ func registerEmail(ctx *pulumi.Context, account, region string) error {
 	}
 	var caller struct {
 		AccountID string `pulumi:"accountId"`
+		Arn       string `pulumi:"arn"`
 	}
 	if err := ctx.Invoke("aws:index/getCallerIdentity:getCallerIdentity", map[string]any{}, &caller, pulumi.Provider(&provider), pulumi.Version(providerVersion)); err != nil {
 		return fmt.Errorf("read SES account: %w", err)
 	}
 	if caller.AccountID != account {
 		return fmt.Errorf("SES account does not match selected account")
+	}
+	if strings.HasSuffix(caller.Arn, ":root") {
+		return fmt.Errorf("SES apply requires the scoped prosody-ses principal, not root")
 	}
 	opts := []pulumi.ResourceOption{pulumi.Provider(&provider), pulumi.Version(providerVersion), pulumi.Protect(true), pulumi.RetainOnDelete(true)}
 	var identity identityState

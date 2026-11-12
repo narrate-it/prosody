@@ -2685,7 +2685,7 @@ this nested module, so no improvised commit was made. Source remains staged.
 David authorized replacing root usage with a scoped profile. Created IAM user
 `prosody-ses` and customer policy `prosody-ses-boundary`
 (arn:aws:iam::394824061124:policy/prosody-ses-boundary); attached; created one access
-key (AccessKeyId AKIAVX3KZCDCG4BIX6DV; secret only in ~/.aws/credentials mode 600,
+key (AccessKeyId [redacted-access-key-id]; secret only in ~/.aws/credentials mode 600,
 never printed). Named profile `prosody-ses` set to us-west-2. Policy document
 reconciled into infra/ses/iam-policy.json; README documents the bootstrap.
 
