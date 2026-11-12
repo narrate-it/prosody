@@ -65,10 +65,23 @@ To reproduce from a fresh clone:
 1. Fetch the exact source into `.local/amos-845a8042` (e.g.
    `gh api repos/ajent-social/AMOS/tarball/845a8042ee6c1ba0b06731811303b7337fba9c85`
    then extract with `--strip-components=1`).
-2. Create `.local/amos.work` with `use ( ../backend/authhost ./amos-845a8042 )` and
-   `replace github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c => ./amos-845a8042`.
-3. In `backend/authhost`, run with
-   `GOWORK=$PWD/../../.local/amos.work GOPRIVATE='github.com/ajent-social/*' GOTOOLCHAIN=go1.27.0`:
+2. Create `.local/amos.work` (the parenthesized `use` block requires one path per
+   line; an inline `use ( a b )` is rejected by Go):
+
+   ```
+   go 1.27.0
+
+   use (
+   	../backend/authhost
+   	./amos-845a8042
+   )
+
+   replace github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c => ./amos-845a8042
+   ```
+
+3. In `backend/authhost`, run with an ABSOLUTE `GOWORK` path (Go rejects a relative
+   one), e.g. `GOWORK="$(git rev-parse --show-toplevel)/.local/amos.work"
+   GOPRIVATE='github.com/ajent-social/*' GOTOOLCHAIN=go1.27.0`:
    `go test ./...` and `golangci-lint run ./...` (the linter needs the go1.27.0
    export-data format). `go list -m github.com/ajent-social/amos` must show the
    local `.local/amos-845a8042` dir.

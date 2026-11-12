@@ -2731,3 +2731,12 @@ Post-fix executed receipts (.local/authhost-tests.log, authhost-lint.log): 14 na
 across 4 roots, go vet + golangci-lint 0 issues (Go 1.27.0). Also closed cross-review N2
 (stale "no claimed build/run result" sentence). #4 scoped CI entry and #5 READINESS drift
 remain transparently deferred (READINESS is a separate main-branch record).
+
+### 2026-11-12 — CodeRabbit doc findings fixed (reproducibility)
+
+CodeRabbit reviewed the PR (check pass) with 2 minor comments, both valid and fixed in
+the README bootstrap: (1) GOWORK must be an ABSOLUTE path — now documented as
+"$(git rev-parse --show-toplevel)/.local/amos.work"; (2) the inline `use ( a b )` workspace
+form is rejected by Go (verified: "usage: use local/dir") — the README now shows the
+required one-path-per-line block. No production code changed. Post-fix executed: tests ok,
+vet + lint 0 issues (.local/authhost-tests.log, authhost-lint.log).
