@@ -1,0 +1,57 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "CallerIdentity",
+      "Effect": "Allow",
+      "Action": "sts:GetCallerIdentity",
+      "Resource": "*"
+    },
+    {
+      "Sid": "SesManagement",
+      "Effect": "Allow",
+      "Action": [
+        "ses:VerifyDomainIdentity",
+        "ses:VerifyDomainDkim",
+        "ses:CreateConfigurationSet",
+        "ses:DescribeConfigurationSet",
+        "ses:GetIdentityVerificationAttributes",
+        "ses:GetIdentityDkimAttributes",
+        "ses:GetIdentityNotificationAttributes",
+        "ses:SetIdentityNotificationTopic"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-west-2"
+        }
+      }
+    },
+    {
+      "Sid": "SesList",
+      "Effect": "Allow",
+      "Action": [
+        "ses:ListIdentities",
+        "ses:ListConfigurationSets"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "us-west-2"
+        }
+      }
+    },
+    {
+      "Sid": "SesSendFromVerifiedIdentity",
+      "Effect": "Allow",
+      "Action": [
+        "ses:SendEmail",
+        "ses:SendRawEmail"
+      ],
+      "Resource": [
+        "arn:aws:ses:us-west-2:394824061124:identity/prosody.chat",
+        "arn:aws:ses:us-west-2:394824061124:configuration-set/prosody-identity"
+      ]
+    }
+  ]
+}
