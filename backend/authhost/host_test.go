@@ -1,8 +1,10 @@
 package authhost
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -27,6 +29,9 @@ func TestCompanyRecipe(t *testing.T) {
 	}
 	if p.NativeMethods != nil || p.OrganizationCreation != nil || p.MCP != nil || p.NativeAcceptedWorkRuntime != nil || len(p.NativeExtensions) != 0 || len(p.NativeFiniteReads) != 0 || p.NativeApplication != nil || p.Application != nil || p.Protocol != nil || p.NativePersonalOperations != nil || p.NativePersonalTOTP != nil || p.NativePersonalCheckout != nil || len(p.Routes) != 0 || len(p.AuthenticatedConsumerCallbacks) != 0 {
 		t.Fatal("unselected host capabilities enabled")
+	}
+	if p.MaterialActiveKeyID != "" || len(p.MaterialKeys) != 0 || len(p.RateKey) != 0 || p.BusinessNavigation != nil || p.NativeDocumentRoles != nil || p.NativeExtensionsProfile != 0 {
+		t.Fatal("alternate key-material or document/navigation profile enabled")
 	}
 	if p.Origin != Origin || p.EmailFrom != Sender || len(p.Issuer.Clients) != 1 {
 		t.Fatal("application binding changed")
@@ -81,4 +86,42 @@ func TestRunRejectsMissingListener(t *testing.T) {
 	if err := Run(nil, Config{}, nil); !errors.Is(err, ErrConfiguration) {
 		t.Fatal("nil context did not refuse")
 	}
+}
+
+// TestRunConfigurationGuards proves the directory-cursor-key guard in isolation.
+// AMOS itself only checks len(key)==32, so Run's non-zero check is the sole defense
+// against a degenerate key. A real listener is present so the key predicate (not the
+// missing-listener predicate) is what refuses; all cases reject before NewProduction,
+// fabricating no native admission.
+func TestRunConfigurationGuards(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = listener.Close() }()
+	validKey := bytes.Repeat([]byte{1}, 32)
+	for _, c := range []struct {
+		name string
+		key  []byte
+		lis  net.Listener
+	}{
+		{"zero key", make([]byte, 32), listener},
+		{"nil key", nil, listener},
+		{"short key", make([]byte, 31), listener},
+		{"long key", make([]byte, 33), listener},
+		{"valid key nil listener", validKey, nil},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if err := Run(context.Background(), Config{DirectoryCursorKey: c.key}, c.lis); !errors.Is(err, ErrConfiguration) {
+				t.Fatalf("expected ErrConfiguration, got %v", err)
+			}
+		})
+	}
+	t.Run("cancelled context", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if err := Run(ctx, Config{DirectoryCursorKey: validKey}, listener); !errors.Is(err, context.Canceled) {
+			t.Fatalf("expected context.Canceled, got %v", err)
+		}
+	})
 }

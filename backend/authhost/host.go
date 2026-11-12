@@ -79,7 +79,8 @@ func Run(ctx context.Context, c Config, listener net.Listener) (result error) {
 	}
 	host, err := apphost.NewProduction(ctx, productionConfig(c))
 	if err != nil {
-		return ErrConfiguration
+		// Preserve AMOS's fixed configuration/unavailable sentinels for diagnosis.
+		return errors.Join(ErrConfiguration, err)
 	}
 	defer func() { result = errors.Join(result, host.Close()) }()
 	return host.Serve(ctx, listener)
@@ -105,8 +106,6 @@ func accountHome(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(home)))
 	w.WriteHeader(http.StatusOK)
 	if r.Method == http.MethodGet {
-		if _, err := io.WriteString(w, home); err != nil {
-			return
-		}
+		_, _ = io.WriteString(w, home)
 	}
 }

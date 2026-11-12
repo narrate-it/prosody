@@ -11,10 +11,12 @@ server, authority callback, scheduler, database handle or private native SQL is
 introduced. This is a composition library, not a complete executable, installer,
 secret loader or deployable Nanos image. There is no claimed build/run result.
 
-The fixed registration uses the owner-approved origin `https://api.prosody.chat`,
+The fixed registration uses the selected origin `https://api.prosody.chat`,
 audience `https://api.prosody.chat/`, native client `prosody-ios` and exact callback
-`run.prosody.prosody:/oauth/callback`. Display name is presentation only, not the
-separately undecided original-producer attribution snapshot. The host selects
+`run.prosody.prosody:/oauth/callback`. These are the intended/selected values; the
+audience approval receipt is not yet recorded, and READINESS still treats the
+issuer/client registration as unqualified. Display name is presentation only, not
+the separately undecided original-producer attribution snapshot. The host selects
 issuer + directory + organization; NativeMethods, OrganizationCreation, worker,
 MCP, paid operations, document profiles and all application routes remain unset.
 The account homepage cannot serve successful fake feed/media responses.
@@ -43,16 +45,47 @@ own listener cleanup on startup refusal, and prevent concurrent configuration
 mutation. The native TLS server controls its accepted listener; failed startup
 does not authorize a listener, credential or infrastructure retry.
 
+## Listener contract
+
+`Serve` requires a plain `*net.TCPListener` bound to the origin port (`:443` for
+this origin). `Run` accepts any `net.Listener`, but a wrapped/TLS listener or wrong
+port is refused only after `NewProduction` has spent AMOS's process-global,
+never-reset native authority activation. A post-admission `Serve` refusal therefore
+consumes the process's single activation and requires a process restart, not an
+in-process retry with a corrected listener. Supply a plain TCP listener on the
+origin port before calling `Run`.
+
+## Reproducing the verification
+
+The module pins `github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c`,
+which resolves only through a local workspace replace (the candidate is unpublished).
+To reproduce from a fresh clone:
+
+1. Fetch the exact source into `.local/amos-845a8042` (e.g.
+   `gh api repos/ajent-social/AMOS/tarball/845a8042ee6c1ba0b06731811303b7337fba9c85`
+   then extract with `--strip-components=1`).
+2. Create `.local/amos.work` with `use ( ../backend/authhost ./amos-845a8042 )` and
+   `replace github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c => ./amos-845a8042`.
+3. In `backend/authhost`, run with
+   `GOWORK=$PWD/../../.local/amos.work GOPRIVATE='github.com/ajent-social/*' GOTOOLCHAIN=go1.27.0`:
+   `go test ./...` and `golangci-lint run ./...` (the linter needs the go1.27.0
+   export-data format). `go list -m github.com/ajent-social/amos` must show the
+   local `.local/amos-845a8042` dir.
+
+No CI workflow or root hook covers this nested module yet; a scoped verify entry
+is a follow-up. The root pre-commit `go test ./...` skips nested modules.
+
 ## Qualification state
 
-Source-only, uncompiled and unexecuted under the existing capacity hold. Tests
-are authored for exact profile/client projection, copied buffers, public issuer
-configuration validation, account-only GET/HEAD/method/path responses and local
-missing-listener/context refusal. The projection test deliberately does not
-construct a fake NativeSet or claim that incomplete config passed admission.
+Compiled and tested against the exact local AMOS `845a8042` checkout: projection,
+copied buffers, public issuer validation, account-only GET/HEAD/method/path,
+missing-listener/context refusal, and isolated directory-cursor-key guards
+(zero/nil/short/long key, cancelled context) all PASS; `go vet` and `golangci-lint`
+clean. The projection test deliberately does not construct a fake NativeSet or
+claim that incomplete config passed admission.
 
-No go.sum/dependency-resolution, build, test, lint or required hook result is
-claimed for this module. No commit/PR bypass, installer, DB fixture, key-store
-creation, SES send, DNS/VM mutation, AMOS activation or upload is selected.
-Real installation, external-module native startup, HTTPS enrollment/email/PKCE,
-current/revoke, iPhone/Keychain and deployment acceptance remain required.
+This is executed local verification, not native runtime acceptance. No installer,
+DB fixture, key-store creation, SES send, DNS/VM mutation, AMOS activation or upload
+is selected. Real installation, external-module native startup, HTTPS
+enrollment/email/PKCE, current/revoke, iPhone/Keychain and deployment acceptance
+remain required.
