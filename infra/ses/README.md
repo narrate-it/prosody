@@ -63,12 +63,17 @@ SES work uses the named AWS profile `prosody-ses` (region `us-west-2`), not root
 The IAM user `prosody-ses` carries the customer-managed policy
 `prosody-ses-boundary` (ARN `arn:aws:iam::394824061124:policy/prosody-ses-boundary`),
 whose exact document is checked in as [`iam-policy.json`](iam-policy.json). It is
-SES-only: management/list actions are action-scoped with an `aws:RequestedRegion =
-us-west-2` condition (verified to deny out-of-region calls), sending is scoped to the
-`prosody.chat` identity ARN, plus `sts:GetCallerIdentity`. IAM/EC2 and all other
-services are denied. Management actions use `Resource:"*"` because SES classic
-create/verify actions may not support resource-level permissions; confirm exact
-support at the gated apply and tighten if possible.
+SES-only: create/verify/read management and list actions are action-scoped with an
+`aws:RequestedRegion = us-west-2` condition (verified to deny out-of-region calls);
+sending is scoped to the `prosody.chat` identity AND `prosody-identity` configuration-set
+ARNs (SES requires both when sending with a configuration set); plus
+`sts:GetCallerIdentity`. IAM/EC2 and all other services are denied. Management actions
+use `Resource:"*"` because SES classic create/verify actions may not support
+resource-level permissions; confirm exact support at the gated apply and tighten if
+possible. Delete actions (`ses:DeleteIdentity`/`ses:DeleteConfigurationSet`) are
+deliberately absent: they have no resource type and would be account-wide, so deletion
+is reserved for a separately controlled principal (verified `implicitDeny` via policy
+simulation). The stack's Protect+RetainOnDelete does not need them.
 
 Note: `prosody-ses-boundary` is an identity policy (it grants), not an IAM permissions
 boundary; the denials hold because no other policy is attached. Before production,

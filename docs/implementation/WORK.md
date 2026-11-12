@@ -2620,3 +2620,21 @@ Cross-review nits closed: N1 README root count four->six; N2 draft reference rem
 N4 root-refusal message now "requires a non-root principal" (code admits any non-root) and the
 happy-path test uses a realistic user/prosody-ses ARN. The access-key id remains in git history
 (non-secret identifier); rotation/adoption into an admin-managed IAM stack is the production gate.
+
+### 2026-11-12 — CodeRabbit findings dispositioned; policy v4
+
+CodeRabbit reviewed the PR (check pass) with 4 comments. Dispositions vs current code:
+- DescribeConfigurationSet Resource:* — STALE: already in the action-scoped SesManagement
+  statement (v3); no change needed.
+- Send with prosody-identity configuration set — FIXED: send Resource now lists both the
+  prosody.chat identity and prosody-identity configuration-set ARNs (SES requires both).
+- Security: ses:DeleteIdentity account-wide (CWE-732) — FIXED: removed DeleteIdentity and
+  DeleteConfigurationSet from the bootstrap policy (no resource type => account-wide);
+  deletion reserved for a controlled principal. Verified implicitDeny via simulate-principal-policy.
+- Bad-target test does not isolate the region guard — FIXED: TestBadTargetRegistersNothing
+  now asserts the specific validateTarget refusal text, so removing the region guard (mock
+  provider refusal instead) fails the test.
+
+Live policy updated to v4 (default). Post-fix executed: 23 named PASS / 6 roots, vet + lint
+0 issues (.local/ses-tests.log, ses-lint.log). Profile still lists us-west-2; out-of-region
+denied. No SES resource created or mail sent.

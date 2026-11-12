@@ -158,12 +158,14 @@ func TestForeignAccount(t *testing.T) {
 }
 
 // TestBadTargetRegistersNothing proves an invalid target stops before any provider
-// registration or account read, not merely inside validateTarget.
+// registration or account read, not merely inside validateTarget. It asserts the
+// specific validateTarget refusal: if the region guard were removed, the mock would
+// instead reject the us-east-1 provider with a different error, failing this check.
 func TestBadTargetRegistersNothing(t *testing.T) {
 	m := &emailMonitor{account: "123456789012"}
 	err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerEmail(ctx, "123456789012", "us-east-1") }, pulumi.WithMocks("email", "test", m))
-	if err == nil {
-		t.Fatal("invalid region accepted")
+	if err == nil || !strings.Contains(err.Error(), "us-west-2 region are required") {
+		t.Fatalf("expected validateTarget region refusal, got: %v", err)
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()

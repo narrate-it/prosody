@@ -15,8 +15,6 @@
         "ses:VerifyDomainDkim",
         "ses:CreateConfigurationSet",
         "ses:DescribeConfigurationSet",
-        "ses:DeleteIdentity",
-        "ses:DeleteConfigurationSet",
         "ses:GetIdentityVerificationAttributes",
         "ses:GetIdentityDkimAttributes",
         "ses:GetIdentityNotificationAttributes",
@@ -50,7 +48,10 @@
         "ses:SendEmail",
         "ses:SendRawEmail"
       ],
-      "Resource": "arn:aws:ses:us-west-2:394824061124:identity/prosody.chat"
+      "Resource": [
+        "arn:aws:ses:us-west-2:394824061124:identity/prosody.chat",
+        "arn:aws:ses:us-west-2:394824061124:configuration-set/prosody-identity"
+      ]
     }
   ]
 }
