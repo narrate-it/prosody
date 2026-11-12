@@ -132,7 +132,7 @@ func TestDKIM(t *testing.T) {
 
 // TestEmailGraph verifies exactly three scoped SES resources and the single account read.
 func TestEmailGraph(t *testing.T) {
-	m := &emailMonitor{account: "123456789012"}
+	m := &emailMonitor{account: "123456789012", arn: "arn:aws:iam::123456789012:user/prosody-ses"}
 	if err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerEmail(ctx, "123456789012", "us-west-2") }, pulumi.WithMocks("email", "test", m)); err != nil {
 		t.Fatal(err)
 	}
@@ -177,7 +177,7 @@ func TestBadTargetRegistersNothing(t *testing.T) {
 func TestRootPrincipal(t *testing.T) {
 	m := &emailMonitor{account: "123456789012", arn: "arn:aws:iam::123456789012:root"}
 	err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerEmail(ctx, "123456789012", "us-west-2") }, pulumi.WithMocks("email", "test", m))
-	if err == nil || !strings.Contains(err.Error(), "not root") {
+	if err == nil || !strings.Contains(err.Error(), "non-root") {
 		t.Fatalf("root principal refusal: %v", err)
 	}
 	m.mu.Lock()

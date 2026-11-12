@@ -43,10 +43,10 @@ DNS propagation, mail delivery, backend readiness or Nanos compatibility.
 ## Current source checkpoint
 
 Executed: the corrected hermetic mock suite passes (now 23 named records across
-four roots, including bad-target zero-registration and root-principal refusal),
+six roots, including bad-target zero-registration and root-principal refusal),
 `go vet` clean and `golangci-lint` 0 issues (Go 1.27.0 toolchain). Committed through
 a package-aware hook that runs this nested module's lint+test (the root hook skips
-nested modules); draft PR #77. No live preview, apply, sender verification or email
+nested modules); PR #77. No live preview, apply, sender verification or email
 delivery has run.
 
 Independent headless review (PR #77) returned CLEAR with hardening findings, since

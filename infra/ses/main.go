@@ -89,7 +89,7 @@ func registerEmail(ctx *pulumi.Context, account, region string) error {
 		return fmt.Errorf("SES account does not match selected account")
 	}
 	if strings.HasSuffix(caller.Arn, ":root") {
-		return fmt.Errorf("SES apply requires the scoped prosody-ses principal, not root")
+		return fmt.Errorf("SES apply requires a non-root principal")
 	}
 	opts := []pulumi.ResourceOption{pulumi.Provider(&provider), pulumi.Version(providerVersion), pulumi.Protect(true), pulumi.RetainOnDelete(true)}
 	var identity identityState

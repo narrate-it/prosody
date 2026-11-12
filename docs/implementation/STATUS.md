@@ -2697,3 +2697,23 @@ and no mail sent; the stack apply still needs qualified state-backend custody an
 Cloudflare DNS ownership. Root login session left untouched (no root static keys exist).
 CLI bootstrap is a recorded hand change; adopt the user into an admin-managed IAM
 stack before production.
+
+### 2026-11-12 — Cross-review CLEAR; evidence journaled and nits closed
+
+Independent headless cross-review of 47c4ed0 returned CLEAR (F1/F2 merge-gating findings
+closed by construction; F4/F5 refusals real; SDK-limitation claims verified against pinned
+v3.226.0). This entry journals the executed evidence the cross-review noted was missing (N3):
+
+- IAM policy revised to v3 (live default): SES management/list actions action-scoped with
+  StringEquals aws:RequestedRegion=us-west-2; send scoped to the prosody.chat identity ARN;
+  sts:GetCallerIdentity unconditional. Document reconciled in infra/ses/iam-policy.json.
+- Region condition EXECUTED-verified with the scoped profile: ses describe-configuration-set
+  and list-identities in us-east-1 -> AccessDenied; describe-configuration-set in us-west-2 ->
+  ConfigurationSetDoesNotExist (management write-path permitted in-region). IAM/EC2 still denied.
+- Post-fix hermetic suite EXECUTED (.local/ses-tests.log, ses-lint.log): 23 named PASS across
+  6 roots, go vet + golangci-lint 0 issues (Go 1.27.0).
+
+Cross-review nits closed: N1 README root count four->six; N2 draft reference removed (PR ready);
+N4 root-refusal message now "requires a non-root principal" (code admits any non-root) and the
+happy-path test uses a realistic user/prosody-ses ARN. The access-key id remains in git history
+(non-secret identifier); rotation/adoption into an admin-managed IAM stack is the production gate.
