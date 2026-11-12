@@ -9,7 +9,8 @@ older `integration/amos` module's pin or activate that adapter.
 and `ProductionHost.Serve`, then closes the owned native host. No alternate HTTP
 server, authority callback, scheduler, database handle or private native SQL is
 introduced. This is a composition library, not a complete executable, installer,
-secret loader or deployable Nanos image. There is no claimed build/run result.
+secret loader or deployable Nanos image. Executed local verification is recorded
+under "Qualification state" below; it is not native runtime acceptance.
 
 The fixed registration uses the selected origin `https://api.prosody.chat`,
 audience `https://api.prosody.chat/`, native client `prosody-ios` and exact callback

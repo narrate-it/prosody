@@ -112,8 +112,12 @@ func TestRunConfigurationGuards(t *testing.T) {
 		{"valid key nil listener", validKey, nil},
 	} {
 		t.Run(c.name, func(t *testing.T) {
-			if err := Run(context.Background(), Config{DirectoryCursorKey: c.key}, c.lis); !errors.Is(err, ErrConfiguration) {
-				t.Fatalf("expected ErrConfiguration, got %v", err)
+			// Assert sentinel identity, not errors.Is: the guard returns the bare
+			// ErrConfiguration, while a fall-through to NewProduction returns
+			// errors.Join(ErrConfiguration, ...). errors.Is matches both and would
+			// survive deletion of the guard; identity proves the guard itself fires.
+			if err := Run(context.Background(), Config{DirectoryCursorKey: c.key}, c.lis); err != ErrConfiguration {
+				t.Fatalf("expected bare ErrConfiguration guard refusal, got %v", err)
 			}
 		})
 	}

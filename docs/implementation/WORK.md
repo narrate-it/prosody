@@ -2616,3 +2616,21 @@ without retry-loop or re-upload. Still UNVERIFIED: team association, export
 compliance disposition, tester membership/visibility and device installation
 (owner-managed; no legal declaration made here). David can install from TestFlight
 once tester access/export compliance allow. Preview remains sign-in disabled.
+
+### 2026-11-12 — Cross-review blocking fix: guard test now PROVEN (mutation-verified)
+
+Independent headless cross-review of 3542b0e returned BLOCKING(1): the #1 guard test
+asserted errors.Is(err, ErrConfiguration), which after the errors.Join change also
+matches a fall-through to NewProduction, so deleting the zero-key guard still passed.
+Fixed: the key/listener guard cases now assert sentinel IDENTITY (err == ErrConfiguration);
+the bare guard sentinel is distinct from the errors.Join-wrapped NewProduction refusal.
+
+Mutation verification EXECUTED under lease 013af4c3: with the zero-key predicate (and
+unused bytes import) removed, TestRunConfigurationGuards/zero_key FAILS ("expected bare
+ErrConfiguration guard refusal"); restored, the suite PASSES. The guard is now proven.
+Cancelled-context case already proved the ctx.Err() guard.
+
+Post-fix executed receipts (.local/authhost-tests.log, authhost-lint.log): 14 named PASS
+across 4 roots, go vet + golangci-lint 0 issues (Go 1.27.0). Also closed cross-review N2
+(stale "no claimed build/run result" sentence). #4 scoped CI entry and #5 READINESS drift
+remain transparently deferred (READINESS is a separate main-branch record).
