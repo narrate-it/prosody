@@ -1,0 +1,44 @@
+{
+  "name": "Keychain unlock timeout",
+  "on": {
+    "workflow_dispatch": {}
+  },
+  "permissions": {
+    "contents": "read"
+  },
+  "concurrency": {
+    "group": "prosody-keychain-custody",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "keychain": {
+      "if": "github.repository == 'narrate-it/prosody' && github.ref == 'refs/heads/main'",
+      "runs-on": [
+        "self-hosted",
+        "macOS",
+        "prosody"
+      ],
+      "environment": "prosody-asc",
+      "timeout-minutes": 5,
+      "steps": [
+        {
+          "name": "Check out trusted main revision",
+          "uses": "actions/checkout@11d5960a326750d5838078e36cf38b85af677262",
+          "with": {
+            "ref": "${{ github.sha }}",
+            "persist-credentials": false,
+            "clean": false,
+            "fetch-depth": 1
+          }
+        },
+        {
+          "name": "Unlock prosody-ci and extend auto-lock timeout",
+          "env": {
+            "PROSODY_KEYCHAIN_PASSWORD": "${{ secrets.PROSODY_KEYCHAIN_PASSWORD }}"
+          },
+          "run": "/usr/bin/python3 -I scripts/keychain-timeout.py"
+        }
+      ]
+    }
+  }
+}
