@@ -64,7 +64,8 @@
         "sns:GetSubscriptionAttributes",
         "sns:ListSubscriptionsByTopic",
         "sns:TagResource",
-        "sns:ListTagsForResource"
+        "sns:ListTagsForResource",
+        "sns:Publish"
       ],
       "Resource": [
         "arn:aws:sns:us-west-2:394824061124:prosody-ses-events",

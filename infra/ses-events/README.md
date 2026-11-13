@@ -46,7 +46,9 @@ No other principal or resource is admitted. Deletion actions remain absent.
    `pulumi up` (stack `prod`). Same-account SQS subscriptions auto-confirm;
    no public endpoint is required.
 2. Acquire the regional SNS signing certificate independently: publish one
-   test notification to the topic (admin or `sns:Publish` grant), read its
+   test notification to the topic (`sns:Publish` is bounded to this exact
+   topic in the proposed policy; a manual publish is signed by SNS but is
+   discarded by ingestion unless it is a scoped SES Send event), read its
    `SigningCertURL` from the retained queue message, fetch that exact URL over
    verified HTTPS (`sns.us-west-2.amazonaws.com`), validate provenance, record
    the SHA-256 fingerprint, and retain the PEM. Pins are privileged trust
