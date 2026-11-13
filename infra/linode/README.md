@@ -73,9 +73,11 @@ full budget remain separate gates. No infrastructure is created by tests.
 
 ## 2026-11-13 staging evidence (this session)
 
-- App image `prosody-api-20261113` uploaded and available: `private/42544728`
-  (200 MB; ops 0.1.47 build of `backend/host` linux/amd64, manifest carries the
-  `/custody` mountpoint and non-secret env paths only).
+- App image `prosody-api-20261113b` uploaded and available: `private/42545293`
+  (200 MB; ops 0.1.47 build of `backend/host` linux/amd64 at the reviewed PR
+  head — the binary embeds `vcs.revision` attesting the commit; manifest
+  carries the `/custody` mountpoint and non-secret env paths only). The
+  earlier pre-commit build `private/42544728` was superseded and deleted.
 - Custody image `prosody-custody-20261113` uploaded and available:
   `private/42544799` (64 MB TFS volume: db custody with in-volume storeDir,
   native key store, Let's Encrypt TLS custody, cursor key, prosody-ses AWS
