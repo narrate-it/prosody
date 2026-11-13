@@ -1,9 +1,13 @@
 # Nanos packaging and recovery contract
 
-This repository has no composed runnable Prosody backend host. Its isolated
-`integration/amos` adapter remains unqualified for that purpose. Go `package main`
-entry points under `infra/` are Pulumi infrastructure programs, not the application
-host. Repository Go/Pulumi modules now cover Linode staging, Cloudflare DNS,
+`backend/host` is the composed Prosody native account host (AMOS company18
+issuer) with `backend/seslink` composing the SES verified-event subsystem;
+`backend/installer` is operator installation tooling. Neither is operating-
+qualified by source alone: the SES verified-event AWS path, TLS custody,
+volume boot and provider journey remain explicit gates recorded in the
+operator sitrep. The isolated `integration/amos` adapter remains unqualified
+for hosting. Go `package main` entry points under `infra/` are Pulumi
+infrastructure programs, not the application host. Repository Go/Pulumi modules now cover Linode staging, Cloudflare DNS,
 protected ASC configuration and the self-hosted runner; the earlier no-IaC
 snapshot is superseded. Their existence does not establish a running backend,
 image provenance, durable storage or recovery acceptance.
@@ -17,10 +21,14 @@ is selected by this documentation reconciliation.
 
 ## Offline package inputs
 
-`packaging/nanos/ops-config.json` is a minimal OPS configuration template. It
-contains no application configuration, embedded files, credentials, secret
-interpolation, restart loop or invented application flags. It is not a complete
-production configuration. OPS documents JSON Args/Env/Files and its explicit
+`backend/host/ops-build.json` is the reviewed OPS configuration for the host
+image. It carries no embedded files, credentials or secret interpolation: only
+the `/custody` volume mount (`prosody-custody` label), non-secret custody env
+paths and the listen address. Operator custody travels exclusively in the
+separate private TFS volume image assembled by `scripts/assemble-custody.py`;
+`packaging/nanos/contract.json` records that delivery and the remaining
+qualification gates, and `scripts/nanos-package.py` enforces the exact shape
+offline. It is not a complete production configuration. OPS documents JSON Args/Env/Files and its explicit
 `ops build <app>` image-build command. See [OPS configuration](https://docs.ops.city/ops/configuration)
 and [official OPS README](https://github.com/nanovms/ops) (consulted 2026-11-04).
 [Nanos](https://github.com/nanovms/nanos) runs one application. Runtime workers

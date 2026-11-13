@@ -74,6 +74,7 @@ func loadInventory(r io.Reader) (inventory, error) {
 		return inventory{}, errors.New("inventory needs exact account/zone IDs and 1–100 records")
 	}
 	seen := map[string]bool{}
+	shapes := map[string]bool{}
 	for i, r := range v.Records {
 		if err = r.validate(); err != nil {
 			return inventory{}, fmt.Errorf("invalid inventory record %d: %w", i, err)
@@ -86,6 +87,13 @@ func loadInventory(r io.Reader) (inventory, error) {
 			return inventory{}, errors.New("duplicate record identity")
 		}
 		seen[key] = true
+		// A reviewed creation must not shadow or duplicate any other record's
+		// name+type (imports may legitimately share shapes, e.g. round-robin).
+		shape := r.Type + "/" + r.Name
+		if r.ID == "" && shapes[shape] {
+			return inventory{}, errors.New("creation duplicates an existing record name/type")
+		}
+		shapes[shape] = true
 	}
 	if err := validateStateCustody(v); err != nil {
 		return inventory{}, err

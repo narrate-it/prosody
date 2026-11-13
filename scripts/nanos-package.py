@@ -120,18 +120,34 @@ def main():
     parser.add_argument('--nanos-version')
     args = parser.parse_args()
     contract_bytes = read_template(ROOT / 'packaging/nanos/contract.json')
-    config_bytes = read_template(ROOT / 'packaging/nanos/ops-config.json')
+    config_bytes = read_template(ROOT / 'backend/host/ops-build.json')
     contract, config = template_json(contract_bytes), template_json(config_bytes)
-    if contract['status'] != 'blocked-no-host-entrypoint' or config != {
-        'Args': [], 'Env': {}, 'Files': [], 'RebootOnExit': False
+    # Composed state: the host entrypoint exists; custody travels only in the
+    # separate prosody-custody volume. The app image must carry no files and no
+    # secret env values — only custody paths and the listen address.
+    if contract['status'] != 'composed-awaiting-ses-verified-event-gate' or config != {
+        'Args': [], 'Env': {
+            'PROSODY_PRIVATE': '/custody', 'PROSODY_LISTEN': ':443',
+            'AWS_CONFIG_FILE': '/custody/aws/config',
+            'AWS_SHARED_CREDENTIALS_FILE': '/custody/aws/credentials',
+        }, 'Files': [], 'Mounts': {'prosody-custody': '/custody'},
+        'RebootOnExit': False, 'BaseVolumeSz': '200m',
     } or type(config.get('RebootOnExit')) is not bool:
         raise ValueError('template contract changed: review checker and runtime qualification')
     if (set(contract) != {'schemaVersion', 'status', 'target', 'opsConfig',
-                         'runtimeInputs', 'qualificationRequired'}
+                         'custodyDelivery', 'runtimeInputs', 'qualificationRequired'}
             or type(contract['schemaVersion']) is not int
             or contract['schemaVersion'] != 1 or contract['target'] != 'linux-amd64'
-            or contract['opsConfig'] != 'packaging/nanos/ops-config.json'):
+            or contract['opsConfig'] != 'backend/host/ops-build.json'):
         raise ValueError('unsupported package contract')
+    delivery = contract['custodyDelivery']
+    if (not isinstance(delivery, dict)
+            or set(delivery) != {'mechanism', 'appImageCarriesSecrets', 'assembly', 'upload'}
+            or delivery['appImageCarriesSecrets'] is not False
+            or not isinstance(delivery['mechanism'], str) or not delivery['mechanism']
+            or delivery['assembly'] != 'scripts/assemble-custody.py'
+            or delivery['upload'] != 'scripts/linode-image-upload.py'):
+        raise ValueError('custody delivery must keep secrets out of the app image')
     for field in ('runtimeInputs', 'qualificationRequired'):
         values = contract[field]
         if (not isinstance(values, list) or not values

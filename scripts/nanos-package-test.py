@@ -29,7 +29,7 @@ class PackageInputs(unittest.TestCase):
     def test_template_json_rejection_and_controls(self):
         """Reject ambiguous template bytes through main, retaining canonical controls."""
         contract = (PACKAGE.ROOT / 'packaging/nanos/contract.json').read_bytes()
-        config = (PACKAGE.ROOT / 'packaging/nanos/ops-config.json').read_bytes()
+        config = (PACKAGE.ROOT / 'backend/host/ops-build.json').read_bytes()
         cases = [
             ('duplicate-contract', contract.replace(b'"schemaVersion": 1', b'"schemaVersion": 0, "schemaVersion": 1'), config),
             ('escaped-duplicate', contract.replace(b'"schemaVersion": 1', b'"schemaVersion": 0, "schema\\u0056ersion": 1'), config),
@@ -48,10 +48,12 @@ class PackageInputs(unittest.TestCase):
             root = Path(directory)
             target = root / 'packaging/nanos'
             target.mkdir(parents=True)
+            host_target = root / 'backend/host'
+            host_target.mkdir(parents=True)
             for name, contract_input, config_input in cases:
                 with self.subTest(rejected=name):
                     (target / 'contract.json').write_bytes(contract_input)
-                    (target / 'ops-config.json').write_bytes(config_input)
+                    (host_target / 'ops-build.json').write_bytes(config_input)
                     output = io.StringIO()
                     with mock.patch.object(PACKAGE, 'ROOT', root), mock.patch.object(sys, 'argv', ['nanos-package', '--self-check']), contextlib.redirect_stdout(output):
                         with self.assertRaises(ValueError):
@@ -60,7 +62,7 @@ class PackageInputs(unittest.TestCase):
             for name, contract_input in [('original', contract), ('escaped-key', contract.replace(b'"schemaVersion"', b'"schema\\u0056ersion"'))]:
                 with self.subTest(accepted=name):
                     (target / 'contract.json').write_bytes(contract_input)
-                    (target / 'ops-config.json').write_bytes(config)
+                    (host_target / 'ops-build.json').write_bytes(config)
                     output = io.StringIO()
                     with mock.patch.object(PACKAGE, 'ROOT', root), mock.patch.object(sys, 'argv', ['nanos-package', '--self-check']), contextlib.redirect_stdout(output):
                         PACKAGE.main()

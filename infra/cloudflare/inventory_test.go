@@ -77,6 +77,16 @@ func TestInventoryCreateRecords(t *testing.T) {
 	if _, err = loadInventory(strings.NewReader(string(b))); err == nil {
 		t.Fatal("duplicate create identity accepted")
 	}
+	// A creation may not duplicate an imported record's name+type either.
+	v = sampleInventory()
+	v.Records = append(v.Records, record{StateInputClass: publicStateInputClass, Name: domain, Type: "A", Content: "192.0.2.9", TTL: 300, Tags: []string{}})
+	b, err = json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadInventory(strings.NewReader(string(b))); err == nil {
+		t.Fatal("creation shadowing an imported record accepted")
+	}
 }
 
 // TestInventoryEnvelope refuses malformed, unknown and excessive input.
