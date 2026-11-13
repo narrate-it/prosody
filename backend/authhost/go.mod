@@ -3,7 +3,7 @@ module github.com/narrate-it/prosody/backend/authhost
 go 1.27.0
 
 require (
-	github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c
+	github.com/ajent-social/amos v0.0.0-20261113082644-595d8360504c
 	github.com/google/uuid v1.6.0
 )
 
