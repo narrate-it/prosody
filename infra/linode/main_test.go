@@ -13,11 +13,13 @@ import (
 )
 
 type stagingMonitor struct {
-	mu      sync.Mutex
-	count   int
-	calls   int
-	image   map[string]any
-	monthly float64
+	mu           sync.Mutex
+	count        int
+	calls        int
+	image        map[string]any
+	custodyImage map[string]any
+	monthly      float64
+	booted       bool
 }
 
 // Call supplies explicit synthetic image and price results, never cloud evidence.
@@ -27,6 +29,9 @@ func (m *stagingMonitor) Call(a pulumi.MockCallArgs) (resource.PropertyMap, erro
 	m.mu.Unlock()
 	switch a.Token {
 	case "linode:index/getImage:getImage":
+		if a.Args["id"].StringValue() == m.custodyImage["id"] {
+			return resource.NewPropertyMapFromMap(m.custodyImage), nil
+		}
 		return resource.NewPropertyMapFromMap(m.image), nil
 	case "linode:index/getInstanceType:getInstanceType":
 		return resource.NewPropertyMapFromMap(map[string]any{"id": instanceType, "disk": 51200, "prices": []any{map[string]any{"monthly": m.monthly}}}), nil
@@ -47,22 +52,36 @@ func (m *stagingMonitor) NewResource(a pulumi.MockResourceArgs) (string, resourc
 	id := ""
 	switch a.TypeToken {
 	case "linode:index/instance:Instance":
-		if a.Inputs["booted"].BoolValue() || a.Inputs["backupsEnabled"].BoolValue() || !a.Inputs["privateIp"].BoolValue() || a.Inputs["region"].StringValue() != region || a.Inputs["type"].StringValue() != instanceType {
-			return "", nil, fmt.Errorf("unexpected instance plan or boot enabled")
+		if a.Inputs["booted"].BoolValue() != m.booted || a.Inputs["backupsEnabled"].BoolValue() || !a.Inputs["privateIp"].BoolValue() || a.Inputs["region"].StringValue() != region || a.Inputs["type"].StringValue() != instanceType {
+			return "", nil, fmt.Errorf("unexpected instance plan or boot state")
 		}
 		id = "100"
 	case "linode:index/instanceDisk:InstanceDisk":
-		if a.Inputs["linodeId"].NumberValue() != 100 || a.Inputs["image"].StringValue() != "private/123" || a.Inputs["size"].NumberValue() != diskSizeMB || !a.Inputs["rootPass"].IsSecret() || !slices.Contains(a.RegisterRPC.GetAdditionalSecretOutputs(), "rootPass") {
+		if a.Inputs["linodeId"].NumberValue() != 100 || !a.Inputs["rootPass"].IsSecret() || !slices.Contains(a.RegisterRPC.GetAdditionalSecretOutputs(), "rootPass") {
 			return "", nil, fmt.Errorf("disk binding or secret handling changed")
 		}
-		id = "200"
+		switch a.Inputs["image"].StringValue() {
+		case "private/123":
+			if a.Inputs["size"].NumberValue() != diskSizeMB {
+				return "", nil, fmt.Errorf("root disk size changed")
+			}
+			id = "200"
+		case "private/456":
+			if a.Inputs["size"].NumberValue() != 64 || a.Inputs["label"].StringValue() != "prosody-custody" {
+				return "", nil, fmt.Errorf("custody disk must match the bounded custody image")
+			}
+			id = "201"
+		default:
+			return "", nil, fmt.Errorf("unexpected disk image")
+		}
 	case "linode:index/instanceConfig:InstanceConfig":
-		if a.Inputs["linodeId"].NumberValue() != 100 || a.Inputs["booted"].BoolValue() || a.Inputs["kernel"].StringValue() != "linode/direct-disk" || a.Inputs["virtMode"].StringValue() != "paravirt" || a.Inputs["rootDevice"].StringValue() != "/dev/sda" {
-			return "", nil, fmt.Errorf("boot configuration is not offline direct-disk")
+		if a.Inputs["linodeId"].NumberValue() != 100 || a.Inputs["booted"].BoolValue() != m.booted || a.Inputs["kernel"].StringValue() != "linode/direct-disk" || a.Inputs["virtMode"].StringValue() != "paravirt" || a.Inputs["rootDevice"].StringValue() != "/dev/sda" {
+			return "", nil, fmt.Errorf("boot configuration is not the reviewed direct-disk profile")
 		}
 		devices := a.Inputs["device"].ArrayValue()
-		if len(devices) != 1 || devices[0].ObjectValue()["deviceName"].StringValue() != "sda" || devices[0].ObjectValue()["diskId"].NumberValue() != 200 {
-			return "", nil, fmt.Errorf("boot disk reference changed")
+		if len(devices) != 2 || devices[0].ObjectValue()["deviceName"].StringValue() != "sda" || devices[0].ObjectValue()["diskId"].NumberValue() != 200 ||
+			devices[1].ObjectValue()["deviceName"].StringValue() != "sdb" || devices[1].ObjectValue()["diskId"].NumberValue() != 201 {
+			return "", nil, fmt.Errorf("root/custody device mapping changed")
 		}
 		helpers := a.Inputs["helpers"].ArrayValue()
 		if len(helpers) != 1 || len(helpers[0].ObjectValue()) != 5 {
@@ -86,26 +105,43 @@ func (m *stagingMonitor) NewResource(a pulumi.MockResourceArgs) (string, resourc
 
 // sampleMonitor describes an available synthetic image and the observed list price.
 func sampleMonitor() *stagingMonitor {
-	return &stagingMonitor{image: map[string]any{"id": "private/123", "status": "available", "isPublic": false, "size": 100}, monthly: 12}
+	return &stagingMonitor{
+		image:        map[string]any{"id": "private/123", "status": "available", "isPublic": false, "size": 100},
+		custodyImage: map[string]any{"id": "private/456", "status": "available", "isPublic": false, "size": 64},
+		monthly:      12,
+	}
 }
 
 // TestStagingGraph keeps boot disabled while checking exact child dependencies.
 func TestStagingGraph(t *testing.T) {
 	m := sampleMonitor()
 	err := pulumi.RunErr(func(ctx *pulumi.Context) error {
-		return registerStaging(ctx, "private/123", pulumi.ToSecret("synthetic-not-a-real-password").(pulumi.StringOutput))
+		return registerStaging(ctx, "private/123", "private/456", pulumi.ToSecret("synthetic-not-a-real-password").(pulumi.StringOutput), false)
 	}, pulumi.WithMocks("prosody-linode", "unit", m))
-	if err != nil || m.count != 3 {
+	if err != nil || m.count != 4 {
 		t.Fatalf("staging graph failed: %v; resources %d", err, m.count)
+	}
+}
+
+// TestBootedGraph admits the explicit reviewed boot selection on both the
+// instance and the configuration profile, with the custody device attached.
+func TestBootedGraph(t *testing.T) {
+	m := sampleMonitor()
+	m.booted = true
+	err := pulumi.RunErr(func(ctx *pulumi.Context) error {
+		return registerStaging(ctx, "private/123", "private/456", pulumi.ToSecret("synthetic").(pulumi.StringOutput), true)
+	}, pulumi.WithMocks("prosody-linode", "unit", m))
+	if err != nil || m.count != 4 {
+		t.Fatalf("booted graph failed: %v; resources %d", err, m.count)
 	}
 }
 
 // TestStagingRefusals prevents incomplete image/price observations adding resources.
 func TestStagingRefusals(t *testing.T) {
-	for _, name := range []string{"public", "missing-private-flag", "pending", "oversized", "missing-size", "foreign-id", "price-increase", "zero-price", "invalid-id"} {
+	for _, name := range []string{"public", "missing-private-flag", "pending", "oversized", "missing-size", "foreign-id", "price-increase", "zero-price", "invalid-id", "custody-public", "custody-oversized", "custody-invalid-id"} {
 		t.Run(name, func(t *testing.T) {
 			m := sampleMonitor()
-			id := "private/123"
+			id, custodyID := "private/123", "private/456"
 			switch name {
 			case "public":
 				m.image["isPublic"] = true
@@ -125,16 +161,26 @@ func TestStagingRefusals(t *testing.T) {
 				m.monthly = 0
 			case "invalid-id":
 				id = "linode/debian12"
+			case "custody-public":
+				m.custodyImage["isPublic"] = true
+			case "custody-oversized":
+				m.custodyImage["size"] = custodyDiskMaxMB + 1
+			case "custody-invalid-id":
+				custodyID = "linode/debian12"
 			}
 			err := pulumi.RunErr(func(ctx *pulumi.Context) error {
-				return registerStaging(ctx, id, pulumi.ToSecret("synthetic").(pulumi.StringOutput))
+				return registerStaging(ctx, id, custodyID, pulumi.ToSecret("synthetic").(pulumi.StringOutput), false)
 			}, pulumi.WithMocks("prosody-linode", "unit", m))
 			want, calls := "image is not an available bounded private image", 1
 			switch name {
 			case "invalid-id":
 				want, calls = "an explicit existing private image ID is required", 0
 			case "price-increase", "zero-price":
-				want, calls = "compute price exceeds reviewed ceiling or is invalid", 2
+				want, calls = "compute price exceeds reviewed ceiling or is invalid", 3
+			case "custody-public", "custody-oversized":
+				want, calls = "custody image is not an available bounded private image", 2
+			case "custody-invalid-id":
+				want, calls = "an explicit existing private custody image ID is required", 1
 			}
 			if err == nil || !strings.Contains(err.Error(), want) || m.count != 0 || m.calls != calls {
 				t.Fatalf("expected refusal %q, zero resources and %d lookups; got %v, %d resources and %d lookups", want, calls, err, m.count, m.calls)
