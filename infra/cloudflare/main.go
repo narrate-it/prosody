@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
@@ -74,9 +75,18 @@ func registerDNS(ctx *pulumi.Context, v inventory) error {
 		if len(s) > 0 {
 			args["settings"] = s
 		}
+		resName := "dns-" + r.ID
+		opts := []pulumi.ResourceOption{pulumi.Protect(true), pulumi.RetainOnDelete(true), pulumi.AdditionalSecretOutputs([]string{"content", "comment", "tags"}), pulumi.Version(providerVersion)}
+		if r.ID == "" {
+			// Reviewed creation of a new record (e.g. the api A record once the
+			// host IP exists); existing records remain protected imports.
+			resName = "dns-create-" + strings.ToLower(r.Type) + "-" + strings.ReplaceAll(r.Name, ".", "-")
+		} else {
+			opts = append(opts, pulumi.Import(pulumi.ID(v.ZoneID+"/"+r.ID)))
+		}
 		var state pulumi.CustomResourceState
-		if err := ctx.RegisterResource("cloudflare:index/dnsRecord:DnsRecord", "dns-"+r.ID, args, &state, pulumi.Import(pulumi.ID(v.ZoneID+"/"+r.ID)), pulumi.Protect(true), pulumi.RetainOnDelete(true), pulumi.AdditionalSecretOutputs([]string{"content", "comment", "tags"}), pulumi.Version(providerVersion)); err != nil {
-			return fmt.Errorf("register protected DNS import: %w", err)
+		if err := ctx.RegisterResource("cloudflare:index/dnsRecord:DnsRecord", resName, args, &state, opts...); err != nil {
+			return fmt.Errorf("register protected DNS record: %w", err)
 		}
 	}
 	ctx.Export("domain", pulumi.String(domain))

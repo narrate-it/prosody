@@ -78,10 +78,14 @@ func loadInventory(r io.Reader) (inventory, error) {
 		if err = r.validate(); err != nil {
 			return inventory{}, fmt.Errorf("invalid inventory record %d: %w", i, err)
 		}
-		if seen[r.ID] {
-			return inventory{}, errors.New("duplicate record ID")
+		key := r.ID
+		if key == "" {
+			key = r.Type + "/" + r.Name
 		}
-		seen[r.ID] = true
+		if seen[key] {
+			return inventory{}, errors.New("duplicate record identity")
+		}
+		seen[key] = true
 	}
 	if err := validateStateCustody(v); err != nil {
 		return inventory{}, err
@@ -102,7 +106,9 @@ func validateStateCustody(v inventory) error {
 
 // validate scopes record ownership to this domain and preserves exact contents.
 func (r record) validate() error {
-	if !cloudID.MatchString(r.ID) || (r.Name != domain && !strings.HasSuffix(r.Name, "."+domain)) || len(r.Name) > 253 {
+	// An empty ID declares a reviewed creation; a non-empty ID must be an
+	// exact existing Cloudflare record identity for protected import.
+	if (r.ID != "" && !cloudID.MatchString(r.ID)) || (r.Name != domain && !strings.HasSuffix(r.Name, "."+domain)) || len(r.Name) > 253 {
 		return errors.New("record identity outside the admitted zone")
 	}
 	for i, l := range strings.Split(r.Name, ".") {
