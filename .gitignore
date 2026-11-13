@@ -19,3 +19,18 @@
 
 # Local Swift Package Manager resolution/build state.
 /mobile/vendor/**/.swiftpm/
+
+# Operator custody: secrets, keys, installation metadata (never commit).
+.private/
+**/.private/
+**/.private-*.json
+**/.private-*.jsonl
+# Local host build artifacts.
+/backend/host/host-linux
+/backend/host/host
+/backend/installer/installer
+/backend/sesqualify/sesqualify
+/infra/linode/linode
+/infra/ses-events/ses-events
+# Operator session reports carry private identifiers; keep local.
+/docs/sitrep/

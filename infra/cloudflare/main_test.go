@@ -45,7 +45,11 @@ func (m *dnsMonitor) NewResource(a pulumi.MockResourceArgs) (string, resource.Pr
 			return "", nil, fmt.Errorf("missing secret output flag")
 		}
 	}
-	if !strings.HasPrefix(a.ID, strings.Repeat("a", 32)+"/") || a.Name != "dns-"+strings.TrimPrefix(a.ID, strings.Repeat("a", 32)+"/") {
+	if a.ID == "" {
+		if !strings.HasPrefix(a.Name, "dns-create-") {
+			return "", nil, fmt.Errorf("created record lacks stable create identity")
+		}
+	} else if !strings.HasPrefix(a.ID, strings.Repeat("a", 32)+"/") || a.Name != "dns-"+strings.TrimPrefix(a.ID, strings.Repeat("a", 32)+"/") {
 		return "", nil, fmt.Errorf("wrong stable import identity")
 	}
 	if !a.Inputs["content"].IsSecret() || !a.Inputs["tags"].IsSecret() {
@@ -82,6 +86,19 @@ func TestProtectedRegistration(t *testing.T) {
 	}
 	if m.count != len(v.Records) {
 		t.Fatal("records missing from resource graph")
+	}
+}
+
+// TestCreateRegistration admits a reviewed new record without an import ID.
+func TestCreateRegistration(t *testing.T) {
+	v := sampleInventory()
+	v.Records = append(v.Records, record{StateInputClass: publicStateInputClass, Name: "api." + domain, Type: "A", Content: "192.0.2.9", TTL: 300, Tags: []string{}})
+	m := &dnsMonitor{account: v.AccountID, name: domain}
+	if err := pulumi.RunErr(func(ctx *pulumi.Context) error { return registerDNS(ctx, v) }, pulumi.WithMocks("prosody-dns", "unit", m)); err != nil {
+		t.Fatal(err)
+	}
+	if m.count != len(v.Records) {
+		t.Fatal("created record missing from resource graph")
 	}
 }
 

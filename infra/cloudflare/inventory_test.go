@@ -31,7 +31,7 @@ func TestInventory(t *testing.T) {
 	}{
 		{"foreign zone name", func(v *inventory) { v.Records[0].Name = "prosody.chat.attacker.example" }},
 		{"duplicate id", func(v *inventory) { v.Records[1].ID = v.Records[0].ID }},
-		{"missing import identity", func(v *inventory) { v.Records[0].ID = "" }},
+		{"malformed import identity", func(v *inventory) { v.Records[0].ID = "not-a-cloud-id" }},
 		{"wrong address family", func(v *inventory) { v.Records[0].Type = "AAAA" }},
 		{"proxied mail", func(v *inventory) { v.Records[1].Proxied = true }},
 		{"mail without priority", func(v *inventory) { v.Records[1].Priority = nil }},
@@ -52,6 +52,40 @@ func TestInventory(t *testing.T) {
 				t.Fatal("invalid inventory accepted")
 			}
 		})
+	}
+}
+
+// TestInventoryCreateRecords admits reviewed creations and rejects duplicate
+// create identities (name+type) while imports keep exact-ID deduplication.
+func TestInventoryCreateRecords(t *testing.T) {
+	v := sampleInventory()
+	created := record{StateInputClass: publicStateInputClass, Name: "api." + domain, Type: "A", Content: "192.0.2.9", TTL: 300, Tags: []string{}}
+	v.Records = append(v.Records, created)
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := loadInventory(strings.NewReader(string(b)))
+	if err != nil || len(got.Records) != 6 {
+		t.Fatal("reviewed creation rejected")
+	}
+	v.Records = append(v.Records, created)
+	b, err = json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadInventory(strings.NewReader(string(b))); err == nil {
+		t.Fatal("duplicate create identity accepted")
+	}
+	// A creation may not duplicate an imported record's name+type either.
+	v = sampleInventory()
+	v.Records = append(v.Records, record{StateInputClass: publicStateInputClass, Name: domain, Type: "A", Content: "192.0.2.9", TTL: 300, Tags: []string{}})
+	b, err = json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = loadInventory(strings.NewReader(string(b))); err == nil {
+		t.Fatal("creation shadowing an imported record accepted")
 	}
 }
 

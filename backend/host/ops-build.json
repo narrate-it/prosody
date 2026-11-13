@@ -1,0 +1,13 @@
+{
+  "Args": [],
+  "Env": {
+    "PROSODY_PRIVATE": "/custody",
+    "PROSODY_LISTEN": ":443",
+    "AWS_CONFIG_FILE": "/custody/aws/config",
+    "AWS_SHARED_CREDENTIALS_FILE": "/custody/aws/credentials"
+  },
+  "Files": [],
+  "Mounts": {"prosody-custody": "/custody"},
+  "RebootOnExit": false,
+  "BaseVolumeSz": "200m"
+}

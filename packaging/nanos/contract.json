@@ -1,22 +1,27 @@
 {
   "schemaVersion": 1,
-  "status": "blocked-no-host-entrypoint",
+  "status": "composed-awaiting-ses-verified-event-gate",
   "target": "linux-amd64",
-  "opsConfig": "packaging/nanos/ops-config.json",
+  "opsConfig": "backend/host/ops-build.json",
+  "custodyDelivery": {
+    "mechanism": "separate private TFS volume image attached as sdb; Nanos mounts label prosody-custody at /custody via the app image manifest",
+    "appImageCarriesSecrets": false,
+    "assembly": "scripts/assemble-custody.py",
+    "upload": "scripts/linode-image-upload.py"
+  },
   "runtimeInputs": [
     "external_database_connection_secret_reference",
-    "private_object_store_configuration_and_secret_reference",
     "credential_encryption_key_reference_and_retained_key_versions",
     "amos_installation_application_environment_identity",
     "public_origin_and_tls_trust_configuration",
-    "bounded_worker_and_provider_budget_configuration"
+    "ses_verified_event_custody_ses_json"
   ],
   "qualificationRequired": [
-    "supported_amos_host_and_current_authority_job_consumer",
-    "host_configuration_loader_and_secret_resolution",
-    "nanos_go_runtime_tls_dns_and_storage_adapters",
+    "ses_verified_event_aws_path_and_real_send_reconcile_journey",
+    "nanos_boot_with_custody_volume_on_linode",
     "restart_reconciliation_without_duplicate_provider_effects",
     "database_object_and_key_restore_with_authorization_revalidation",
-    "image_upgrade_and_schema_compatible_rollback"
+    "image_upgrade_and_schema_compatible_rollback",
+    "tls_renewal_custody_replacement"
   ]
 }

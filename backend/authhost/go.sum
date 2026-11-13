@@ -1,5 +1,5 @@
-github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c h1:iImJ9ZVzlAA9esZc8gZmLWGHSZrKFXsu67XRhBd3898=
-github.com/ajent-social/amos v0.0.0-20261109161105-845a8042ee6c/go.mod h1:uYZ/qrotZBm33NBMbm9ALCwW156nVKuzcy5EUayYkNg=
+github.com/ajent-social/amos v0.0.0-20261113082644-595d8360504c h1:O62FdxVmSHAX1rKzyMyW2xgWg8vC4t45xDO6jUBIQ0k=
+github.com/ajent-social/amos v0.0.0-20261113082644-595d8360504c/go.mod h1:rE60DGSqItkTgCTOLkDB6bUWp2FPv3kNhJ+pYq8adWQ=
 github.com/ajent-social/go v0.1.0 h1:SDFt0AwF0OY8xWr24NHseXMpBPnkZLMGVthve2wBrJs=
 github.com/ajent-social/go v0.1.0/go.mod h1:FtqImT8lHmSwtRvoS1Nx2QlFtsnxRj7bg69g/EfgohE=
 github.com/aws/aws-sdk-go-v2 v1.47.3 h1:HRoT/MkNi3bjO5xF4dCzLzvVmkvRGHj3/cLINDnJejk=
