@@ -1,0 +1,8 @@
+name: prosody-ses-events
+runtime: go
+description: Protected SES verified-event path (SNS topic, SQS retention, Send destination); no credentials or mail.
+config:
+  prosody-ses-events:accountId:
+    description: Exact operator-selected AWS account ID.
+  prosody-ses-events:region:
+    description: Explicit us-west-2 selection; no default.
